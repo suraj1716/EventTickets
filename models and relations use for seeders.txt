@@ -1,0 +1,215 @@
+major migrations or final tables 
+=== users ===
+  id | bigint(20) unsigned | null:NO | default:
+  name | varchar(255) | null:NO | default:
+  email | varchar(255) | null:NO | default:
+  email_verified_at | timestamp | null:YES | default:
+  password | varchar(255) | null:NO | default:
+  remember_token | varchar(100) | null:YES | default:
+  google_access_token | varchar(255) | null:YES | default:
+  google_refresh_token | varchar(255) | null:YES | default:
+  token_expires_at | timestamp | null:YES | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  stripe_account_id | varchar(255) | null:YES | default:
+  stripe_account_active | tinyint(1) | null:NO | default:0
+  google_id | varchar(255) | null:YES | default:
+  avatar | varchar(255) | null:YES | default:
+  given_name | varchar(255) | null:YES | default:
+  family_name | varchar(255) | null:YES | default:
+  locale | varchar(255) | null:YES | default:
+  referral_code | varchar(255) | null:YES | default:
+  referred_by | bigint(20) unsigned | null:YES | default:
+  has_received_referral_bonus | tinyint(1) | null:NO | default:0
+
+=== vendors ===
+  user_id | bigint(20) unsigned | null:NO | default:
+  status | varchar(255) | null:NO | default:
+  store_name | varchar(255) | null:NO | default:
+  store_address | varchar(255) | null:YES | default:
+  vendor_type | enum('appointment','ecommerce') | null:NO | default:ecommerce
+  booking_fee | decimal(10,2) | null:YES | default:
+  cover_image | varchar(255) | null:YES | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  business_start_time | time | null:NO | default:09:00:00
+  business_end_time | time | null:NO | default:17:00:00
+  slot_interval_minutes | int(11) | null:NO | default:30
+  recurring_closed_days | longtext | null:YES | default:
+  closed_dates | longtext | null:YES | default:
+
+=== departments ===
+  id | bigint(20) unsigned | null:NO | default:
+  name | varchar(255) | null:NO | default:
+  slug | varchar(255) | null:NO | default:
+  meta_title | varchar(255) | null:YES | default:
+  meta_description | varchar(255) | null:YES | default:
+  active | tinyint(1) | null:NO | default:1
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  image | varchar(255) | null:YES | default:
+
+=== categories ===
+  id | bigint(20) unsigned | null:NO | default:
+  name | varchar(255) | null:NO | default:
+  image | varchar(255) | null:YES | default:
+  department_id | bigint(20) unsigned | null:NO | default:
+  parent_id | bigint(20) unsigned | null:YES | default:
+  active | tinyint(1) | null:NO | default:1
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+
+=== products ===
+  id | bigint(20) unsigned | null:NO | default:
+  title | varchar(2000) | null:NO | default:
+  product_type | varchar(255) | null:NO | default:product
+  slug | varchar(2000) | null:NO | default:
+  description | longtext | null:NO | default:
+  department_id | bigint(20) unsigned | null:NO | default:
+  category_id | bigint(20) unsigned | null:NO | default:
+  price | decimal(20,4) | null:NO | default:
+  status | varchar(255) | null:NO | default:
+  highlight | varchar(255) | null:YES | default:
+  require_additional_file | tinyint(1) | null:NO | default:0
+  quantity | int(11) | null:YES | default:
+  created_by | bigint(20) unsigned | null:NO | default:
+  updated_by | bigint(20) unsigned | null:NO | default:
+  deleted_at | timestamp | null:YES | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  deleted_combinations | longtext | null:YES | default:
+
+=== variation_types ===
+  id | bigint(20) unsigned | null:NO | default:
+  sort | int(11) | null:NO | default:0
+  product_id | bigint(20) unsigned | null:NO | default:
+  name | varchar(255) | null:NO | default:
+  type | varchar(255) | null:NO | default:
+
+=== variation_type_options ===
+  id | bigint(20) unsigned | null:NO | default:
+  sort | int(10) unsigned | null:YES | default:
+  variation_type_id | bigint(20) unsigned | null:NO | default:
+  name | varchar(255) | null:NO | default:
+  price_modifier | decimal(10,2) | null:NO | default:0.00
+
+=== product_variations ===
+  id | bigint(20) unsigned | null:NO | default:
+  product_id | bigint(20) unsigned | null:NO | default:
+  variation_type_option_ids | longtext | null:NO | default:
+  quantity | int(11) | null:YES | default:
+  price | decimal(20,4) | null:YES | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+
+=== bookings ===
+  id | bigint(20) unsigned | null:NO | default:
+  order_id | bigint(20) unsigned | null:YES | default:
+  booking_date | date | null:NO | default:
+  is_read | tinyint(1) | null:NO | default:0
+  time_slot | varchar(255) | null:NO | default:
+  user_id | bigint(20) unsigned | null:NO | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  google_event_id | varchar(255) | null:YES | default:
+  booking_fee_refunded | tinyint(1) | null:NO | default:0
+  booking_fee_refund_amount | decimal(10,2) | null:YES | default:
+
+=== orders ===
+  id | bigint(20) unsigned | null:NO | default:
+  total_price | decimal(20,4) | null:NO | default:
+  booking_fee | decimal(10,2) | null:NO | default:0.00
+  user_id | bigint(20) unsigned | null:NO | default:
+  vendor_user_id | bigint(20) unsigned | null:NO | default:
+  shipping_address_id | bigint(20) unsigned | null:YES | default:
+  status | varchar(255) | null:NO | default:
+  voucher_id | bigint(20) unsigned | null:YES | default:
+  discount_amount | decimal(10,2) | null:NO | default:0.00
+  stripe_session_id | varchar(255) | null:YES | default:
+  is_manual | tinyint(1) | null:NO | default:0
+  payment_method | varchar(255) | null:YES | default:
+  manual_paid_at | timestamp | null:YES | default:
+  is_paid | tinyint(1) | null:NO | default:0
+  admin_note | text | null:YES | default:
+  payment_intent | varchar(255) | null:YES | default:
+  online_payment_comission | decimal(20,4) | null:YES | default:
+  website_payment_comission | decimal(20,4) | null:YES | default:
+  vendor_subtotal | decimal(20,4) | null:YES | default:
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+  refunded_at | timestamp | null:YES | default:
+  refund_id | varchar(255) | null:YES | default:
+  refund_amount | decimal(10,2) | null:YES | default:
+  refund_reason | varchar(255) | null:YES | default:
+  is_read | tinyint(1) | null:NO | default:0
+
+=== order_items ===
+  id | bigint(20) unsigned | null:NO | default:
+  order_id | bigint(20) unsigned | null:NO | default:
+  product_id | bigint(20) unsigned | null:YES | default:
+  gift_card_template_id | bigint(20) unsigned | null:YES | default:
+  price | decimal(20,4) | null:NO | default:
+  designer | tinyint(1) | null:NO | default:0
+  quantity | int(11) | null:NO | default:
+  variation_type_option_ids | longtext | null:YES | default:
+  attachment_path | varchar(255) | null:YES | default:
+  attachment_name | varchar(255) | null:YES | default:
+
+=== shipping_addresses ===
+  id | bigint(20) unsigned | null:NO | default:
+  user_id | bigint(20) unsigned | null:NO | default:
+  full_name | varchar(255) | null:NO | default:
+  phone | varchar(255) | null:NO | default:
+  address_line1 | varchar(255) | null:NO | default:
+  address_line2 | varchar(255) | null:YES | default:
+  city | varchar(255) | null:NO | default:
+  state | varchar(255) | null:NO | default:
+  postal_code | varchar(255) | null:NO | default:
+  country | varchar(255) | null:NO | default:
+  is_default | tinyint(1) | null:NO | default:0
+  created_at | timestamp | null:YES | default:
+  updated_at | timestamp | null:YES | default:
+>                                                               
+
+
+
+
+MODELS
+User — id, name, email, password, referral_code, referred_by, stripe_account_active | HasOne Vendor, HasMany ShippingAddresses, Orders, Bookings, CartItems | Uses HasRoles, Payable | Auto-generates referral_code on create
+Vendor — primary key is user_id (not id) | user_id, status, store_name, store_address, vendor_type (enum), booking_fee, business_start_time, business_end_time, slot_interval_minutes, recurring_closed_days (array), closed_dates (array) | BelongsTo User | HasMany Products (via created_by→user_id), Orders (via vendor_user_id→user_id), Departments (via user_id) | VendorType cast as enum, status as VendorStatusEnum
+Department — id, name, slug, meta_title, meta_description, image, active | HasMany Categories | HasManyThrough Products via Categories | scope: Published (active=true)
+Category — id, name, parent_id, department_id, active, image | BelongsTo Department, BelongsTo self (parent) | HasMany Products | BelongsToMany CategoryGroups
+CategoryGroup — id, name, image, active | BelongsToMany Categories (pivot: category_group_category)
+Product — id, title, description, price, status (enum), category_id, department_id, created_by (=user_id of vendor), deleted_combinations (array) | BelongsTo User (created_by), Department, Category, Vendor (created_by→user_id) | HasMany VariationTypes, ProductVariations, Bookings, Reviews | HasManyThrough VariationTypeOptions via VariationTypes | BelongsToMany ProductGroups (pivot: product_group_product) | Uses Spatie HasMedia (collection: images, conversions: thumb/small/large) | Scopes: Published, ForVendor, ForWebsite, VendorApproved, FilterApproved, SearchKeyword
+ProductGroup — id, name, slug, images (array), active | BelongsToMany Products (pivot: product_group_product) | route key: slug
+VariationType — id, product_id, (name, sort — implied) | no timestamps | BelongsTo Product (implied) | HasMany VariationTypeOptions
+VariationTypeOption — id, variation_type_id, (name, value — implied) | no timestamps | BelongsTo VariationType | Uses Spatie HasMedia (conversions: thumb/small/large)
+ProductVariation — table: product_variations | id, product_id, price, quantity, variation_type_option_ids (array) | BelongsTo Product
+Order — id, stripe_session_id, user_id, vendor_user_id, total_price, booking_fee, status, shipping_address_id, payment_intent, online_payment_comission, website_payment_comission, vendor_subtotal, is_paid, manual_paid_at, payment_method | BelongsTo User, Vendor (vendor_user_id→user_id), ShippingAddress | HasMany OrderItems, CartItems | HasOne Booking (order_id), VoucherUsage
+OrderItem — no timestamps | id, order_id, product_id, gift_card_template_id, quantity, price, variation_type_option_ids (array), attachment_path, attachment_name, designer | BelongsTo Order, Product, Booking
+Booking — table: bookings | id, user_id, vendor_user_id, vendor_id, product_id, order_id, booking_date, time_slot | BelongsTo User, Product, Order | BelongsTo User as vendorUser (vendor_user_id), vendor (vendor_id)
+ShippingAddress — id, user_id, full_name, phone, address_line1, address_line2, city, state, postal_code, country, is_default | BelongsTo User, Order
+Voucher — id, code, type (promo/gift), amount, discount_type, remaining_amount, max_uses, used_count, purchased_by, assigned_to, gifted_to_email, gift_card_template_id, gift_card_product_id, stripe_session_id, stripe_coupon_id, expires_at, active, sent_at | BelongsTo User as buyer (purchased_by), recipient (assigned_to), Product as giftCardProduct | HasMany VoucherUsages | Methods: isUsable(), discountFor(), redeem()
+GiftCardTemplate — id, title, description, amount, image_path, active, sort_order | HasMany Vouchers (gift_card_template_id)
+VoucherUsage — (implied from Voucher.redeem()) id, voucher_id, user_id, order_id, amount_used, balance_before, balance_after | BelongsTo Voucher, User, Order
+Gallery — id, title, active | Uses Spatie HasMedia
+CartItem — (implied from User/Order relations) id, user_id, order_id, ...
+Review — (implied from Product) id, product_id, user_id, ...
+
+ENUMS
+ProductStatusEnum — draft, published
+ProductHighlightEnum — trending, sale, hot, new
+VendorStatusEnum — active (Pending), approved, rejected — note: Pending case value is 'active' not 'pending'
+VendorType — appointment, ecommerce
+PermissionsEnum — ApproveVendors, SellProducts, BuyProducts
+
+KEY RELATIONSHIPS THAT MATTER FOR SEEDING (in order)
+Users → Vendors → Departments → Categories → Products
+Products → VariationTypes → VariationTypeOptions → ProductVariations
+Products → ProductGroups (pivot)
+Categories → CategoryGroups (pivot)
+Users → Orders → OrderItems → Products
+Orders → Bookings → Products
+Users → ShippingAddresses
+Vouchers → GiftCardTemplates
+Vouchers → VoucherUsages → Orders

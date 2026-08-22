@@ -1,0 +1,6 @@
+rm server.php
+rm public/storage  # remove the Git Bash symlink
+php artisan storage:link  # creates proper symlink on Linux
+
+
+

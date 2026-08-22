@@ -1,0 +1,3 @@
+cart/index.....local storage: booking date time and staff are auto selected from local storage when use opens site after sometime and add new items to cart
+
+promo code: when promo code applied button pressed, voucher balance/ usage deduct even if user don't complete checkout process

@@ -1,0 +1,165 @@
+TechRevibe Salon Booking & E-Commerce Platform — System Overview
+
+What This System Is
+A multi-vendor Laravel 11 / Inertia.js / React (TypeScript) e-commerce and booking platform, originally built to support multiple vendors across different business types (hair salons, IT services, cafes, etc.). The system has been scoped down to serve a single business owner — specifically a hair salon — removing the multi-vendor onboarding flow while keeping the underlying architecture intact for potential future expansion.
+Stripe is integrated for payments. The platform owner earns a commission on each transaction, or the business owner can pay a flat fee (A$1,500) to remove the commission logic entirely.
+
+Tech Stack
+
+Backend: Laravel 11, PHP
+Frontend: Inertia.js + React (TypeScript)
+Admin Dashboard: Filament
+Auth & Profiles: Laravel Breeze
+Payments: Stripe (Connect for payouts, standard checkout for customers)
+Roles: Admin, Vendor, User (via RolesEnum)
+Key Enums: OrderStatusEnum (draft, paid, shipped, delivered, cancelled), VendorStatusEnum (active, approved, rejected)
+
+
+Core Data Hierarchy
+The entire catalog is organized in a three-level tree:
+Department → Category → Product
+Example for this deployment:
+Department: Hair Salon
+  Category: Keratin
+    Product: Keratin Treatment Full
+    Product: Keratin Treatment Express
+  Category: Brazilian Service
+    Product: Brazilian Blowout
+  Category: Kids Haircut
+    Product: Boys Cut
+    Product: Girls Cut
+  Category: Nails
+    Product: Manicure
+    Product: Pedicure
+    Product: Threading
+Each product links to exactly one category, and each category links to exactly one department.
+
+User Roles & Access
+1. Guest
+
+Can browse the public-facing website: home, about, contacts, services, individual product pages.
+Cannot book or purchase.
+
+2. Registered User (Customer)
+
+Authenticates via Laravel Breeze.
+Can book appointments, place orders, write reviews, save addresses.
+In the original multi-vendor build, users could click "Become a Vendor" on their profile to trigger the vendor application form (Stripe details, business details, etc.). This button is removed in the current single-owner deployment.
+
+3. Vendor (Business Owner — now a single fixed entity)
+
+In the original system: vendors applied, got approved by Admin, then accessed the Filament dashboard scoped to their own data only (they cannot see other vendors' orders, bookings, products, etc.).
+In the current deployment: the single business owner is manually created and approved from the admin side. The "become vendor" self-onboarding flow is disabled.
+The vendor accesses the Filament dashboard with these left-navbar tabs, each scoped to their own linked data:
+
+Departments
+Categories
+Products
+Contacts
+Users
+Bookings
+Galleries
+Hero Banners
+Orders
+Shipping Addresses
+Vouchers / Gift Cards
+
+
+
+4. Admin (Platform Owner)
+
+Full unrestricted access to the Filament dashboard.
+All of the above tabs, plus a Vendors tab to manually approve, reject, suspend, or disconnect vendors.
+Can configure business owner working hours directly from the admin section (since vendors no longer self-configure this).
+Can manage commission settings and the flat-fee override.
+
+
+Public Website Pages
+Home Page
+Hero banner (vendor-linked, configurable from dashboard), featured products/services, general intro.
+About, Contact, Services Pages
+Static or semi-static pages. Contacts page links to the Contacts model (form submissions stored, visible in dashboard).
+Vendor Page (/vendor/{slug} or equivalent)
+Each vendor has their own public-facing storefront page. Layout:
+
+Left sidebar: Filters — Department, Category, Price range, Sort options.
+Right main area: Product cards grid.
+
+In the current single-owner deployment, this effectively becomes the main shop/services page.
+Single Product Page
+
+Product images (gallery).
+Variation selector: each product can have multiple variation options — color, size, or custom — displayed as radio buttons, checkboxes, dropdowns, or image swatches. Selecting a variation updates the displayed price dynamically.
+Description tab.
+Reviews section — authenticated users can submit reviews.
+Add to cart / Book now depending on vendor type.
+
+
+Vendor Types & Their Flows
+The system supports two vendor business types:
+Type 1: Appointment-Based (Hair Salon — current deployment)
+Booking Page flow:
+
+Customer selects a service (product).
+Customer picks a date from a calendar.
+System checks vendor's configured business hours.
+System checks existing bookings — any time slot already taken by another user is disabled.
+Customer selects an available time slot and confirms.
+Booking is saved, payment processed via Stripe.
+
+Business hours are configured by the Admin (in this single-owner deployment) or by the vendor themselves (in the original multi-vendor build).
+Type 2: E-Commerce (physical goods with shipping)
+Checkout flow:
+
+Customer adds products to cart, applies voucher/gift card if applicable.
+Checkout page asks for billing and shipping address.
+First-time: customer enters address, saved to their profile.
+Returning: all saved addresses load, default pre-selected, customer can choose or add new.
+Payment via Stripe.
+Order moves through statuses: draft → paid → shipped → delivered (or cancelled).
+
+
+Product Creation (Dashboard)
+When the vendor/admin creates a product, the form has three main tabs:
+1. Details Tab
+
+Name, description, price, department, category, vendor link, stock (if applicable), vendor type flag.
+
+2. Images Tab
+
+Upload multiple product images. First image is the thumbnail.
+
+3. Variations Tab
+
+Add variation groups (e.g. "Color", "Size").
+Each group has a display type: radio, checkbox, dropdown, or image swatch.
+Each option within a group can have: label, price modifier, and an image (for image-swatch type).
+On the frontend, selecting a variation recalculates the displayed price in real time.
+
+
+Gift Cards & Vouchers
+
+Separate gift_card_templates table defines card types (value, design).
+Voucher model is generated per purchase, linked to a buyer and optionally a recipient.
+VoucherUsage tracks redemption history.
+CartService handles voucher validation and discount application at checkout.
+VoucherController manages CRUD.
+StripeWebhookController activates vouchers on successful payment.
+Visible in the Filament dashboard under the Vouchers tab.
+
+
+Stripe & Commission Logic
+
+Stripe Connect is used so the platform can collect payments and distribute to vendors.
+The platform owner takes a commission percentage on each successful transaction by default.
+If the business owner pays the flat A$1,500 licensing fee, the commission logic is disabled and 100% of the transaction value (minus Stripe fees) goes to the vendor.
+Monthly or fortnightly payouts are distributed to each vendor's connected Stripe account.
+In the single-owner deployment, this simplifies to: all money goes to the one business owner's Stripe account, with or without the commission split depending on the agreement.
+
+
+Key Models & Controllers Reference
+LayerKey ItemsModelsDepartment, Category, Product, Vendor, User, Order, Booking, GiftCardTemplate, Voucher, VoucherUsage, ShippingAddress, Review, HeroBanner, Gallery, ContactEnumsOrderStatusEnum, VendorStatusEnum, RolesEnum (Admin, Vendor, User)ControllersVoucherController, StripeWebhookController, BookingController, CartServiceDashboardFilament, controllers under app/Http/Controllers/Admin/, protected by role:Admin middleware, accessible at /dashboardAuthLaravel Breeze
+
+What Changed: Multi-Vendor → Single Owner
+Original Multi-VendorCurrent Single-Owner"Become a Vendor" button on user profileRemovedVendor self-registers with Stripe & business detailsAdmin manually creates and approves the one vendorVendors configure their own business hoursAdmin configures business hours for the ownerMultiple vendors, each scoped in dashboardOne vendor, same dashboard structure retainedCommission distributed across vendors monthlyAll funds go to single owner; commission toggle still exists/vendor/{slug} pages for each vendorEffectively one storefront page
+The underlying architecture remains multi-vendor-capable. Adding a second vendor in the future requires re-enabling the onboarding flow and the dashboard scoping logic that already exists — no structural rebuild needed.
