@@ -1,0 +1,125 @@
+diff --git a/app/Http/Controllers/StripeController.php b/app/Http/Controllers/StripeController.php
+index 7a5b3b5..18fdbc9 100644
+--- a/app/Http/Controllers/StripeController.php
++++ b/app/Http/Controllers/StripeController.php
+@@ -91,35 +91,53 @@ public function handle(Request $request)
+
+                     $platformFeePercent = config('app.platform_fee_pct');
+
+-                    $orders = Order::query()
++                    $orderIds = Order::query()
+                         ->where('payment_intent', $paymentIntent)
+-                        ->with(['user', 'vendorUser.Vendor', 'orderItems.product'])
+-                        ->get();
++                        ->pluck('id');
+
+-                    if ($orders->isEmpty()) {
++                    if ($orderIds->isEmpty()) {
+                         Log::warning("No orders found for payment_intent: $paymentIntent");
+                         break;
+                     }
+
+-                    foreach ($orders as $order) {
+-                        $vendorShare = $order->total_price * 100 / $totalAmount;
+-                        $orderOnlinePaymentCommissionCents = $vendorShare * $stripeFee;
+-                        $orderOnlinePaymentCommission = $orderOnlinePaymentCommissionCents / 100;
+-                        $orderWebsitePaymentCommission = (($order->total_price - $orderOnlinePaymentCommission) / 100) * $platformFeePercent;
+-
+-                        $order->online_payment_comission = $orderOnlinePaymentCommission;
+-                        $order->website_payment_comission = $orderWebsitePaymentCommission;
+-                        $order->vendor_subtotal = $order->total_price - $orderOnlinePaymentCommission - $orderWebsitePaymentCommission;
+-                        $order->stripe_charge_id = $chargeId;
+-                        $order->fees_calculated_at = now();
+-                        if (!$order->vendor_notified_at && $order->vendorUser) {
+-                            Mail::to($order->vendorUser)->queue(new NewOrderMail($order));
+-                            $order->vendor_notified_at = now();
+-                        }
++                    DB::transaction(function () use ($orderIds, $totalAmount, $stripeFee, $platformFeePercent, $chargeId) {
++                        // lockForUpdate + ordered IDs so two concurrent charge.updated
++                        // deliveries for the same charge can't both pass the
++                        // vendor_notified_at check before either one saves.
++                        $orders = Order::whereIn('id', $orderIds)
++                            ->with(['user', 'vendorUser.Vendor', 'orderItems.product'])
++                            ->lockForUpdate()
++                            ->get();
++
++                        foreach ($orders as $order) {
++                            $vendorShare = $order->total_price * 100 / $totalAmount;
++                            $orderOnlinePaymentCommissionCents = $vendorShare * $stripeFee;
++                            $orderOnlinePaymentCommission = $orderOnlinePaymentCommissionCents / 100;
++                            $orderWebsitePaymentCommission = (($order->total_price - $orderOnlinePaymentCommission) / 100) * $platformFeePercent;
++
++                            $order->online_payment_comission = $orderOnlinePaymentCommission;
++                            $order->website_payment_comission = $orderWebsitePaymentCommission;
++                            $order->vendor_subtotal = $order->total_price - $orderOnlinePaymentCommission - $orderWebsitePaymentCommission;
++                            $order->stripe_charge_id = $chargeId;
++                            $order->fees_calculated_at = now();
++                            if (!$order->vendor_notified_at && $order->vendorUser) {
++                                Log::debug('[MAIL DEBUG] NewOrderMail (StripeController charge.updated)', [
++                                    'order_id'         => $order->id,
++                                    'vendor_user_id'   => $order->vendor_user_id,
++                                    'sending_to'       => $order->vendorUser->email,
++                                    'sending_to_id'    => $order->vendorUser->id,
++                                    'buyer_id'         => $order->user_id,
++                                    'buyer_email'      => $order->user?->email,
++                                    'is_self_order'    => $order->vendor_user_id === $order->user_id,
++                                ]);
++                                Mail::to($order->vendorUser)->queue(new NewOrderMail($order));
++                                $order->vendor_notified_at = now();
++                            }
+
+-                        $order->save();
+-                        // Vendor "new order" email now that fees are known
+-                    }
++                            $order->save();
++                            // Vendor "new order" email now that fees are known
++                        }
++                    });
+                 } catch (\Exception $e) {
+                     Log::error('charge.updated handler failed: ' . $e->getMessage());
+                 }
+@@ -244,6 +262,12 @@ public function handle(Request $request)
+
+
+                 if ($orders->isNotEmpty()) {
++                    Log::debug('[MAIL DEBUG] CheckoutCompleted (StripeController checkout.session.completed)', [
++                        'sending_to'    => $orders[0]->user?->email,
++                        'sending_to_id' => $orders[0]->user_id,
++                        'order_ids'     => $orders->pluck('id'),
++                        'vendor_ids'    => $orders->pluck('vendor_user_id'),
++                    ]);
+                     Mail::to($orders[0]->user)->queue(new CheckoutCompleted($orders));
+                 }
+
+@@ -284,28 +308,10 @@ public function handle(Request $request)
+                         ->delete();
+                 }
+
+-                $isFullyVoucherCovered =
+-                    ((int) ($session['amount_total'] ?? 0)) === 0
+-                    && ($session['payment_status'] ?? null) === 'no_payment_required';
+-
+-                if ($isFullyVoucherCovered && $orders->isNotEmpty()) {
+-                    Log::info('Fully voucher-covered order — sending order emails', [
+-                        'session_id' => $session->id,
+-                        'orders' => $orders->pluck('id')->toArray(),
+-                    ]);
+-
+-
+-
+-                    try {
+-                        Mail::to($orders[0]->user)
+-                            ->send(new CheckoutCompleted($orders));
+-                    } catch (\Exception $e) {
+-                        Log::error(
+-                            "Failed to send checkout completed email for voucher order: "
+-                                . $e->getMessage()
+-                        );
+-                    }
+-                }
++                // NOTE: voucher-covered ($0) orders no longer get a second
++                // CheckoutCompleted send here — the unconditional queue() call
++                // earlier in this case block already covers them, and this
++                // second synchronous send was firing on top of it every time.
+
+                 break;
