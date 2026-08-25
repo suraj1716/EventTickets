@@ -39,9 +39,26 @@ class TicketController extends Controller
             'eventLeg.event',
             'order',
         ]);
+        $activeListing = $ticket->resaleListings()
+    ->where('status', 'active')
+    ->first();
 
-        return Inertia::render('Tickets/Show', [
-            'ticket' => $ticket,
-        ]);
+       return Inertia::render('Tickets/Show', [
+    'ticket' => [
+        ...$ticket->toArray(),
+
+        'owner_user_id' => $ticket->owner_user_id,
+
+        'stripe_account_active' =>
+            (bool) auth()->user()->stripe_account_active,
+
+        'active_listing' => $activeListing
+            ? [
+                'id' => $activeListing->id,
+                'price' => $activeListing->price,
+            ]
+            : null,
+    ],
+]);
     }
 }

@@ -126,5 +126,6 @@ return [
     'currency' => env('APP_CURRENCY', 'AUD'),
     "stripe_secret_key" => env('STRIPE_SECRET'),
     "stripe_webhook_secret" => env('STRIPE_WEBHOOK_SECRET'),
-    "platform_fee_pct" => 2,
+    'platform_fee_pct' => env('PLATFORM_FEE_PCT', 2),
+    'resale_commission_pct' => env('RESALE_COMMISSION_PCT', 10),
 ];

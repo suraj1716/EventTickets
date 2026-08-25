@@ -71,18 +71,80 @@ function legsFromEvent(event?: Event): EventLegFormInput[] {
 export default function EventForm({ event, categories, venues }: Props) {
   const isEditing = !!event;
   const [artistInput, setArtistInput] = useState("");
+const { data, setData, post, transform, processing, errors } =
+  useForm<EventFormInput>({
+    name: event?.name ?? "",
+    description: event?.description ?? "",
+    type: event?.type ?? "standalone",
+    status: (event?.status as "draft" | "proposed") ?? "draft",
+    languages: event?.languages ?? [],
+    category_ids: event?.categories?.map((c) => c.id) ?? [],
+    artists: event?.artists?.map((a) => a.name) ?? [],
+    legs: legsFromEvent(event),
+    media: [],
+    remove_media_ids: [],
+  });
 
-  const { data, setData, post, put, processing, errors } =
-    useForm<EventFormInput>({
-      name: event?.name ?? "",
-      description: event?.description ?? "",
-      type: event?.type ?? "standalone",
-      status: (event?.status as "draft" | "proposed") ?? "draft",
-      languages: event?.languages ?? [],
-      category_ids: event?.categories?.map((c) => c.id) ?? [],
-      artists: event?.artists?.map((a) => a.name) ?? [],
-      legs: legsFromEvent(event),
-    });
+
+
+    // ---------- Media ----------
+
+function handleMediaChange(
+  e: React.ChangeEvent<HTMLInputElement>
+) {
+  const files = Array.from(e.target.files ?? []);
+
+  if (files.length === 0) {
+    return;
+  }
+
+  const existingMedia = event?.media ?? [];
+  const removedIds = data.remove_media_ids ?? [];
+
+  // Existing media that will actually remain
+  const remainingExistingCount = existingMedia.filter(
+    (media) => !removedIds.includes(media.id)
+  ).length;
+
+  const currentNewFiles = data.media?.length ?? 0;
+
+  const totalAfterUpload =
+    remainingExistingCount +
+    currentNewFiles +
+    files.length;
+
+  if (totalAfterUpload > 2) {
+    alert("An event can have a maximum of 2 media files.");
+    e.target.value = "";
+    return;
+  }
+
+  setData("media", [
+    ...(data.media ?? []),
+    ...files,
+  ]);
+
+  e.target.value = "";
+}
+
+function removeNewMedia(index: number) {
+  setData(
+    "media",
+    (data.media ?? []).filter((_, i) => i !== index)
+  );
+}
+
+function removeExistingMedia(id: number) {
+  setData(
+    "remove_media_ids",
+    Array.from(
+      new Set([
+        ...(data.remove_media_ids ?? []),
+        id,
+      ])
+    )
+  );
+}
 
   // ---------- Tour toggle ----------
 
@@ -174,32 +236,53 @@ export default function EventForm({ event, categories, venues }: Props) {
 
   // ---------- Submit ----------
 
-  const submit: FormEventHandler = (e) => {
-    e.preventDefault();
-    if (isEditing) {
-      put(route("admin.events.update", event!.id));
-    } else {
-      post(route("admin.events.store"));
-    }
-  };
+const submit: FormEventHandler = (e) => {
+  e.preventDefault();
 
-  function handlePublish() {
-    if (!isEditing) {
-      post(route("admin.events.store"), {
-        onSuccess: () => {
-          // Handle create + publish separately if needed
-        },
-      });
+  console.log("SUBMIT DATA:", data);
 
-      return;
-    }
+  if (isEditing) {
+    transform((data) => ({
+      ...data,
+      _method: "PUT",
+    }));
 
-    put(route("admin.events.update", event!.id), {
+    post(route("admin.events.update", event!.id), {
+      forceFormData: true,
       onSuccess: () => {
         router.post(route("admin.vendor.events.publish", event!.id));
       },
     });
+  } else {
+    post(route("admin.events.store"), {
+      forceFormData: true,
+    });
   }
+};
+function handlePublish() {
+  if (!isEditing) {
+    post(route("admin.events.store"), {
+      forceFormData: true,
+      onSuccess: () => {
+        // Handle create + publish separately if needed
+      },
+    });
+
+    return;
+  }
+
+  transform((data) => ({
+    ...data,
+    _method: "PUT",
+  }));
+
+  post(route("admin.events.update", event!.id), {
+    forceFormData: true,
+    onSuccess: () => {
+      router.post(route("admin.vendor.events.publish", event!.id));
+    },
+  });
+}
 
   return (
     <AdminLayout>
@@ -230,12 +313,18 @@ export default function EventForm({ event, categories, venues }: Props) {
     value={data.status}
     onChange={(e) => setData('status', e.target.value as 'draft' | 'proposed')}
     className={inputClass}
+    disabled={event?.status === 'published'}
   >
     <option value="draft">Draft — hidden, only visible to you</option>
     <option value="proposed">Proposed — visible via link, waitlist signups open</option>
+    {event?.status === 'published' && (
+      <option value="published">Published — live and on sale</option>
+    )}
   </select>
   <p className="text-xs text-neutral-600 mt-1.5">
-    Use "Publish event" below when you're ready to go on sale — that overrides this setting.
+    {event?.status === 'published'
+      ? "This event is live. Visibility can't be changed back from here."
+      : 'Use "Publish event" below when you\'re ready to go on sale — that overrides this setting.'}
   </p>
 </Field>
 
@@ -257,7 +346,117 @@ export default function EventForm({ event, categories, venues }: Props) {
             className={inputClass}
           />
         </Field>
+<Field label="Event media" error={errors.media}>
+  <div className="space-y-3">
 
+    {/* Existing media */}
+    {event?.media
+      ?.filter(
+        (media) =>
+          !(data.remove_media_ids ?? []).includes(media.id)
+      )
+      .map((media) => (
+        <div
+          key={media.id}
+          className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+        >
+          {media.type === "video" ? (
+            <video
+              src={media.url}
+              controls
+              className="w-full max-h-64 object-contain bg-black"
+            />
+          ) : (
+            <img
+              src={media.url}
+              alt=""
+              className="w-full max-h-64 object-contain bg-black"
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={() => removeExistingMedia(media.id)}
+            className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white hover:bg-red-600 transition-colors"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+
+    {/* New uploads */}
+    {(data.media ?? []).map((file, index) => (
+      <div
+        key={`${file.name}-${index}`}
+        className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
+      >
+        {file.type.startsWith("video/") ? (
+          <video
+            src={URL.createObjectURL(file)}
+            controls
+            className="w-full max-h-64 object-contain bg-black"
+          />
+        ) : (
+          <img
+            src={URL.createObjectURL(file)}
+            alt={file.name}
+            className="w-full max-h-64 object-contain bg-black"
+          />
+        )}
+
+        <button
+          type="button"
+          onClick={() => removeNewMedia(index)}
+          className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white hover:bg-red-600 transition-colors"
+        >
+          Remove
+        </button>
+
+        <div className="px-3 py-2 text-xs text-neutral-500">
+          {file.name}
+        </div>
+      </div>
+    ))}
+
+    {/* Upload button */}
+    {(
+      (event?.media ?? []).filter(
+        (media) =>
+          !(data.remove_media_ids ?? []).includes(media.id)
+      ).length +
+      (data.media?.length ?? 0)
+    ) < 2 && (
+      <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 bg-neutral-900/50 px-6 py-8 text-center hover:border-neutral-500 transition-colors">
+        <span className="text-sm text-neutral-300">
+          + Add media
+        </span>
+
+        <span className="mt-1 text-xs text-neutral-600">
+          Images or videos · maximum 2 files
+        </span>
+
+        <input
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="hidden"
+          onChange={handleMediaChange}
+        />
+      </label>
+    )}
+
+    <p className="text-xs text-neutral-600">
+      {(
+        (event?.media ?? []).filter(
+          (media) =>
+            !(data.remove_media_ids ?? []).includes(media.id)
+        ).length +
+        (data.media?.length ?? 0)
+      )}{" "}
+      / 2 media files
+    </p>
+  </div>
+</Field>
         <Field label="Artists">
           <div className="flex flex-wrap gap-2 mb-2">
             {(data.artists ?? []).map((name) => (

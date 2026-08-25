@@ -11,6 +11,52 @@ use App\Http\Controllers\EventWatchlistController;
 use App\Http\Controllers\TicketCheckoutController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketResaleController;
+use App\Http\Controllers\TicketResaleCheckoutController;
+use App\Http\Controllers\TicketVerifyController;
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Ticket resale
+|--------------------------------------------------------------------------
+*/
+
+
+// Public — no login required. This is the "check before you pay a
+// stranger" tool, so it deliberately has zero auth barrier.
+Route::get('/resale', [TicketResaleController::class, 'index'])
+    ->name('resale.index');
+
+Route::get('/verify', [TicketVerifyController::class, 'index'])
+    ->name('verify.index');
+
+Route::post('/verify/check', [TicketVerifyController::class, 'check'])
+    ->name('verify.check');
+
+// Authenticated — listing, cancelling, buying.
+Route::middleware('auth')->group(function () {
+    Route::get('/resale/mine', [TicketResaleController::class, 'mine'])
+        ->name('resale.mine');
+
+    Route::get('/resale/connect', [\App\Http\Controllers\ResaleSellerConnectController::class, 'connect'])
+        ->name('resale.connect');
+
+    Route::post('/tickets/{ticket}/resell', [TicketResaleController::class, 'store'])
+        ->name('resale.store');
+
+    Route::delete('/resale/{listing}', [TicketResaleController::class, 'destroy'])
+        ->name('resale.destroy');
+
+    Route::post('/resale/{listing}/checkout', [TicketResaleCheckoutController::class, 'store'])
+        ->name('resale.checkout');
+});
+
+
+
+
 
 /*
 |--------------------------------------------------------------------------

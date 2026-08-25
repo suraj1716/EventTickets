@@ -1,18 +1,23 @@
-import { Head, Link } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Ticket as TicketIcon, MapPin, CalendarDays, ArrowLeft } from 'lucide-react';
-
+import { Head, Link, usePage } from "@inertiajs/react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import {
+  Ticket as TicketIcon,
+  MapPin,
+  CalendarDays,
+  ArrowLeft,
+} from "lucide-react";
+import ResaleListingForm from "@/Components/ResaleListingForm";
 const C = {
-  bg: '#0B0B10',
-  surface: '#15141B',
-  border: '#26232E',
-  borderDashed: '#33303C',
-  text: '#F7F5F2',
-  textMuted: '#9C97A8',
-  textFaint: '#6B6775',
-  textFainter: '#565262',
-  amber: '#FFB627',
-  amberHover: '#ffc75c',
+  bg: "#0B0B10",
+  surface: "#15141B",
+  border: "#26232E",
+  borderDashed: "#33303C",
+  text: "#F7F5F2",
+  textMuted: "#9C97A8",
+  textFaint: "#6B6775",
+  textFainter: "#565262",
+  amber: "#FFB627",
+  amberHover: "#ffc75c",
 };
 
 interface Ticket {
@@ -20,11 +25,22 @@ interface Ticket {
   code: string;
   qr_path: string | null;
   barcode_path: string | null;
-  status: string;
+
+  status: "valid" | "listed" | "used" | "void";
+
+  owner_user_id: number | null;
+  stripe_account_active: boolean;
+
+  active_listing: {
+    id: number;
+    price: string;
+  } | null;
+
   ticket_tier?: {
     name: string;
     price: string;
   };
+
   event_leg?: {
     venue_name: string;
     city?: string | null;
@@ -38,24 +54,37 @@ interface Ticket {
 interface Props {
   ticket: Ticket;
 }
+interface AuthUser {
+  id: number;
+}
 
+interface PageProps {
+  auth: {
+    user: AuthUser | null;
+  };
+}
 const STATUS_COLORS: Record<string, { fg: string; bg: string }> = {
-  valid: { fg: '#7CE0A8', bg: 'rgba(124,224,168,0.1)' },
-  active: { fg: '#7CE0A8', bg: 'rgba(124,224,168,0.1)' },
-  used: { fg: C.textFaint, bg: 'rgba(255,255,255,0.04)' },
-  redeemed: { fg: C.textFaint, bg: 'rgba(255,255,255,0.04)' },
-  cancelled: { fg: '#E08585', bg: 'rgba(224,133,133,0.1)' },
-  refunded: { fg: '#E08585', bg: 'rgba(224,133,133,0.1)' },
+  valid: { fg: "#7CE0A8", bg: "rgba(124,224,168,0.1)" },
+  active: { fg: "#7CE0A8", bg: "rgba(124,224,168,0.1)" },
+  used: { fg: C.textFaint, bg: "rgba(255,255,255,0.04)" },
+  redeemed: { fg: C.textFaint, bg: "rgba(255,255,255,0.04)" },
+  cancelled: { fg: "#E08585", bg: "rgba(224,133,133,0.1)" },
+  refunded: { fg: "#E08585", bg: "rgba(224,133,133,0.1)" },
 };
 
 export default function TicketShow({ ticket }: Props) {
-  const storageUrl = (path: string | null) => (path ? `/storage/${path}` : null);
+  const { auth } = usePage<PageProps>().props;
+  const storageUrl = (path: string | null) =>
+    path ? `/storage/${path}` : null;
 
   const qrUrl = storageUrl(ticket.qr_path);
   const barcodeUrl = storageUrl(ticket.barcode_path);
 
-  const statusKey = ticket.status?.toLowerCase?.() ?? '';
-  const statusColor = STATUS_COLORS[statusKey] ?? { fg: C.amber, bg: 'rgba(255,182,39,0.1)' };
+  const statusKey = ticket.status?.toLowerCase?.() ?? "";
+  const statusColor = STATUS_COLORS[statusKey] ?? {
+    fg: C.amber,
+    bg: "rgba(255,182,39,0.1)",
+  };
 
   return (
     <AuthenticatedLayout>
@@ -111,7 +140,39 @@ export default function TicketShow({ ticket }: Props) {
           text-transform: uppercase;
           color: ${C.textFainter};
         }
+.tk-resell-wrap {
+  margin-top: 20px;
+}
 
+.tk-resell-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  border: 1px solid #E5484D;
+    background: #FF1F1F;
+  color: #FFFFFF;
+
+  border-radius: 10px;
+  padding: 12px 16px;
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+
+  transition: all 0.15s ease;
+}
+
+.tk-resell-button:hover {
+  background: #D90000;
+  border-color: #D90000;
+  color: #FFFFFF;
+}
         .tk-event-name {
           font-family: 'Anton', sans-serif;
           text-transform: uppercase;
@@ -203,8 +264,8 @@ export default function TicketShow({ ticket }: Props) {
       `}</style>
 
       <div className="tk-page">
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 20px' }}>
-          <Link href={route('tickets.index')} className="tk-back">
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px" }}>
+          <Link href={route("tickets.index")} className="tk-back">
             <ArrowLeft size={13} strokeWidth={2} />
             Back to my tickets
           </Link>
@@ -229,24 +290,37 @@ export default function TicketShow({ ticket }: Props) {
               <div className="tk-meta-list">
                 {ticket.event_leg?.event_date && (
                   <div className="tk-meta-row">
-                    <CalendarDays size={14} className="tk-meta-icon" strokeWidth={1.8} />
+                    <CalendarDays
+                      size={14}
+                      className="tk-meta-icon"
+                      strokeWidth={1.8}
+                    />
                     <span>
-                      {new Date(ticket.event_leg.event_date).toLocaleDateString('en-AU', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
+                      {new Date(ticket.event_leg.event_date).toLocaleDateString(
+                        "en-AU",
+                        {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        },
+                      )}
                     </span>
                   </div>
                 )}
 
                 {(ticket.event_leg?.venue_name || ticket.event_leg?.city) && (
                   <div className="tk-meta-row">
-                    <MapPin size={14} className="tk-meta-icon" strokeWidth={1.8} />
+                    <MapPin
+                      size={14}
+                      className="tk-meta-icon"
+                      strokeWidth={1.8}
+                    />
                     <span>
                       {ticket.event_leg?.venue_name}
-                      {ticket.event_leg?.venue_name && ticket.event_leg?.city ? ', ' : ''}
+                      {ticket.event_leg?.venue_name && ticket.event_leg?.city
+                        ? ", "
+                        : ""}
                       {ticket.event_leg?.city}
                     </span>
                   </div>
@@ -256,7 +330,9 @@ export default function TicketShow({ ticket }: Props) {
               {ticket.ticket_tier?.name && (
                 <span className="tk-tier">
                   {ticket.ticket_tier.name}
-                  {ticket.ticket_tier.price ? ` · $${ticket.ticket_tier.price}` : ''}
+                  {ticket.ticket_tier.price
+                    ? ` · $${ticket.ticket_tier.price}`
+                    : ""}
                 </span>
               )}
             </div>
@@ -269,7 +345,11 @@ export default function TicketShow({ ticket }: Props) {
 
               {qrUrl && (
                 <div className="tk-scan-box">
-                  <img src={qrUrl} alt="Ticket QR code" style={{ width: 208, height: 208 }} />
+                  <img
+                    src={qrUrl}
+                    alt="Ticket QR code"
+                    style={{ width: 208, height: 208 }}
+                  />
                 </div>
               )}
 
@@ -278,14 +358,28 @@ export default function TicketShow({ ticket }: Props) {
                   <img
                     src={barcodeUrl}
                     alt="Ticket barcode"
-                    style={{ maxWidth: '100%', height: 96, objectFit: 'contain' }}
+                    style={{
+                      maxWidth: "100%",
+                      height: 96,
+                      objectFit: "contain",
+                    }}
                   />
                 </div>
               )}
 
-              <p className="tk-scan-hint">Present this QR code or barcode at the entrance</p>
+              <p className="tk-scan-hint">
+                Present this QR code or barcode at the entrance
+              </p>
             </div>
           </div>
+
+          <ResaleListingForm
+            ticketId={ticket.id}
+            isOwner={auth.user?.id === ticket.owner_user_id}
+            ticketStatus={ticket.status}
+            stripeAccountActive={ticket.stripe_account_active}
+            activeListing={ticket.active_listing}
+          />
         </div>
       </div>
     </AuthenticatedLayout>

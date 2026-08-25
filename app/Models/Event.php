@@ -19,6 +19,7 @@ class Event extends Model
         'name',
         'slug',
         'description',
+        'image_url',
         'type',
         'status',
         'languages',
@@ -38,6 +39,12 @@ class Event extends Model
             $event->slug ??= static::uniqueSlug($event->name);
         });
     }
+
+public function media()
+{
+    return $this->hasMany(EventMedia::class)
+        ->orderBy('position');
+}
 
     public static function uniqueSlug(string $name): string
     {

@@ -37,6 +37,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'google_refresh_token',
         'token_expires_at',
 'email_verified_at',
+
+'stripe_account_active'
     ];
 
 

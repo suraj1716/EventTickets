@@ -166,6 +166,38 @@ class StripeController extends Controller
                     Log::warning('Gift card fulfillment skipped — metadata missing', ['metadata' => $metadata]);
                 }
 
+                // ── Ticket resale purchases: no Order row at all, and no
+                // stock/tier/cart logic applies — this is an ownership
+                // transfer of an EXISTING ticket, not a new purchase.
+                // Handled entirely separately and returns early, since
+                // none of the Order-based logic below this point
+                // applies to a resale transaction.
+                if (!empty($metadata['resale_listing_id'])) {
+                    try {
+                        $listing = \App\Models\TicketResaleListing::findOrFail($metadata['resale_listing_id']);
+                        $buyer = \App\Models\User::findOrFail($metadata['buyer_user_id']);
+
+                        app(\App\Services\TicketResaleService::class)->completeSale(
+                            $listing,
+                            $buyer,
+                            $session->id,
+                            $paymentIntent,
+                        );
+
+                        Log::info('Resale ticket transfer completed via webhook', [
+                            'listing_id' => $listing->id,
+                            'session_id' => $session->id,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Resale fulfillment failed: ' . $e->getMessage(), [
+                            'session_id' => $session->id,
+                            'metadata' => $metadata,
+                        ]);
+                    }
+
+                    break;
+                }
+
                 $orders = Order::with('orderItems')
                     ->where('stripe_session_id', $session['id'])
                     ->get();

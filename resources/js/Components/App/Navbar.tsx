@@ -281,6 +281,8 @@ export default function Navbar() {
 
   const mobileNavItems: { label: string; href: string }[] = [
     { label: "Events", href: route("events.index") },
+    { label: "Resale", href: route("resale.index") },
+
     { label: "Coming Soon", href: route("events.coming-soon") },
 
     { label: "My Tickets", href: route("tickets.index") },
@@ -602,7 +604,10 @@ export default function Navbar() {
               <NavLink href={route("events.index")} active={url.startsWith("/events")}>
                 Events
               </NavLink>
-               <NavLink href={route("events.coming-soon")} active={url.startsWith("/events")}>
+              <NavLink href={route("resale.index")} active={url.startsWith("/resale")}>
+                Resale
+              </NavLink>
+               <NavLink href={route("events.coming-soon")} active={url.startsWith("/coming-soon")}>
                 Coming Soon
               </NavLink>
               <NavLink href={route("tickets.index")} active={url.startsWith("/tickets")}>

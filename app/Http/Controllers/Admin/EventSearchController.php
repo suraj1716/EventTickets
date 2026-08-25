@@ -23,6 +23,7 @@ class EventSearchController extends Controller
                 'legs.seats',
                 'artists',
                 'categories',
+                'media'
             ])
             ->withCount('watchlist')
 
@@ -199,6 +200,7 @@ class EventSearchController extends Controller
             'artists',
             'legs.ticketTiers',
             'legs.seats',
+            'media'
         ])->loadCount('watchlist');   // <-- add this
 
         $relatedEvents = Event::query()

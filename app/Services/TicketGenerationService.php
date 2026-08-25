@@ -125,6 +125,7 @@ class TicketGenerationService
 ): Ticket {
     $ticket = Ticket::create([
         'order_id' => $order->id,
+        'owner_user_id' => $order->user_id,
         'ticket_tier_id' => $tier->id,
         'event_leg_id' => $tier->event_leg_id,
         'seat_id' => $seat?->id,

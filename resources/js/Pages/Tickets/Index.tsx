@@ -93,6 +93,7 @@ function formatEventDate(dateStr?: string) {
 }
 
 export default function TicketsIndex({ tickets }: Props) {
+
   return (
     <AuthenticatedLayout>
       <Head title="My Tickets" />
@@ -155,6 +156,14 @@ export default function TicketsIndex({ tickets }: Props) {
           .mt-card::after { display: block; }
         }
 
+@media (min-width: 640px) {
+  .mt-view-link {
+    border-left: 1px dashed var(--border-dashed, currentColor);
+    padding-left: 16px;
+  }
+}
+
+
         .mt-view-link {
           display: inline-flex;
           align-items: center;
@@ -190,7 +199,7 @@ export default function TicketsIndex({ tickets }: Props) {
       `}</style>
 
       <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-1 py-12">
           <div className="mb-2">
             <p
               className="font-['IBM_Plex_Mono']"
@@ -234,47 +243,128 @@ export default function TicketsIndex({ tickets }: Props) {
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {tickets.map((ticket) => {
-                const eventDate = formatEventDate(ticket.event_leg?.event_date);
-                return (
-                  <Link key={ticket.id} href={route('tickets.show', ticket.id)} className="mt-card">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" style={{ paddingLeft: 8 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <StatusBadge status={ticket.status} />
-
-                        <h2 className="font-['Anton']" style={{ textTransform: 'uppercase', fontSize: 19, color: C.text, marginTop: 10, letterSpacing: '0.005em' }}>
-                          {ticket.event_leg?.event?.name ?? 'Event'}
-                        </h2>
-
-                        <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 13, color: C.textMuted, marginTop: 4, fontWeight: 600 }}>
-                          {ticket.ticket_tier?.name ?? 'Ticket'}
-                          {ticket.ticket_tier?.price ? ` · $${ticket.ticket_tier.price}` : ''}
-                        </p>
-
-                        {(ticket.event_leg?.venue_name || eventDate) && (
-                          <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: C.textFaint, marginTop: 10 }}>
-                            <MapPin size={12} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-                            {ticket.event_leg?.venue_name}
-                            {ticket.event_leg?.city ? ` · ${ticket.event_leg.city}` : ''}
-                            {eventDate ? ` · ${eventDate}` : ''}
-                          </p>
-                        )}
-
-                        <p className="font-['IBM_Plex_Mono']" style={{ fontSize: 10.5, color: C.textFainter, marginTop: 10, letterSpacing: '0.04em' }}>
-                          Ticket code: {ticket.code}
-                        </p>
-                      </div>
-
-                      <div className="mt-view-link">
-                        View Ticket
-                        <ArrowRight size={13} strokeWidth={2} />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+         <div className="space-y-10">
+  {tickets.map((ticket) => {
+    const eventDate = formatEventDate(ticket.event_leg?.event_date);
+    return (
+      <Link
+        key={ticket.id}
+        href={route('tickets.show', ticket.id)}
+        className="flex flex-col sm:flex-row gap-3 sm:gap-4"
+      >
+        {/* Image — its own box, left on desktop / top on mobile */}
+        <div
+          className="relative w-full h-40 sm:h-auto sm:w-36 md:w-44 lg:w-52 shrink-0 rounded-lg overflow-hidden"
+          style={{ border: `1px solid ${C.borderDashed}` }}
+        >
+        {ticket.event_leg?.event?.media?.length ? (
+  <img
+    src={
+      ticket.event_leg.event.media[0].path.startsWith('http')
+        ? ticket.event_leg.event.media[0].path
+        : `/storage/${ticket.event_leg.event.media[0].path}`
+    }
+    alt=""
+    className="h-full w-full object-cover"
+  />
+) : ticket.event_leg?.event?.image_url ? (
+  <img
+    src={ticket.event_leg.event.image_url}
+    alt=""
+    className="h-full w-full object-cover"
+  />
+) : (
+            <div
+              className="h-full w-full flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${C.surface}, ${C.bg})` }}
+            >
+              <TicketIcon size={24} color={C.textFainter} strokeWidth={1.4} />
             </div>
+          )}
+        </div>
+
+        {/* Content card — its own box, fills remaining width */}
+        <div className="mt-card flex-1" style={{ margin: 0 }}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 h-full">
+            <div style={{ minWidth: 0, paddingLeft: 8 }}>
+              <StatusBadge status={ticket.status} />
+
+              <h2
+                className="font-['Anton']"
+                style={{
+                  textTransform: 'uppercase',
+                  fontSize: 19,
+                  color: C.text,
+                  marginTop: 10,
+                  letterSpacing: '0.005em',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {ticket.event_leg?.event?.name ?? 'Event'}
+              </h2>
+
+              <p
+                style={{
+                  fontFamily: "'Manrope', sans-serif",
+                  fontSize: 13,
+                  color: C.textMuted,
+                  marginTop: 4,
+                  fontWeight: 600,
+                }}
+              >
+                {ticket.ticket_tier?.name ?? 'Ticket'}
+                {ticket.ticket_tier?.price ? ` · $${ticket.ticket_tier.price}` : ''}
+              </p>
+
+              {(ticket.event_leg?.venue_name || eventDate) && (
+                <p
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 11.5,
+                    color: C.textFaint,
+                    marginTop: 10,
+                  }}
+                >
+                  <MapPin size={12} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                  {ticket.event_leg?.venue_name}
+                  {ticket.event_leg?.city ? ` · ${ticket.event_leg.city}` : ''}
+                  {eventDate ? ` · ${eventDate}` : ''}
+                </p>
+              )}
+
+              <p
+                className="font-['IBM_Plex_Mono']"
+                style={{
+                  fontSize: 10.5,
+                  color: C.textFainter,
+                  marginTop: 10,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Ticket code: {ticket.code}
+              </p>
+            </div>
+
+            {/* View — pinned right on desktop (matches the "|" divider
+                in the sketch), below content on mobile */}
+            <div
+              className="mt-view-link shrink-0 sm:pl-4"
+              style={{
+                borderLeft: undefined,
+              }}
+            >
+              View Ticket
+              <ArrowRight size={13} strokeWidth={2} />
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  })}
+</div>
           )}
         </div>
       </div>

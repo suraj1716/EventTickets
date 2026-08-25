@@ -58,8 +58,11 @@ export default function EventsIndex({
   filters,
   categories,
 }: Props) {
+    console.log('events:', events);
+  console.log('first event:', events?.data?.[0]);
+  console.log('first event media:', events?.data?.[0]?.media);
   const [local, setLocal] = useState<EventSearchFilters>(filters);
-
+console.log('events',events)
   function apply(next: Partial<EventSearchFilters>) {
     const merged = {
       ...local,
@@ -726,14 +729,21 @@ function EventCard({ event, index }: { event: Event; index: number }) {
         }}
       >
         {/* Poster image */}
-        <div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
-          {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt=""
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
+      {/* Poster image */}
+<div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
+  {event.media?.length > 0 ? (
+    <img
+      src={event.media[0].url}
+      alt={event.name}
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
+  ) : event.image_url ? (
+    <img
+      src={event.image_url}
+      alt={event.name}
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
+  ) : (
             <div className="relative h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,182,39,0.10),transparent_35%),radial-gradient(circle_at_80%_80%,rgba(139,107,255,0.10),transparent_30%)]" />
               <div className="absolute inset-0 flex items-center justify-center">
