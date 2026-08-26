@@ -157,7 +157,6 @@ class StripeController extends Controller
 
                 // ── Gift-card-shop purchases: no Order row exists yet, create it now ──
                 $metadata = $session->metadata ? $session->metadata->toArray() : [];
-
                 Log::info('checkout.session.completed metadata', ['metadata' => $metadata]);
 
                 if (!empty($metadata['voucher_ids']) && !empty($metadata['gift_card_template_id'])) {
@@ -166,12 +165,7 @@ class StripeController extends Controller
                     Log::warning('Gift card fulfillment skipped — metadata missing', ['metadata' => $metadata]);
                 }
 
-                // ── Ticket resale purchases: no Order row at all, and no
-                // stock/tier/cart logic applies — this is an ownership
-                // transfer of an EXISTING ticket, not a new purchase.
-                // Handled entirely separately and returns early, since
-                // none of the Order-based logic below this point
-                // applies to a resale transaction.
+                // ── Ticket resale purchases — unchanged, returns early ──
                 if (!empty($metadata['resale_listing_id'])) {
                     try {
                         $listing = \App\Models\TicketResaleListing::findOrFail($metadata['resale_listing_id']);
@@ -204,107 +198,215 @@ class StripeController extends Controller
 
                 $productsToDeleteFromCart = [];
                 $userId = null;
+                $fulfillmentFailures = [];
+                $successfulOrderIds = [];
 
                 foreach ($orders as $order) {
-                    $order->payment_intent   = $paymentIntent;
-                    $order->payment_method   = $paymentMethodType;
-                    $order->stripe_amount    = $session['amount_total'] / 100;
-                    $order->stripe_charge_id = $chargeId;
-                    $order->status           = OrderStatusEnum::Paid->value;
-                    $order->is_paid          = true;
-                    $order->paid_at = now();
-                    $order->save();
+                    try {
+                        DB::transaction(function () use (
+                            $order,
+                            $paymentIntent,
+                            $paymentMethodType,
+                            $session,
+                            $chargeId,
+                            &$productsToDeleteFromCart,
+                            &$userId,
+                            &$successfulOrderIds
+                        ) {
+                            // ---- 1. Validate seat availability BEFORE any money/status/stock change ----
+                            $seatIds = $order->orderItems
+                                ->flatMap(fn($item) => $item->seat_ids ?? [])
+                                ->filter()
+                                ->unique()
+                                ->values();
 
-                    // Redeem voucher only now that payment is confirmed
-                    if ($order->voucher_id && $order->voucher_discount > 0) {
-                        $orderVoucher = Voucher::lockForUpdate()->find($order->voucher_id);
-                        if ($orderVoucher) {
-                            $alreadyRedeemed = VoucherUsage::where('order_id', $order->id)
-                                ->where('voucher_id', $orderVoucher->id)
-                                ->exists();
+                            if ($seatIds->isNotEmpty()) {
+                                $lockedSeats = \App\Models\EventSeat::whereIn('id', $seatIds)
+                                    ->lockForUpdate()
+                                    ->get();
 
-                            if (!$alreadyRedeemed) {
-                                VoucherUsage::create([
-                                    'voucher_id'  => $orderVoucher->id,
-                                    'user_id'     => $order->user_id,
-                                    'order_id'    => $order->id,
-                                    'amount_used' => $order->voucher_discount,
-                                ]);
+                                $unavailable = $lockedSeats->firstWhere('status', '!=', 'available');
 
-                                if ($orderVoucher->type === 'gift') {
-                                    $orderVoucher->remaining_amount = max(0, ($orderVoucher->remaining_amount ?? 0) - $order->voucher_discount);
-                                    if ($orderVoucher->remaining_amount <= 0) {
-                                        $orderVoucher->remaining_amount = 0;
-                                        $orderVoucher->active = false;
-                                    }
-                                } elseif ($orderVoucher->type === 'promo') {
-                                    $orderVoucher->used_count += 1;
-                                    if ($orderVoucher->max_uses && $orderVoucher->used_count >= $orderVoucher->max_uses) {
-                                        $orderVoucher->active = false;
+                                if ($unavailable) {
+                                    Log::error('Seat already unavailable at payment confirmation', [
+                                        'order_id' => $order->id,
+                                        'seat_id' => $unavailable->id,
+                                        'seat_status' => $unavailable->status,
+                                    ]);
+
+                                    $order->status = \App\Enums\OrderStatusEnum::PaidFulfillmentFailed->value;
+                                    $order->is_paid = true; // money was actually captured
+                                    $order->payment_intent = $paymentIntent;
+                                    $order->paid_at = now();
+                                    $order->fulfillment_error = 'Seat already sold: seat #' . $unavailable->id;
+                                    $order->save();
+
+                                    throw new \RuntimeException(
+                                        'Seat ' . $unavailable->id . ' is no longer available.'
+                                    );
+                                }
+                            }
+
+                            // ---- 2. Reserve tier stock (locked) — safe now that seats are confirmed ----
+                            foreach ($order->orderItems as $orderItem) {
+                                if ($orderItem->ticket_tier_id) {
+                                    $tier = \App\Models\TicketTier::lockForUpdate()->find($orderItem->ticket_tier_id);
+
+                                    if (! $tier || ! $tier->reserve($orderItem->quantity)) {
+                                        Log::error('Ticket tier oversold on payment confirmation', [
+                                            'order_id' => $order->id,
+                                            'ticket_tier_id' => $orderItem->ticket_tier_id,
+                                        ]);
+
+                                        $order->status = \App\Enums\OrderStatusEnum::PaidFulfillmentFailed->value;
+                                        $order->is_paid = true;
+                                        $order->payment_intent = $paymentIntent;
+                                        $order->paid_at = now();
+                                        $order->fulfillment_error = 'Ticket tier oversold at payment confirmation';
+                                        $order->save();
+
+                                        throw new \RuntimeException(
+                                            "Ticket tier {$tier->id} is sold out."
+                                        );
                                     }
                                 }
-
-                                $orderVoucher->save();
-                            }
-                        }
-                    }
-
-                    $userId = $order->user_id;
-
-                    $productsToDeleteFromCart = array_merge(
-                        $productsToDeleteFromCart,
-                        $order->orderItems->pluck('product_id')->toArray()
-                    );
-
-                    foreach ($order->orderItems as $orderItem) {
-                        $options = $orderItem->variation_type_option_ids;
-                        $product = $orderItem->product;
-
-                        if ($orderItem->ticket_tier_id) {
-                            $tier = \App\Models\TicketTier::lockForUpdate()->find($orderItem->ticket_tier_id);
-
-                            if ($tier && ! $tier->reserve($orderItem->quantity)) {
-                                // Extremely rare: tier sold out between checkout() and payment
-                                // confirming. Log it — you'll want to decide manually whether
-                                // to refund or honor the overs old ticket.
-                                Log::error('Ticket tier oversold on payment confirmation', [
-                                    'order_id' => $order->id,
-                                    'ticket_tier_id' => $orderItem->ticket_tier_id,
-                                ]);
                             }
 
-                            continue; // tickets are generated in a separate pass below, not here
-                        }
+                            // ---- 3. Everything validated — safe to mark Paid ----
+                            $order->payment_intent   = $paymentIntent;
+                            $order->payment_method   = $paymentMethodType;
+                            $order->stripe_amount    = $session['amount_total'] / 100;
+                            $order->stripe_charge_id = $chargeId;
+                            $order->status           = OrderStatusEnum::Paid->value;
+                            $order->is_paid          = true;
+                            $order->paid_at          = now();
+                            $order->save();
 
-                        if (! $product) {
-                            continue; // gift-card / non-product line items have no stock to decrement
-                        }
+                            // Redeem voucher only now that payment is confirmed
+                            if ($order->voucher_id && $order->voucher_discount > 0) {
+                                $orderVoucher = Voucher::lockForUpdate()->find($order->voucher_id);
+                                if ($orderVoucher) {
+                                    $alreadyRedeemed = VoucherUsage::where('order_id', $order->id)
+                                        ->where('voucher_id', $orderVoucher->id)
+                                        ->exists();
 
-                        if ($options) {
-                            // ... variation stock decrement (unchanged)
-                        } elseif ($product->quantity !== null) {
-                            $product->quantity -= $orderItem->quantity;
-                            $product->save();
-                        }
-                    }
+                                    if (!$alreadyRedeemed) {
+                                        VoucherUsage::create([
+                                            'voucher_id'  => $orderVoucher->id,
+                                            'user_id'     => $order->user_id,
+                                            'order_id'    => $order->id,
+                                            'amount_used' => $order->voucher_discount,
+                                        ]);
 
-                    // After the per-item loop, once per order that contains ticket lines:
-                    if ($order->orderItems->contains(fn($item) => $item->ticket_tier_id !== null)) {
-                        app(\App\Services\TicketGenerationService::class)->generate($order);
+                                        if ($orderVoucher->type === 'gift') {
+                                            $orderVoucher->remaining_amount = max(0, ($orderVoucher->remaining_amount ?? 0) - $order->voucher_discount);
+                                            if ($orderVoucher->remaining_amount <= 0) {
+                                                $orderVoucher->remaining_amount = 0;
+                                                $orderVoucher->active = false;
+                                            }
+                                        } elseif ($orderVoucher->type === 'promo') {
+                                            $orderVoucher->used_count += 1;
+                                            if ($orderVoucher->max_uses && $orderVoucher->used_count >= $orderVoucher->max_uses) {
+                                                $orderVoucher->active = false;
+                                            }
+                                        }
+
+                                        $orderVoucher->save();
+                                    }
+                                }
+                            }
+
+                            $userId = $order->user_id;
+
+                            $productsToDeleteFromCart = array_merge(
+                                $productsToDeleteFromCart,
+                                $order->orderItems->pluck('product_id')->toArray()
+                            );
+
+                            foreach ($order->orderItems as $orderItem) {
+                                $options = $orderItem->variation_type_option_ids;
+                                $product = $orderItem->product;
+
+                                if ($orderItem->ticket_tier_id) {
+                                    continue; // reserved above; tickets generated below
+                                }
+
+                                if (! $product) {
+                                    continue; // gift-card / non-product line items have no stock to decrement
+                                }
+
+                                if ($options) {
+                                    // ... variation stock decrement (unchanged)
+                                } elseif ($product->quantity !== null) {
+                                    $product->quantity -= $orderItem->quantity;
+                                    $product->save();
+                                }
+                            }
+
+                            // ---- 4. Generate tickets — inside the same transaction, so a failure here
+                            // rolls back the Paid status + tier reserve + voucher redemption together ----
+                            if ($order->orderItems->contains(fn($item) => $item->ticket_tier_id !== null)) {
+                                try {
+                                    app(\App\Services\TicketGenerationService::class)->generate($order);
+                                } catch (\Throwable $e) {
+                                    Log::error('Ticket generation failed after payment confirmed', [
+                                        'order_id' => $order->id,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                    throw $e;
+                                }
+                            }
+
+                            $successfulOrderIds[] = $order->id;
+                        });
+                    } catch (\Throwable $e) {
+                        $order->refresh();
+
+                        $order->status =
+                            OrderStatusEnum::PaidFulfillmentFailed->value;
+
+                        $order->is_paid = true;
+                        $order->payment_intent = $paymentIntent;
+                        $order->paid_at = now();
+                        $order->fulfillment_error = $e->getMessage();
+                        $order->save();
+
+                        $fulfillmentFailures[] = $order->id;
+
+                        Log::critical(
+                            'Order paid but fulfillment failed',
+                            [
+                                'order_id' => $order->id,
+                                'session_id' => $session->id,
+                                'error' => $e->getMessage(),
+                            ]
+                        );
+
+                        continue;
                     }
                 }
 
+                if (! empty($fulfillmentFailures)) {
+                    Log::critical('Orders paid but fulfillment failed — needs manual review/refund', [
+                        'order_ids' => $fulfillmentFailures,
+                        'session_id' => $session->id,
+                    ]);
+                    // TODO: Slack/email alert to admin — this is captured-money/no-product until resolved
+                }
 
-                Log::info('SENDING CheckoutCompleted', [
-                    'to_email' => $orders[0]->user?->email,
-                    'to_user_id' => $orders[0]->user_id,
-                    'order_ids' => $orders->pluck('id'),
-                ]);
+                // Everything below only concerns orders that actually completed fulfillment
+                $orders = $orders->whereIn('id', $successfulOrderIds);
+
                 if ($orders->isNotEmpty()) {
-                    Mail::to($orders[0]->user)->queue(new CheckoutCompleted($orders));
+                    Log::info('SENDING CheckoutCompleted', [
+                        'to_email' => $orders->first()->user?->email,
+                        'to_user_id' => $orders->first()->user_id,
+                        'order_ids' => $orders->pluck('id'),
+                    ]);
+                    Mail::to($orders->first()->user)->queue(new CheckoutCompleted($orders));
                 }
 
-                // Gift card vouchers purchased via gift card shop — activate them now that payment is confirmed
+                // Gift card vouchers purchased via gift card shop — activate now that payment is confirmed
                 if (!empty($metadata['voucher_ids'])) {
                     $ids = explode(',', $metadata['voucher_ids']);
                     $vouchers = Voucher::whereIn('id', $ids)
@@ -316,7 +418,6 @@ class StripeController extends Controller
 
                     Log::info('Gift card vouchers activated', ['ids' => $ids]);
 
-                    // ── Email any voucher with a gift recipient ──
                     $buyer = User::find($session->metadata->purchased_by ?? null);
 
                     foreach ($vouchers as $voucher) {
@@ -333,14 +434,10 @@ class StripeController extends Controller
                     }
                 }
 
-                // ── Clear cart items for this checkout ──────────────────────────────
-
-                // Product cart items
+                // ── Clear cart items — only for orders that actually fulfilled ──
                 $productIds = $orders
                     ->flatMap(fn($order) => $order->orderItems->pluck('product_id'))
-                    ->filter()
-                    ->unique()
-                    ->values();
+                    ->filter()->unique()->values();
 
                 if ($productIds->isNotEmpty()) {
                     CartItem::where('user_id', $userId)
@@ -349,12 +446,9 @@ class StripeController extends Controller
                         ->delete();
                 }
 
-                // Ticket cart items
                 $ticketTierIds = $orders
                     ->flatMap(fn($order) => $order->orderItems->pluck('ticket_tier_id'))
-                    ->filter()
-                    ->unique()
-                    ->values();
+                    ->filter()->unique()->values();
 
                 if ($ticketTierIds->isNotEmpty()) {
                     CartItem::where('user_id', $userId)
@@ -373,16 +467,10 @@ class StripeController extends Controller
                         'orders' => $orders->pluck('id')->toArray(),
                     ]);
 
-
-
                     try {
-                        Mail::to($orders[0]->user)
-                            ->send(new CheckoutCompleted($orders));
+                        Mail::to($orders->first()->user)->send(new CheckoutCompleted($orders));
                     } catch (\Exception $e) {
-                        Log::error(
-                            "Failed to send checkout completed email for voucher order: "
-                                . $e->getMessage()
-                        );
+                        Log::error("Failed to send checkout completed email for voucher order: " . $e->getMessage());
                     }
                 }
 

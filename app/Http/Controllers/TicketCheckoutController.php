@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Services\CartService;
+use App\Services\StripeCheckoutService;
 use Illuminate\Http\Request;
 
 class TicketCheckoutController extends Controller
@@ -17,7 +18,12 @@ class TicketCheckoutController extends Controller
      * any unrelated product cart items the user already had aren't
      * swept into the same Stripe session.
      */
-    public function store(Request $request, CartService $cartService, CartController $cartController)
+    public function store(
+        Request $request,
+        CartService $cartService,
+        StripeCheckoutService $stripeCheckoutService,
+        CartController $cartController
+    )
     {
         $data = $request->validate([
             'event_id' => ['required', 'integer', 'exists:events,id'],
@@ -69,7 +75,8 @@ class TicketCheckoutController extends Controller
 
         return $cartController->checkout(
             $request,
-            $cartService
+            $cartService,
+            $stripeCheckoutService
         );
     }
 }

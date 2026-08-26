@@ -40,6 +40,8 @@ class Order extends Model
         'vendor_subtotal',
         'is_paid',
         'manual_paid_at',
+        'paid_at',
+        'fulfillment_error',
         'payment_method',
         'staff_id',
         'voucher_id',
@@ -102,4 +104,9 @@ class Order extends Model
     {
         return $this->hasOne(VoucherUsage::class);
     }
+
+    public function tickets()
+{
+    return $this->hasManyThrough(Ticket::class, OrderItem::class);
+}
 }
