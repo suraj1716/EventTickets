@@ -17,6 +17,7 @@ use App\Models\Voucher;
 use App\Models\VoucherUsage;
 use App\Notifications\NewOrderNotification;
 use App\Services\CartService;
+use App\Services\StripeCheckoutService;
 use App\Services\CartService as ServicesCartService;
 use App\Services\GoogleCalendarService;
 use Exception;
@@ -27,8 +28,6 @@ use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Stripe\Checkout\Session;
-use Stripe\Stripe;
 
 use App\Mail\NewOrderMail;
 use App\Mail\CheckoutCompleted;
@@ -157,7 +156,7 @@ class CartController extends Controller
         return back()->with('success', 'Product removed from cart successfully.');
     }
 
-    public function checkout(Request $request, CartService $cartService)
+    public function checkout(Request $request, CartService $cartService, StripeCheckoutService $stripeCheckoutService)
     {
         Log::info('Checkout hit', [
             'user_id'    => $request->user()?->id,
@@ -170,7 +169,6 @@ class CartController extends Controller
             'voucher_id' => ['nullable', 'exists:vouchers,id'],
         ]);
 
-        Stripe::setApiKey(config('app.stripe_secret_key'));
 
         $user = $request->user();
         $vendorId = $request->input('vendor_id');
@@ -203,7 +201,13 @@ class CartController extends Controller
             }
         }
 
-        DB::beginTransaction();
+        // Only own the transaction when the caller does not already
+        // have one (e.g. Laravel's RefreshDatabase test transaction).
+        $ownsTransaction = DB::transactionLevel() === 0;
+
+        if ($ownsTransaction) {
+            DB::beginTransaction();
+        }
 
         try {
             $checkoutCartItems = $vendorId ? [$allCartItems[$vendorId]] : $allCartItems;
@@ -213,7 +217,11 @@ class CartController extends Controller
             if ($voucherId) {
                 $voucher = Voucher::lockForUpdate()->find($voucherId);
                 if (!$voucher || !$voucher->isUsable()) {
-                    DB::rollBack();
+                    if ($ownsTransaction) {
+                        if ($ownsTransaction) {
+                DB::rollBack();
+            }
+                    }
                     return back()->withErrors(['error' => 'Voucher is no longer valid.']);
                 }
             }
@@ -361,7 +369,11 @@ class CartController extends Controller
                                 $user->save();
                             }
                         } catch (\Exception $e) {
-                            DB::rollBack();
+                            if ($ownsTransaction) {
+                        if ($ownsTransaction) {
+                DB::rollBack();
+            }
+                    }
                             return redirect()->back()->with('error', 'Google Calendar sync failed: ' . $e->getMessage());
                         }
                     }
@@ -502,7 +514,9 @@ class CartController extends Controller
                     Mail::to($user)->queue(new CheckoutCompleted(collect($orders)));
                 }
 
-                DB::commit();
+                if ($ownsTransaction) {
+                    DB::commit();
+                }
 
                 return Inertia::render('Stripe/Success', [
                     'orders' => OrderViewResource::collection($orders)->collection->toArray(),
@@ -536,7 +550,9 @@ class CartController extends Controller
                     Mail::to($user)->queue(new CheckoutCompleted(collect($orders)));
                 }
 
-                DB::commit();
+                if ($ownsTransaction) {
+                    DB::commit();
+                }
 
                 return Inertia::render('Stripe/Success', [
                     'orders' => OrderViewResource::collection($orders)->collection->toArray(),
@@ -544,7 +560,7 @@ class CartController extends Controller
             }
 
             // ── Otherwise, charge the remainder through Stripe ──
-            $session = Session::create([
+            $session = $stripeCheckoutService->createSession([
                 'customer_email' => $user->email,
                 'line_items' => $lineItems,
                 'mode' => 'payment',
@@ -561,7 +577,9 @@ class CartController extends Controller
 
             return Inertia::location($session->url);
         } catch (\Exception $e) {
-            DB::rollBack();
+            if ($ownsTransaction) {
+                DB::rollBack();
+            }
             Log::error('Checkout failed: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine());
             return back()->withErrors('Checkout failed. Please try again.');
         }
