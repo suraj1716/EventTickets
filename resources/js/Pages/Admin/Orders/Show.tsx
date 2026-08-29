@@ -3,14 +3,7 @@ import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
 import { createPortal } from "react-dom";
 
-import {
-  AdminPageHeader,
-  AdminBtn,
-  StatusBadge,
-  FlashMessage,
-  ConfirmModal,
-  Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, StatusBadge, FlashMessage, ConfirmModal, Icons, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 interface OrderItem {
   id: number;
@@ -68,16 +61,16 @@ function InfoRow({
         alignItems: "flex-start",
         gap: 16,
         padding: "10px 0",
-        borderBottom: "1px solid var(--color-border)",
+        borderBottom: `1px solid ${C.border}`,
       }}
     >
       <span
         style={{
-          fontFamily: "var(--font-body)",
+          fontFamily: `${fontBody}`,
           fontSize: "10px",
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: "var(--color-text-muted)",
+          color: `${C.textMuted}`,
           flexShrink: 0,
         }}
       >
@@ -85,9 +78,9 @@ function InfoRow({
       </span>
       <span
         style={{
-          fontFamily: "var(--font-body)",
+          fontFamily: `${fontBody}`,
           fontSize: "13px",
-          color: "var(--color-text)",
+          color: `${C.text}`,
           textAlign: "right",
         }}
       >
@@ -107,17 +100,17 @@ function SectionCard({
   return (
     <div
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-md)",
+        background: `${C.surface}`,
+        border: `1px solid ${C.border}`,
+        borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: "12px 20px",
-          borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-bg-alt)",
+          borderBottom: `1px solid ${C.border}`,
+          background: `${C.bgAlt}`,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -127,17 +120,17 @@ function SectionCard({
           style={{
             width: 3,
             height: 16,
-            background: "var(--color-accent)",
+            background: `${C.amber}`,
             borderRadius: 2,
           }}
         />
         <span
           style={{
-            fontFamily: "var(--font-body)",
+            fontFamily: `${fontBody}`,
             fontSize: "10px",
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: "var(--color-text-muted)",
+            color: `${C.textMuted}`,
             fontWeight: 500,
           }}
         >
@@ -154,12 +147,12 @@ const menuItemStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
   padding: "8px 10px",
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "12px",
   letterSpacing: "0.04em",
-  color: "var(--color-text)",
+  color: `${C.text}`,
   cursor: "pointer",
-  borderRadius: "var(--radius-sm)",
+  borderRadius: "8px",
   zIndex: 1000,
 };
 export default function OrderShow({ order, statuses, flash }: Props) {
@@ -282,7 +275,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
               <em
                 style={{
                   fontStyle: "italic",
-                  color: "var(--color-accent-light)",
+                  color: `${C.amberHover}`,
                 }}
               >
                 #{order.id}
@@ -330,10 +323,10 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                               refundMenuRef.current.getBoundingClientRect()
                                 .right - 240,
                             zIndex: 9999,
-                            background: "var(--color-surface)",
-                            border: "1px solid var(--color-border)",
-                            borderRadius: "var(--radius-sm)",
-                            boxShadow: "var(--shadow-lg)",
+                            background: `${C.surface}`,
+                            border: `1px solid ${C.border}`,
+                            borderRadius: "8px",
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
                             padding: "10px",
                             width: 240,
                             display: "flex",
@@ -386,7 +379,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
 
                           <div
                             style={{
-                              borderTop: "1px solid var(--color-border)",
+                              borderTop: `1px solid ${C.border}`,
                               paddingTop: "8px",
                               display: "flex",
                               gap: "6px",
@@ -404,10 +397,10 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                                 flex: 1,
                                 minWidth: 0,
                                 padding: "6px 8px",
-                                fontFamily: "var(--font-body)",
+                                fontFamily: `${fontBody}`,
                                 fontSize: "12px",
-                                border: "1px solid var(--color-border)",
-                                borderRadius: "var(--radius-sm)",
+                                border: `1px solid ${C.border}`,
+                                borderRadius: "8px",
                               }}
                             />
                             <button
@@ -453,8 +446,8 @@ export default function OrderShow({ order, statuses, flash }: Props) {
             <SectionCard title="Order Items">
               <div
                 style={{
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-sm)",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "8px",
                   overflow: "hidden",
                 }}
               >
@@ -462,8 +455,8 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                   <thead>
                     <tr
                       style={{
-                        background: "var(--color-bg-alt)",
-                        borderBottom: "1px solid var(--color-border)",
+                        background: `${C.bgAlt}`,
+                        borderBottom: `1px solid ${C.border}`,
                       }}
                     >
                       {["", "Product", "Qty", "Unit Price", "Subtotal"].map(
@@ -473,11 +466,11 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                             style={{
                               padding: "8px 12px",
                               textAlign: "left",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "9px",
                               letterSpacing: "0.15em",
                               textTransform: "uppercase",
-                              color: "var(--color-text-muted)",
+                              color: `${C.textMuted}`,
                               fontWeight: 500,
                             }}
                           >
@@ -492,7 +485,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                       <tr
                         key={item.id}
                         style={{
-                          borderBottom: "1px solid var(--color-border)",
+                          borderBottom: `1px solid ${C.border}`,
                         }}
                       >
                         <td style={{ padding: "10px 12px" }}>
@@ -500,10 +493,10 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                             style={{
                               width: 36,
                               height: 36,
-                              borderRadius: "var(--radius-sm)",
+                              borderRadius: "8px",
                               overflow: "hidden",
-                              background: "var(--color-bg-alt)",
-                              border: "1px solid var(--color-border)",
+                              background: `${C.bgAlt}`,
+                              border: `1px solid ${C.border}`,
                               flexShrink: 0,
                             }}
                           >
@@ -536,9 +529,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-text)",
+                            color: `${C.text}`,
                           }}
                         >
                           {item.title}
@@ -546,9 +539,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           ×{item.quantity}
@@ -556,9 +549,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           A${Number(item.price).toFixed(2)}
@@ -566,9 +559,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-primary)",
+                            color: `${C.amber}`,
                             fontWeight: 500,
                           }}
                         >
@@ -581,8 +574,8 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     {order.booking_fee > 0 && (
                       <tr
                         style={{
-                          borderTop: "1px solid var(--color-border)",
-                          background: "var(--color-bg-alt)",
+                          borderTop: `1px solid ${C.border}`,
+                          background: `${C.bgAlt}`,
                         }}
                       >
                         <td
@@ -590,9 +583,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                           style={{
                             padding: "10px 12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "11px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
                           }}
@@ -602,9 +595,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           A${Number(order.booking_fee).toFixed(2)}
@@ -615,8 +608,8 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     {Number(order.voucher_discount) > 0 && (
                       <tr
                         style={{
-                          borderTop: "1px solid var(--color-border)",
-                          background: "var(--color-bg-alt)",
+                          borderTop: `1px solid ${C.border}`,
+                          background: `${C.bgAlt}`,
                         }}
                       >
                         <td
@@ -624,9 +617,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                           style={{
                             padding: "10px 12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "11px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
                           }}
@@ -636,9 +629,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "10px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-error)",
+                            color: `${C.error}`,
                           }}
                         >
                           −A${Number(order.voucher_discount).toFixed(2)}
@@ -648,8 +641,8 @@ export default function OrderShow({ order, statuses, flash }: Props) {
 
                     <tr
                       style={{
-                        borderTop: "2px solid var(--color-border)",
-                        background: "var(--color-bg-alt)",
+                        borderTop: `2px solid ${C.border}`,
+                        background: `${C.bgAlt}`,
                       }}
                     >
                       <td
@@ -657,11 +650,11 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         style={{
                           padding: "12px",
                           textAlign: "right",
-                          fontFamily: "var(--font-body)",
+                          fontFamily: `${fontBody}`,
                           fontSize: "10px",
                           letterSpacing: "0.14em",
                           textTransform: "uppercase",
-                          color: "var(--color-text-muted)",
+                          color: `${C.textMuted}`,
                         }}
                       >
                         Order Total
@@ -669,9 +662,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                       <td
                         style={{
                           padding: "12px",
-                          fontFamily: "var(--font-display)",
+                          fontFamily: `${fontDisplay}`,
                           fontSize: "1.2rem",
-                          color: "var(--color-primary)",
+                          color: `${C.amber}`,
                         }}
                       >
                         A${Number(order.gross_total).toFixed(2)}
@@ -679,17 +672,17 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     </tr>
 
                     {Number(order.voucher_discount) > 0 && (
-                      <tr style={{ background: "var(--color-bg-alt)" }}>
+                      <tr style={{ background: `${C.bgAlt}` }}>
                         <td
                           colSpan={4}
                           style={{
                             padding: "6px 12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "10px",
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           Amount Charged
@@ -697,9 +690,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         <td
                           style={{
                             padding: "6px 12px",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "13px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           A${Number(order.total_price).toFixed(2)}
@@ -724,18 +717,18 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                   <div
                     style={{
                       padding: "14px 16px",
-                      background: "var(--color-bg-alt)",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--color-border)",
+                      background: `${C.bgAlt}`,
+                      borderRadius: "8px",
+                      border: `1px solid ${C.border}`,
                     }}
                   >
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginBottom: 6,
                       }}
                     >
@@ -743,9 +736,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "14px",
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                         fontWeight: 500,
                       }}
                     >
@@ -755,18 +748,18 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                   <div
                     style={{
                       padding: "14px 16px",
-                      background: "var(--color-bg-alt)",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--color-border)",
+                      background: `${C.bgAlt}`,
+                      borderRadius: "8px",
+                      border: `1px solid ${C.border}`,
                     }}
                   >
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginBottom: 6,
                       }}
                     >
@@ -774,9 +767,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "14px",
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                         fontWeight: 500,
                       }}
                     >
@@ -793,18 +786,18 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                 <div
                   style={{
                     padding: "14px 16px",
-                    background: "var(--color-bg-alt)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)",
+                    background: `${C.bgAlt}`,
+                    borderRadius: "8px",
+                    border: `1px solid ${C.border}`,
                   }}
                 >
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "10px",
                       letterSpacing: "0.14em",
                       textTransform: "uppercase",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginBottom: 6,
                     }}
                   >
@@ -812,9 +805,9 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "14px",
-                      color: "var(--color-text)",
+                      color: `${C.text}`,
                       fontWeight: 500,
                     }}
                   >
@@ -861,11 +854,11 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                         style={{
                           marginLeft: 6,
                           fontSize: 10,
-                          color: "var(--color-accent)",
+                          color: `${C.amber}`,
                           background: "rgba(201,169,110,0.1)",
                           border: "1px solid rgba(201,169,110,0.25)",
                           padding: "1px 6px",
-                          borderRadius: "var(--radius-full)",
+                          borderRadius: "999px",
                         }}
                       >
                         Walk-in
@@ -882,7 +875,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                       style={{
                         fontSize: 11,
                         fontFamily: "monospace",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                       }}
                     >
                       {order.payment_intent.slice(0, 24)}…
@@ -909,12 +902,12 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                   style={{
                     width: "100%",
                     padding: "9px 12px",
-                    fontFamily: "var(--font-body)",
+                    fontFamily: `${fontBody}`,
                     fontSize: "13px",
-                    color: "var(--color-text)",
-                    background: "var(--color-bg-alt)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    color: `${C.text}`,
+                    background: `${C.bgAlt}`,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     outline: "none",
                   }}
                 >

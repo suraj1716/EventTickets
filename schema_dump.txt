@@ -1,0 +1,5579 @@
+]633;E;{   echo "===== MODELS ====="\x3b   for f in app/Models/*.php\x3b do     echo\x3b     echo "######## $f ########"\x3b     cat "$f"\x3b   done\x3b    echo\x3b   echo "===== MIGRATIONS ====="\x3b   for f in database/migrations/*.php\x3b do     echo\x3b     echo "######## $f ########"\x3b     cat "$f"\x3b   done\x3b    echo\x3b   echo "===== ENUMS ====="\x3b   for f in app/Enums/*.php\x3b do     echo\x3b     echo "######## $f ########"\x3b     cat "$f"\x3b   done\x3b } > schema_dump.txt;f47550b7-334f-458c-a096-857b4a62ae43]633;C===== MODELS =====
+
+######## app/Models/Artist.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
+
+class Artist extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name', 'slug'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Artist $artist) {
+            $artist->slug ??= Str::slug($artist->name);
+        });
+    }
+
+    public function events(): BelongsToMany
+    {
+        return $this->belongsToMany(Event::class);
+    }
+}
+
+######## app/Models/Booking.php ########
+<?php
+
+namespace App\Models;
+
+use App\Support\TimeSlotParser;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Booking extends Model
+{
+    protected $table = 'bookings';
+
+    protected $fillable = [
+        'user_id',
+        'booking_date',
+        'time_slot',
+        'order_id',
+        'staff_id',
+        'edited_at',
+        'booking_fee_refunded',
+        'booking_fee_refund_amount'
+    ];
+
+    protected $casts = [
+        'is_read' => 'boolean',
+        'booking_date' => 'date',
+    ];
+
+    protected static function booted()
+    {
+        static::saving(function (Booking $booking) {
+            $booking->sort_minutes = TimeSlotParser::toMinutes($booking->time_slot);
+        });
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(User::class, 'vendor_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'order_id');
+    }
+
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class);
+    }
+}
+
+######## app/Models/CartItem.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class CartItem extends Model
+{
+
+protected $appends = ['item_type'];
+   protected $fillable = [
+    'user_id',
+    'item_type',
+    'product_id',
+    'gift_card_template_id',
+    'ticket_tier_id',
+    'quantity',
+    'price',
+    'attachment_path',
+    'attachment_name',
+    'variation_type_option_ids',
+    'designer',
+    'gifted_to_email',
+    'seat_ids',
+
+];
+
+    protected $casts = [
+        'variation_type_option_ids' => 'array',
+        'designer'                  => 'boolean',
+           'seat_ids' => 'array',
+    ];
+
+    // ── Relationships ──────────────────────────────────────────────
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+
+public function getImageUrlAttribute(): ?string
+{
+    if ($this->gift_card_template_id) {
+        return $this->giftCardProduct?->image_url;
+    }
+
+    return $this->product?->image_url ?? null;
+}
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function giftCardProduct(): BelongsTo
+    {
+        return $this->belongsTo(GiftCardTemplate::class, 'gift_card_template_id');
+    }
+public function ticketTier(): BelongsTo
+{
+    return $this->belongsTo(\App\Models\TicketTier::class);
+}
+    public function variationTypeOption()
+    {
+        return $this->belongsToMany(VariationTypeOption::class, 'cart_item_variation_option');
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+
+    public function isGiftCard(): bool
+    {
+        return ! is_null($this->gift_card_template_id);
+    }
+}
+
+######## app/Models/Category.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Event;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+class Category extends Model
+{
+    protected $appends = ['image_url'];
+    protected $fillable = [
+        'name',
+        'description',
+        'parent_id',
+        'department_id',
+        'active',
+        'image',
+        'slug',
+        'created_by', // add this
+    ];
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'category_id');
+    }
+public function events(): BelongsToMany
+{
+    return $this->belongsToMany(Event::class);
+}
+    public function getImageUrlAttribute()
+    {
+        return $this->image ? Storage::disk('r2')->url($this->image) : null;
+    }
+
+    public function categoryGroups()
+    {
+        return $this->belongsToMany(CategoryGroup::class, 'category_group_category');
+    }
+}
+
+######## app/Models/CategoryGroup.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+class CategoryGroup extends Model
+{
+    use HasFactory;
+
+    protected $appends = ['image_url'];
+    protected $fillable = ['name', 'image', 'active'];
+
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class, 'category_group_category');
+    }
+    public function getImageUrlAttribute()
+{
+    return $this->image ? Storage::disk('r2')->url($this->image) : null;
+}
+
+// public function getRouteKeyName()
+// {
+//     return 'slug';
+// }
+}
+
+######## app/Models/Contact.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Contact extends Model
+{
+   protected $fillable = [
+    'name',
+    'email',
+    'phone',
+    'message',
+    'reason',
+    'department_id',
+    'category_id',
+    'product_id',
+    'quantity',
+    'file_path',
+    'is_read'
+];
+
+
+public function department()
+{
+    return $this->belongsTo(Department::class);
+}
+
+public function category()
+{
+    return $this->belongsTo(Category::class);
+}
+
+public function product()
+{
+    return $this->belongsTo(Product::class);
+}
+
+
+}
+
+
+######## app/Models/Department.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
+
+
+class Department extends Model
+{
+protected $appends = ['image_url'];
+    protected $fillable = [
+        'name',
+        'slug',
+        'meta_title',
+        'meta_description',
+        'image',  // add this
+        // other fields...
+    ];
+
+public function getImageUrlAttribute()
+{
+    return $this->image ? Storage::disk('r2')->url($this->image) : null;
+}
+
+    public function  categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
+    }
+
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('active', true);
+    }
+
+
+    public function scopeWithProducts($query)
+    {
+        return $query->whereHas('categories.products')
+            ->with(['categories' => function ($q) {
+                $q->whereHas('products');
+            }]);
+    }
+
+    // In Department.php
+    public function products()
+    {
+        return $this->hasManyThrough(
+            Product::class,
+            Category::class,
+            'department_id', // Foreign key on categories table
+            'category_id',   // Foreign key on products table
+            'id',           // Local key on departments table
+            'id'            // Local key on categories table
+        );
+    }
+}
+
+######## app/Models/Event.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
+
+class Event extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        'vendor_user_id',
+        'name',
+        'slug',
+        'description',
+        'image_url',
+        'type',
+        'status',
+        'languages',
+        'watchlist_enabled',
+        'published_at',
+    ];
+
+    protected $casts = [
+        'languages' => 'array',
+        'watchlist_enabled' => 'boolean',
+        'published_at' => 'datetime',
+    ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Event $event) {
+            $event->slug ??= static::uniqueSlug($event->name);
+        });
+    }
+
+public function media()
+{
+    return $this->hasMany(EventMedia::class)
+        ->orderBy('position');
+}
+
+    public static function uniqueSlug(string $name): string
+    {
+        $base = Str::slug($name);
+        $slug = $base;
+        $i = 1;
+
+        while (static::where('slug', $slug)->exists()) {
+            $slug = "{$base}-" . ++$i;
+        }
+
+        return $slug;
+    }
+
+    public function vendor(): BelongsTo
+    {
+        // vendors.user_id is the primary key (not id) — mirrors how
+        // Order::vendor() is keyed in the existing codebase.
+        return $this->belongsTo(Vendor::class, 'vendor_user_id', 'user_id');
+    }
+
+    public function legs(): HasMany
+    {
+        return $this->hasMany(EventLeg::class)->orderBy('sequence');
+    }
+
+    public function artists(): BelongsToMany
+    {
+        return $this->belongsToMany(Artist::class);
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class);
+    }
+
+    public function watchlist(): HasMany
+    {
+        return $this->hasMany(EventWatchlist::class);
+    }
+
+    public function watchlistCount(): int
+    {
+        return $this->watchlist()->count();
+    }
+
+    public function isTour(): bool
+    {
+        return $this->type === 'tour';
+    }
+
+    public function publish(): void
+    {
+        $this->update([
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+    }
+}
+
+######## app/Models/EventLeg.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+class EventLeg extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'event_id',
+        'venue_name',
+        'address',
+        'city',
+        'latitude',
+        'longitude',
+        'event_date',
+        'capacity',
+        'sequence',
+         'seating_type',
+          'venue_id',
+    ];
+
+    protected $casts = [
+        'event_date' => 'date',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+    ];
+
+
+
+public function venue(): BelongsTo
+{
+    return $this->belongsTo(Venue::class);
+}
+
+
+
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+public function seats(): HasMany
+{
+    return $this->hasMany(EventSeat::class)->orderBy('row_label')->orderBy('seat_number');
+}
+
+public function isReservedSeating(): bool
+{
+    return $this->seating_type === 'reserved';
+}
+    public function ticketTiers(): HasMany
+    {
+        return $this->hasMany(TicketTier::class)->orderBy('starts_at');
+    }
+
+    public function activeTier(): ?TicketTier
+    {
+        return $this->ticketTiers()
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->where('remaining', '>', 0)
+            ->first();
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+}
+
+######## app/Models/EventMedia.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+class EventMedia extends Model
+{
+    protected $fillable = ['event_id', 'type', 'path', 'mime_type', 'size', 'position'];
+
+    protected $appends = ['url'];
+
+    public function event()
+    {
+        return $this->belongsTo(Event::class);
+    }
+
+    public function getUrlAttribute(): string
+    {
+        return Storage::disk('public')->url($this->path);
+    }
+}
+
+######## app/Models/EventSeat.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class EventSeat extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'event_leg_id',
+        'venue_seat_id',
+        'ticket_tier_id',
+        'row_label',
+        'seat_number',
+        'label',
+        'status',
+    ];
+
+    protected $casts = [
+        'seat_number' => 'integer',
+    ];
+
+    public function eventLeg(): BelongsTo
+    {
+        return $this->belongsTo(EventLeg::class);
+    }
+
+    public function venueSeat(): BelongsTo
+    {
+        return $this->belongsTo(VenueSeat::class);
+    }
+
+    public function ticketTier(): BelongsTo
+    {
+        return $this->belongsTo(TicketTier::class);
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->status === 'available';
+    }
+}
+
+######## app/Models/EventWatchlist.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class EventWatchlist extends Model
+{
+    use HasFactory;
+
+    protected $table = 'event_watchlist';
+
+    protected $fillable = [
+        'event_id',
+        'email',
+        'user_id',
+        'notified',
+        'notified_at',
+    ];
+
+    protected $casts = [
+        'notified' => 'boolean',
+        'notified_at' => 'datetime',
+    ];
+
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+}
+
+######## app/Models/Faq.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Faq extends Model
+{
+    protected $fillable = ['question', 'answer'];
+}
+
+######## app/Models/Gallery.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+    use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class Gallery extends Model implements HasMedia
+{
+    use HasFactory, InteractsWithMedia;
+
+    protected $fillable = ['title', 'active'];
+
+
+
+
+public function registerMediaConversions(?Media $media = null): void
+{
+    $this->addMediaConversion('thumb')
+        ->width(400)
+        ->height(300)
+        ->quality(80)
+        ->nonQueued()
+        ->performOnCollections('gallery');
+}
+
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('gallery')
+        ->useDisk('r2');
+}
+}
+
+######## app/Models/GiftCardTemplate.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class GiftCardTemplate extends Model
+{
+    protected $fillable = [
+        'title',
+        'description',
+        'amount',
+        'image_path',
+        'active',
+        'sort_order',
+        'vendor_user_id'
+    ];
+
+    protected $casts = [
+        'active'  => 'boolean',
+        'amount'  => 'float',
+    ];
+
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(Voucher::class, 'gift_card_template_id');
+    }
+
+    public function getImageUrl(): string
+    {
+        return $this->image_path
+            ? \Storage::disk('r2')->url($this->image_path)
+            : asset('images/gift-card-placeholder.png');
+    }
+    public function vendorUser()
+{
+    return $this->belongsTo(User::class, 'vendor_user_id');
+}
+}
+
+######## app/Models/HeroBanner.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+class HeroBanner extends Model
+{
+    use HasFactory;
+protected $appends = ['image_url'];
+    protected $fillable = [
+        'title',
+        'subtitle',
+        'button_text',
+        'button_link',
+        'image_path',
+        'is_active',
+    ];
+
+
+    public function getImageUrlAttribute()
+{
+    if (!$this->image_path) {
+        return null;
+    }
+
+    // Remove 'public/' prefix if present
+    $cleanPath = preg_replace('#^public/#', '', $this->image_path);
+
+    // Return full URL to storage file
+    return Storage::disk('r2')->url($cleanPath);
+}
+}
+
+######## app/Models/Order.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Refund;
+
+class Order extends Model
+{
+    protected $casts = [
+        'variation_type_option_ids' => 'array',
+        'total_price' => 'float',
+        'refunded_at' => 'datetime',
+        'manual_paid_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+         'vendor_notified_at' => 'datetime',
+          'paid_at'             => 'datetime',
+    'fees_calculated_at'  => 'datetime',
+    'paid_out_at'         => 'datetime',
+
+    ];
+
+    protected $fillable = [
+        'is_read',
+        'stripe_charge_id',
+        'stripe_amount',
+        'stripe_session_id',
+        'user_id',
+        'vendor_user_id',
+        'total_price',
+        'booking_fee',
+        'status',
+        'shipping_address_id',
+        'payment_intent',
+        'online_payment_comission',
+        'website_payment_comission',
+        'vendor_subtotal',
+        'is_paid',
+        'manual_paid_at',
+        'paid_at',
+        'fulfillment_error',
+        'payment_method',
+        'staff_id',
+        'voucher_id',
+        'voucher_discount',
+        'discount_amount',
+        'refund_amount',
+        'refunded_at',
+        'refund_id',
+        'refund_reason',
+    ];
+
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id');
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(Refund::class);
+    }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        // return $this->belongsTo(Vendor::class );
+
+        return $this->belongsTo(Vendor::class, 'vendor_user_id', 'user_id');
+    }
+
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class);
+    }
+
+    public function vendorUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'vendor_user_id');
+    }
+
+    public function shippingAddress(): BelongsTo
+    {
+        return $this->belongsTo(ShippingAddress::class, 'shipping_address_id');
+    }
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    public function booking()
+    {
+        return $this->hasOne(Booking::class, 'order_id');
+    }
+
+
+    public function voucherUsage()
+    {
+        return $this->hasOne(VoucherUsage::class);
+    }
+
+    public function tickets()
+{
+    return $this->hasManyThrough(Ticket::class, OrderItem::class);
+}
+}
+
+######## app/Models/OrderItem.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class OrderItem extends Model
+{
+
+    protected $casts = [
+    'variation_type_option_ids' => 'array',
+     'seat_ids' => 'array',
+];
+    public $timestamps=false;
+
+   protected $fillable = [
+    'order_id',
+    'product_id',
+    'quantity',
+    'price',
+    'variation_type_option_ids',
+    'designer',
+    'gift_card_template_id',
+    'ticket_tier_id',
+    'item_type',
+    'attachment_path',
+    'attachment_name',
+     'seat_ids',
+];
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+public function ticketTier(): BelongsTo
+{
+    return $this->belongsTo(TicketTier::class, 'ticket_tier_id');
+}
+public function booking()
+{
+    return $this->belongsTo(Booking::class); // or correct FK name here
+}
+
+
+public function giftCardTemplate(): BelongsTo
+{
+    return $this->belongsTo(GiftCardTemplate::class);
+}
+
+
+
+}
+
+######## app/Models/Payout.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Payout extends Model
+{
+    protected $fillable = [
+        'vendor_id',
+        'amount',
+        'starting_from',
+        'until',
+    ];
+
+    protected $casts = [
+        'starting_from' => 'date',
+        'until'         => 'date',
+        'amount'        => 'decimal:2',
+    ];
+
+    public function vendor()
+    {
+        // Vendor's primary key is user_id, not id.
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'user_id');
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+}
+
+######## app/Models/ProcessedStripeEvent.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ProcessedStripeEvent extends Model
+{
+    protected $fillable = [
+        'stripe_event_id',
+    ];
+}
+
+######## app/Models/Product.php ########
+<?php
+
+namespace App\Models;
+
+use App\Enums\ProductStatusEnum;
+use App\Enums\VendorStatusEnum;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Facades\Auth;
+use Spatie\Image\Manipulations;
+use Spatie\MediaLibrary\Conversions\Manipulations as ConversionsManipulations;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class Product extends Model implements HasMedia
+{
+    use HasFactory;
+    use InteractsWithMedia;
+    protected $casts = [
+        'deleted_combinations' => 'array',
+        'price' => 'float',
+    ];
+    // protected $casts = [
+    //     'variations' => 'array'
+    // ];
+
+    public function scopeForVendorOrPublished(Builder $query): Builder
+    {
+        $userId = Auth::id();
+
+        return $query->where(function ($q) use ($userId) {
+            $q->where('created_by', $userId)
+                ->orWhere('status', ['published', 'draft']);
+        });
+    }
+
+
+
+    public function ScopeForVendor(Builder $query): Builder
+    {
+        $userId = Auth::id();
+
+        return $query->where('created_by', $userId)
+            ->orWhere('status', 'published');
+    }
+
+    public function ScopePublished(Builder $query): Builder
+    {
+        return $query->where('products.status', ProductStatusEnum::Published);
+    }
+
+
+    public function ScopeForWebsite(Builder $query): Builder
+    {
+        return $query->published()->VendorApproved();
+    }
+
+
+    // public function scopeVendorApproved(Builder $query)
+    // {
+    //     return $query->join('vendors', 'vendors.user_id', '=', 'products.created_by')
+    //         ->where('vendors.status', VendorStatusEnum::Approved->value);
+    // }
+    public function scopeVendorApproved($query)
+    {
+        return $query->whereHas('vendor', function ($q) {
+            $q->where('status', 'approved');
+        });
+    }
+
+
+    // In Product.php model
+    public function scopeSearchKeyword($query, $keyword)
+    {
+        if ($keyword) {
+            $query->where(function ($q) use ($keyword) {
+                $q->where('title', 'LIKE', "%{$keyword}%")
+                    ->orWhere('description', 'LIKE', "%{$keyword}%");
+            });
+        }
+
+        return $query;
+    }
+
+
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('images')
+            ->useDisk(config('media-library.disk_name', 'public'));
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(100)
+            ->quality(80)
+            ->nonQueued()
+            ->performOnCollections('images');
+
+        $this->addMediaConversion('small')
+            ->width(480)
+            ->quality(80)
+            ->performOnCollections('images');
+
+        $this->addMediaConversion('large')
+            ->width(1200)
+            ->height(800)
+            ->optimize()
+            ->quality(75)
+            ->performOnCollections('images');
+    }
+
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+
+    public function department(): BelongsTo
+    {
+
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+    public function category(): BelongsTo
+    {
+
+        return $this->belongsTo(Category::class);
+    }
+
+
+    public function variationTypes()
+    {
+        return $this->hasMany(VariationType::class);
+        // ->with('options')->orderBy('sort');
+    }
+
+
+
+    public function variations()
+    {
+
+        return $this->hasMany(ProductVariation::class, 'product_id');
+    }
+
+
+
+    public function options(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            VariationTypeOption::class,
+            VariationType::class,
+            'product_id',
+            'variation_type_id',
+            'id',
+            'id'
+        );
+    }
+
+
+    public function getPriceForFirstOptions(): float
+    {
+        $firstOptions = $this->getFirstOptionsMap();
+        if ($firstOptions) {
+            return $this->getPriceForOptions($firstOptions);
+        }
+        return $this->price;
+    }
+
+    public function getPriceForOptions($optionIds = [])
+    {
+        $optionIds = array_values((array) $optionIds);
+        sort($optionIds);
+
+        foreach ($this->variations as $variation) {
+            $raw = $variation->getRawOriginal('variation_type_option_ids');
+
+            // Fix: handle null, empty string, and invalid JSON
+            if (empty($raw)) continue;
+
+            $a = is_array($raw) ? $raw : json_decode($raw, true);
+
+            // Fix: skip if still not an array after decode
+            if (!is_array($a)) continue;
+
+            sort($a);
+
+            if ($a === $optionIds) {
+                return $variation->price !== null ? $variation->price : $this->price;
+            }
+        }
+
+        return $this->price;
+    }
+
+
+    public function getImages(): MediaCollection
+    {
+        if ($this->options->count()) {
+            foreach ($this->options as $opt) {
+                $images = $opt->getMedia('images');
+                if ($images->isNotEmpty()) {  // <-- check for non-empty collection
+                    return $images;
+                }
+            }
+        }
+        return $this->getMedia('images');
+    }
+
+
+    public function getFirstOptionsMap(): array
+    {
+
+        return $this->variationTypes
+            ->mapWithKeys(fn($type) => [$type->id => $type->options[0]?->id])
+            ->toArray();
+    }
+
+    public function getImageForOptions(array $optionIds = null)
+    {
+        if ($optionIds) {
+            $optionIds = array_values($optionIds);
+            sort($optionIds);
+            $options = VariationTypeOption::whereIn('id', $optionIds)->get();
+
+            foreach ($options as $option) {
+                $image = $option->getFirstMediaUrl('images', 'small');
+                if ($image) {
+                    return $image;
+                }
+            }
+        }
+
+        return $this->getFirstMediaUrl('images', 'small');
+    }
+
+
+    public function getFirstImageUrl($collectionName = 'images', $conversion = 'small'): string
+    {
+        if ($this->options && $this->options->count() > 0) {
+            foreach ($this->options as $opt) {
+                $imageUrl = $opt->getFirstMediaUrl($collectionName, $conversion);
+                if (!empty($imageUrl)) {
+                    return $imageUrl;
+                }
+            }
+        }
+
+        return $this->getFirstMediaUrl($collectionName, $conversion);
+    }
+
+
+
+
+    public function scopeFilterApproved($query, $departmentIds = null, $categoryIds = null, $price = null)
+    {
+        if (is_array($departmentIds) && count($departmentIds) > 0) {
+            $query->whereHas('category', function ($q) use ($departmentIds) {
+                $q->whereIn('department_id', $departmentIds);
+            });
+        } elseif ($departmentIds && $departmentIds != 0) {
+            $query->whereHas('category', function ($q) use ($departmentIds) {
+                $q->where('department_id', $departmentIds);
+            });
+        }
+
+        if (is_array($categoryIds) && count($categoryIds) > 0) {
+            $query->whereIn('category_id', $categoryIds);
+        } elseif ($categoryIds && $categoryIds != 0) {
+            $query->where('category_id', $categoryIds);
+        }
+
+        if ($price) {
+            $query->where('price', '<=', $price);
+        }
+
+        return $query->where('status', 'published')
+            ->whereHas('vendor', function ($q) {
+                $q->where('status', 'approved');
+            });
+    }
+
+
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'created_by', 'user_id');
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+
+    public function productGroups()
+    {
+        return $this->belongsToMany(ProductGroup::class, 'product_group_product'); // Explicit pivot table name
+    }
+}
+
+######## app/Models/ProductGroup.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+
+
+class ProductGroup extends Model
+{
+    protected $fillable = ['name', 'slug', 'images', 'active'];
+     public $products;
+     protected $casts = [
+    'images' => 'array',
+];
+
+
+protected $appends = ['image_url', 'images_urls'];
+
+public function getImagesUrlsAttribute()
+{
+    return collect($this->images ?? [])->map(fn($img) => Storage::disk('r2')->url($img))->toArray();
+}
+
+  public function products()
+{
+    return $this->belongsToMany(Product::class, 'product_group_product');
+}
+public function groupedProducts()
+{
+    return $this->belongsToMany(Product::class, 'product_group_product');
+}
+ public function getImageUrlAttribute()
+    {
+        if (!$this->image) {
+            return null; // or a placeholder URL
+        }
+        return \Storage::disk('r2')->url($this->image);
+    }
+
+    public function getRouteKeyName()
+{
+    return 'slug';
+}
+
+}
+
+######## app/Models/ProductVariation.php ########
+<?php
+
+
+
+namespace App\Models;
+use Illuminate\Support\Collection;
+use App\Models\VariationTypeOption;
+use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Modelable;
+
+class ProductVariation extends Model
+{
+    protected $table = 'product_variations';
+    public Product $product;
+    protected $fillable = ['variation_type_option_ids', 'quantity', 'price','product_id',];
+
+    // Cast the 'variation_type_option_ids' attribute to an array
+    protected $casts = [
+        'variation_type_option_ids' => 'array',
+    ];
+
+     public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// namespace App\Models;
+
+// use Illuminate\Database\Eloquent\Model;
+
+// class ProductVariation extends Model
+// {
+//     protected $casts=[
+//         'variation_type_option_ids'=>'json',
+//     ];
+
+
+
+// }
+
+
+
+
+######## app/Models/Refund.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Refund extends Model
+{
+   protected $fillable = [
+    'order_id',
+    'type',
+    'amount',
+    'stripe_refund_id',
+    'reason',
+    'refunded_by',
+    'is_marker',
+    'voucher_restored',   // ← new column we just migrated
+];
+
+protected $casts = [
+    'amount'           => 'float',
+    'is_marker'        => 'boolean',
+    'voucher_restored' => 'float',   // ← add this cast too
+];
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function refundedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'refunded_by');
+    }
+}
+
+######## app/Models/Review.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Review extends Model
+{
+
+    protected $fillable = [
+    'user_id',
+    'product_id',
+    'rating',
+    'comment',
+    'comment_title', // ← add this
+];
+
+    public function product()
+{
+    return $this->belongsTo(Product::class);
+}
+
+public function user()
+{
+    return $this->belongsTo(User::class);
+}
+
+}
+
+######## app/Models/ShippingAddress.php ########
+<?php
+
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class ShippingAddress extends Model
+{
+    use HasFactory;
+protected $casts = [
+    'is_default' => 'boolean',
+];
+    protected $fillable = [
+        'user_id',
+        'full_name',
+        'phone',
+        'address_line1',
+        'address_line2',
+        'city',
+        'state',
+        'postal_code',
+        'country',
+        'is_default',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function order()
+{
+    return $this->belongsTo(Order::class);
+}
+}
+
+######## app/Models/Staff.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+
+class Staff extends Model implements HasMedia
+{
+    use HasFactory, SoftDeletes, InteractsWithMedia;
+
+    protected $table = 'staff';
+
+    protected $fillable = [
+        'vendor_id', 'name', 'email', 'phone', 'position', 'bio',
+        'hired_date', 'employment_type', 'working_days',
+        'working_start_time', 'working_end_time', 'is_active',
+    ];
+
+    protected $casts = [
+        'working_days' => 'array',
+        'hired_date' => 'date',
+        'is_active' => 'boolean',
+    ];
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('photo')->singleFile()->useDisk('public');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'user_id');
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'staff_category');
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeForVendor($query, $vendorId)
+    {
+        return $query->where('vendor_id', $vendorId);
+    }
+}
+
+######## app/Models/Ticket.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\EventSeat;
+class Ticket extends Model
+{
+    use HasFactory;
+
+ protected $fillable = [
+    'order_id',
+    'owner_user_id',
+    'ticket_tier_id',
+    'event_leg_id',
+    'seat_id',
+    'code',
+    'qr_path',
+    'barcode_path',
+    'holder_name',
+    'holder_email',
+    'status',
+    'times_resold',
+    'scanned_at',
+    'scanned_by',
+];
+
+    protected $casts = [
+        'scanned_at' => 'datetime',
+    ];
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    // Current holder. Distinct from order->user_id, which stays pointed
+    // at whoever originally bought it, forever — owner_user_id is the
+    // one that changes on a resale transfer.
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function resaleListings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(TicketResaleListing::class);
+    }
+
+    public function activeResaleListing(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(TicketResaleListing::class)->where('status', 'active');
+    }
+
+public function seat(): BelongsTo
+{
+    return $this->belongsTo(EventSeat::class);
+}
+    public function ticketTier(): BelongsTo
+    {
+        return $this->belongsTo(TicketTier::class);
+    }
+
+    public function eventLeg(): BelongsTo
+    {
+        return $this->belongsTo(EventLeg::class);
+    }
+
+    public function scannedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'scanned_by');
+    }
+
+    public function isValid(): bool
+    {
+        return $this->status === 'valid';
+    }
+
+    public function isListedForResale(): bool
+    {
+        return $this->status === 'listed';
+    }
+
+    public function neverResold(): bool
+    {
+        return $this->times_resold === 0;
+    }
+
+    /**
+     * Badge state for the ticket display page / public verify page.
+     * Deliberately just three states — the actual anti-fraud work
+     * happens in TicketResaleService, this is only presentation.
+     */
+    public function resaleBadge(): string
+    {
+        return match (true) {
+            $this->status === 'listed' => 'listed_for_resale',
+            $this->times_resold > 0 => 'verified_resold',
+            default => 'verified_original',
+        };
+    }
+
+    /**
+     * Mark as used. Returns false (does not throw) if already used/void,
+     * so the controller can return a clean "already scanned" response
+     * rather than a 500 on a duplicate scan.
+     */
+    public function markScanned(?int $scannedByUserId = null): bool
+    {
+        if (! $this->isValid()) {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'used',
+            'scanned_at' => now(),
+            'scanned_by' => $scannedByUserId,
+        ]);
+
+        return true;
+    }
+}
+
+######## app/Models/Ticketresalelisting.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class TicketResaleListing extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'ticket_id',
+        'seller_user_id',
+        'buyer_user_id',
+        'price',
+        'commission_pct',
+        'commission_amount',
+        'seller_payout_amount',
+        'status',
+        'stripe_session_id',
+        'stripe_payment_intent',
+        'seller_paid_out',
+        'seller_paid_out_at',
+        'sold_at',
+        'cancelled_at',
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'commission_pct' => 'decimal:2',
+        'commission_amount' => 'decimal:2',
+        'seller_payout_amount' => 'decimal:2',
+        'seller_paid_out' => 'boolean',
+        'seller_paid_out_at' => 'datetime',
+        'sold_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+    ];
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_user_id');
+    }
+
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'buyer_user_id');
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+}
+
+######## app/Models/TicketTier.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class TicketTier extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'event_leg_id',
+        'name',
+        'price',
+        'quantity',
+        'remaining',
+        'starts_at',
+        'ends_at',
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+    ];
+
+    public function eventLeg(): BelongsTo
+    {
+        return $this->belongsTo(EventLeg::class);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->remaining > 0
+            && now()->between($this->starts_at, $this->ends_at);
+    }
+
+    /**
+     * Atomically reserve $qty tickets from this tier.
+     * Returns true if the reservation succeeded, false if not enough remained.
+     * Must run inside the same DB transaction as ticket generation.
+     */
+    public function reserve(int $qty): bool
+    {
+        $updated = static::where('id', $this->id)
+            ->where('remaining', '>=', $qty)
+            ->decrement('remaining', $qty);
+
+        return $updated > 0;
+    }
+}
+
+######## app/Models/User.php ########
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use SimonHamp\LaravelStripeConnect\Traits\Payable;
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable implements MustVerifyEmail
+{
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasFactory, Notifiable, HasRoles, Payable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'phone',
+        'google_id',
+        'avatar',
+        'given_name',
+        'family_name',
+        'locale',
+        'google_access_token',
+        'google_refresh_token',
+        'token_expires_at',
+'email_verified_at',
+
+'stripe_account_active'
+    ];
+
+
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'token_expires_at' => 'datetime',
+    ];
+    }
+
+    // public function vendor():HasOne
+    // {
+    //     return $this->hasOne(Vendor::class,'user_id');
+    // }
+
+    public function vendor(): HasOne
+    {
+        return $this->hasOne(Vendor::class, 'user_id', 'id');
+    }
+
+    public function shippingAddresses()
+    {
+        return $this->hasMany(ShippingAddress::class);
+    }
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+}
+
+######## app/Models/VariationType.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class VariationType extends Model
+{
+    public $timestamps = false;
+    public function options():HasMany
+    {
+        return $this->hasMany(VariationTypeOption::class,'variation_type_id');
+    }
+}
+
+######## app/Models/VariationTypeOption.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class VariationTypeOption extends Model implements HasMedia
+{
+    public $timestamps = false;
+        use InteractsWithMedia;
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(100);
+        $this->addMediaConversion('small')
+            ->width(480);
+        $this->addMediaConversion('large')
+            ->width(1200);
+    }
+
+    public function variationType():BelongsTo
+    {
+        return $this->belongsTo(VariationType::class);
+    }
+
+
+}
+
+######## app/Models/Vendor.php ########
+<?php
+namespace App\Models;
+
+use App\Enums\VendorStatusEnum;
+use App\Enums\VendorType;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Vendor extends Model
+{
+    use HasFactory;
+    protected $primaryKey = 'user_id';
+    protected $fillable = [
+    'user_id',
+    'status',
+    'store_name',
+    'phone',
+    'store_address',
+    'vendor_type',
+    'booking_fee',
+    'business_start_time',
+    'business_end_time',
+    'slot_interval_minutes',
+    'total_seats',
+    'recurring_closed_days',
+    'closed_dates',
+    'facebook_url',
+    'instagram_url',
+    'tiktok_url',
+    'youtube_url',
+];
+
+    protected $casts = [
+        'vendor_type' => VendorType::class,
+        'recurring_closed_days' => 'array',
+        'closed_dates' => 'array',
+    ];
+
+
+    public function scopeEligibleForPayout(Builder $query): Builder
+    {
+        return $query->where('status', VendorStatusEnum::Approved)
+            ->join('users', 'users.id', '=', 'vendors.user_id')
+            ->where('users.stripe_account_active', true);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function vendorUser(): BelongsTo
+    {
+
+        return $this->belongsTo(User::class);
+
+        // return $this->belongsTo(User::class, 'vendor_user_id');
+    }
+    public function products()
+    {
+        return $this->hasMany(\App\Models\Product::class, 'created_by', 'user_id');
+    }
+    public function getRouteKeyName()
+    {
+        return 'user_id';
+    }
+
+    public function departments()
+    {
+        return $this->hasMany(Department::class, 'user_id', 'user_id');
+    }
+}
+
+######## app/Models/Venue.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Venue extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'created_by_user_id',
+        'name',
+        'address',
+        'city',
+        'state',
+        'postcode',
+        'country',
+        'latitude',
+        'longitude',
+        'capacity',
+        'seating_type',
+        'contact_name',
+        'contact_email',
+        'contact_phone',
+        'notes',
+        'image_url',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'capacity' => 'integer',
+        'is_active' => 'boolean',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+    ];
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function sections(): HasMany
+    {
+        return $this->hasMany(VenueSection::class);
+    }
+
+    public function seats(): HasMany
+    {
+        return $this->hasMany(VenueSeat::class);
+    }
+
+    public function activeSections(): HasMany
+    {
+        return $this->hasMany(VenueSection::class)
+            ->where('is_active', true)
+            ->orderBy('sort_order');
+    }
+    public function eventLegs(): HasMany
+    {
+        return $this->hasMany(
+            EventLeg::class,
+            'venue_id'
+        );
+    }
+    public function activeSeats(): HasMany
+    {
+        return $this->hasMany(VenueSeat::class)
+            ->where('is_active', true);
+    }
+}
+
+######## app/Models/VenueSeat.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class VenueSeat extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'venue_id',
+        'venue_section_id',
+        'row_label',
+        'seat_number',
+        'label',
+        'seat_type',
+        'x',
+        'y',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'seat_number' => 'integer',
+        'x' => 'decimal:3',
+        'y' => 'decimal:3',
+        'is_active' => 'boolean',
+    ];
+
+    public function venue(): BelongsTo
+    {
+        return $this->belongsTo(Venue::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(
+            VenueSection::class,
+            'venue_section_id'
+        );
+    }
+}
+
+######## app/Models/VenueSection.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class VenueSection extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'venue_id',
+        'name',
+        'code',
+        'sort_order',
+        'capacity',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'sort_order' => 'integer',
+        'capacity' => 'integer',
+        'is_active' => 'boolean',
+    ];
+
+    public function venue(): BelongsTo
+    {
+        return $this->belongsTo(Venue::class);
+    }
+
+    public function seats(): HasMany
+    {
+        return $this->hasMany(VenueSeat::class)
+            ->orderBy('row_label')
+            ->orderBy('seat_number');
+    }
+
+    public function activeSeats(): HasMany
+    {
+        return $this->hasMany(VenueSeat::class)
+            ->where('is_active', true)
+            ->orderBy('row_label')
+            ->orderBy('seat_number');
+    }
+}
+
+######## app/Models/Voucher.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Voucher extends Model
+{
+ protected $fillable = [
+    'code',
+    'type',
+    'amount',
+    'discount_type',
+    'remaining_amount',
+    'max_uses',
+    'used_count',
+    'purchased_by',
+    'assigned_to',
+    'gifted_to_email',
+    'gift_card_template_id',
+    'gift_card_product_id',
+    'stripe_session_id',
+    'stripe_coupon_id',
+    'expires_at',
+    'active',
+    'sent_at',
+    'hidden',   // ← add this
+];
+
+ protected $casts = [
+    'active'       => 'boolean',
+    'hidden'       => 'boolean',   // ← add this
+    'amount'       => 'float',
+    'remaining_amount' => 'float',
+    'expires_at'   => 'datetime',
+    'sent_at'      => 'datetime',
+];
+
+    // ── Relationships ──────────────────────────────────────────
+
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'purchased_by');
+    }
+
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function giftCardProduct(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'gift_card_product_id');
+    }
+
+    public function usages(): HasMany
+    {
+        return $this->hasMany(VoucherUsage::class);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────
+
+    /**
+     * Is this voucher currently usable?
+     */
+    public function isUsable(): bool
+    {
+        if (! $this->active) return false;
+        if ($this->expires_at && $this->expires_at->isPast()) return false;
+
+        if ($this->type === 'promo') {
+            return is_null($this->max_uses) || $this->used_count < $this->max_uses;
+        }
+
+        if ($this->type === 'gift') {
+            return ($this->remaining_amount ?? 0) > 0;
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculate discount amount against a given order total.
+     */
+    public function discountFor(float $orderTotal): float
+    {
+        if ($this->type === 'gift') {
+            return min($this->remaining_amount ?? 0, $orderTotal);
+        }
+
+        if ($this->type === 'promo') {
+            if ($this->discount_type === 'percent') {
+                return round($orderTotal * ($this->amount / 100), 2);
+            }
+            return min($this->amount, $orderTotal);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Deduct from gift card balance and record usage.
+     * Call this ONLY inside a DB::transaction after Stripe payment confirmed.
+     */
+    public function redeem(float $amountUsed, int $userId = null, int $orderId = null): VoucherUsage
+    {
+        $before = $this->remaining_amount ?? 0;
+        $after  = max(0, $before - $amountUsed);
+
+        if ($this->type === 'gift') {
+            $this->remaining_amount = $after;
+        }
+
+        if ($this->type === 'promo') {
+            $this->used_count++;
+        }
+
+        $this->save();
+
+        return VoucherUsage::create([
+            'voucher_id'     => $this->id,
+            'user_id'        => $userId,
+            'order_id'       => $orderId,
+            'amount_used'    => $amountUsed,
+            'balance_before' => $before,
+            'balance_after'  => $after,
+        ]);
+    }
+}
+
+######## app/Models/VoucherUsage.php ########
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class VoucherUsage extends Model
+{
+    protected $fillable = [
+        'voucher_id',
+        'user_id',
+        'order_id',
+        'amount_used',
+        'balance_before',
+        'balance_after',
+    ];
+
+    protected $casts = [
+        'amount_used'    => 'float',
+        'balance_before' => 'float',
+        'balance_after'  => 'float',
+    ];
+
+    public function voucher(): BelongsTo
+    {
+        return $this->belongsTo(Voucher::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+}
+
+===== MIGRATIONS =====
+
+######## database/migrations/2025_01_01_000001_create_cache_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('cache', function (Blueprint $table) {
+            $table->string('key')->primary();
+            $table->mediumText('value');
+            $table->integer('expiration');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('cache');
+    }
+};
+
+######## database/migrations/2025_01_01_000002_create_cache_locks_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('cache_locks', function (Blueprint $table) {
+            $table->string('key')->primary();
+            $table->string('owner');
+            $table->integer('expiration');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('cache_locks');
+    }
+};
+
+######## database/migrations/2025_01_01_000003_create_failed_jobs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('failed_jobs', function (Blueprint $table) {
+            $table->id();
+            $table->string('uuid')->unique();
+            $table->text('connection');
+            $table->text('queue');
+            $table->longText('payload');
+            $table->longText('exception');
+            $table->timestamp('failed_at')->useCurrent();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('failed_jobs');
+    }
+};
+
+######## database/migrations/2025_01_01_000004_create_job_batches_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('job_batches', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->string('name');
+            $table->integer('total_jobs');
+            $table->integer('pending_jobs');
+            $table->integer('failed_jobs');
+            $table->longText('failed_job_ids');
+            $table->mediumText('options')->nullable();
+            $table->integer('cancelled_at')->nullable();
+            $table->integer('created_at');
+            $table->integer('finished_at')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('job_batches');
+    }
+};
+
+######## database/migrations/2025_01_01_000005_create_jobs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('jobs', function (Blueprint $table) {
+            $table->id();
+            $table->string('queue');
+            $table->longText('payload');
+            $table->unsignedTinyInteger('attempts');
+            $table->unsignedInteger('reserved_at')->nullable();
+            $table->unsignedInteger('available_at');
+            $table->unsignedInteger('created_at');
+
+            $table->index('queue');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('jobs');
+    }
+};
+
+######## database/migrations/2025_01_01_000006_create_sessions_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('sessions', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('sessions');
+    }
+};
+
+######## database/migrations/2025_01_01_000007_create_password_reset_tokens_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('password_reset_tokens');
+    }
+};
+
+######## database/migrations/2025_01_01_000008_create_permissions_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('permissions', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('guard_name');
+            $table->timestamps();
+
+            $table->unique(['name', 'guard_name']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('permissions');
+    }
+};
+
+######## database/migrations/2025_01_01_000009_create_roles_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('guard_name');
+            $table->timestamps();
+
+            $table->unique(['name', 'guard_name']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('roles');
+    }
+};
+
+######## database/migrations/2025_01_01_000010_create_users_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('phone')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password')->nullable();
+            $table->rememberToken();
+            $table->boolean('is_read')->default(false);
+            $table->string('google_access_token')->nullable();
+            $table->string('google_refresh_token')->nullable();
+            $table->timestamp('token_expires_at')->nullable();
+            $table->timestamps();
+            $table->string('stripe_account_id')->nullable();
+            $table->boolean('stripe_account_active')->default(false);
+            $table->string('google_id')->nullable()->unique();
+            $table->string('avatar')->nullable();
+            $table->string('given_name')->nullable();
+            $table->string('family_name')->nullable();
+            $table->string('locale')->nullable();
+            $table->string('referral_code')->nullable()->unique();
+            $table->foreignId('referred_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->boolean('has_received_referral_bonus')->default(false);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
+
+######## database/migrations/2025_01_01_000011_create_departments_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('departments', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->string('meta_title')->nullable();
+            $table->string('meta_description')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+            $table->string('image')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('departments');
+    }
+};
+
+######## database/migrations/2025_01_01_000012_create_category_groups_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('category_groups', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('image')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('category_groups');
+    }
+};
+
+######## database/migrations/2025_01_01_000013_create_gift_card_templates_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('gift_card_templates', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->decimal('amount', 10, 2);
+            $table->string('image_path')->nullable();
+            $table->boolean('active')->default(true);
+            $table->integer('sort_order')->default(0);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('gift_card_templates');
+    }
+};
+
+######## database/migrations/2025_01_01_000014_create_product_groups_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('product_groups', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+            $table->json('images')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('product_groups');
+    }
+};
+
+######## database/migrations/2025_01_01_000015_create_faqs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('faqs', function (Blueprint $table) {
+            $table->id();
+            $table->string('question');
+            $table->text('answer');
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('faqs');
+    }
+};
+
+######## database/migrations/2025_01_01_000016_create_hero_banners_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('hero_banners', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->string('subtitle')->nullable();
+            $table->string('button_text')->nullable();
+            $table->string('button_link')->nullable();
+            $table->string('image_path');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('hero_banners');
+    }
+};
+
+######## database/migrations/2025_01_01_000017_create_galleries_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('galleries', function (Blueprint $table) {
+            $table->id();
+            $table->string('title')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('galleries');
+    }
+};
+
+######## database/migrations/2025_01_01_000018_create_contacts_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('contacts', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email');
+            $table->string('phone')->nullable();
+            $table->text('message');
+            $table->timestamps();
+            $table->boolean('is_read')->default(false);
+            $table->string('reason')->nullable();
+            $table->unsignedBigInteger('department_id')->nullable();
+            $table->unsignedBigInteger('category_id')->nullable();
+            $table->unsignedBigInteger('product_id')->nullable();
+            $table->integer('quantity')->nullable();
+            $table->string('file_path')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('contacts');
+    }
+};
+
+######## database/migrations/2025_01_01_000019_create_payouts_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('payouts', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('vendor_id');
+            $table->decimal('amount', 20, 4);
+            $table->dateTime('starting_from');
+            $table->dateTime('until');
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('payouts');
+    }
+};
+
+######## database/migrations/2025_01_01_000020_create_media_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('media', function (Blueprint $table) {
+            $table->id();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+            $table->uuid('uuid')->nullable()->unique();
+            $table->string('collection_name');
+            $table->string('name');
+            $table->string('file_name');
+            $table->string('mime_type')->nullable();
+            $table->string('disk');
+            $table->string('conversions_disk')->nullable();
+            $table->unsignedBigInteger('size');
+            $table->json('manipulations');
+            $table->json('custom_properties');
+            $table->json('generated_conversions');
+            $table->json('responsive_images');
+            $table->unsignedInteger('order_column')->nullable();
+            $table->timestamps();
+
+            $table->index(['model_type', 'model_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('media');
+    }
+};
+
+######## database/migrations/2025_01_01_000021_create_model_has_permissions_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('model_has_permissions', function (Blueprint $table) {
+            $table->foreignId('permission_id')->constrained('permissions')->cascadeOnDelete();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+
+            $table->primary(['permission_id', 'model_id', 'model_type']);
+            $table->index(['model_id', 'model_type']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('model_has_permissions');
+    }
+};
+
+######## database/migrations/2025_01_01_000022_create_model_has_roles_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('model_has_roles', function (Blueprint $table) {
+            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+
+            $table->primary(['role_id', 'model_id', 'model_type']);
+            $table->index(['model_id', 'model_type']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('model_has_roles');
+    }
+};
+
+######## database/migrations/2025_01_01_000023_create_role_has_permissions_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('role_has_permissions', function (Blueprint $table) {
+            $table->foreignId('permission_id')->constrained('permissions')->cascadeOnDelete();
+            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
+
+            $table->primary(['permission_id', 'role_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('role_has_permissions');
+    }
+};
+
+######## database/migrations/2025_01_01_000024_create_categories_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->string('image')->nullable();
+            $table->foreignId('department_id')->constrained('departments');
+            $table->foreignId('parent_id')->nullable()->constrained('categories');
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('categories');
+    }
+};
+
+######## database/migrations/2025_01_01_000025_create_vendors_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('vendors', function (Blueprint $table) {
+             $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->string('status');
+            $table->string('store_name');
+            $table->string('store_address')->nullable();
+            $table->enum('vendor_type', ['appointment', 'ecommerce'])->default('ecommerce');
+            $table->decimal('booking_fee', 10, 2)->nullable();
+            $table->string('cover_image')->nullable();
+            $table->timestamps();
+            $table->time('business_start_time')->default('09:00:00');
+            $table->time('business_end_time')->default('17:00:00');
+            $table->integer('slot_interval_minutes')->default(30);
+            $table->unsignedInteger('total_seats')->default(1);
+            $table->json('recurring_closed_days')->nullable();
+            $table->json('closed_dates')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('vendors');
+    }
+};
+
+######## database/migrations/2025_01_01_000026_create_category_group_category_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('category_group_category', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('category_group_id')->constrained('category_groups')->cascadeOnDelete();
+            $table->foreignId('category_id')->constrained('categories')->cascadeOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('category_group_category');
+    }
+};
+
+######## database/migrations/2025_01_01_000027_create_department_vendor_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('department_vendor', function (Blueprint $table) {
+            $table->foreignId('vendor_user_id')->constrained('vendors', 'user_id')->cascadeOnDelete();
+            $table->foreignId('department_id')->constrained('departments')->cascadeOnDelete();
+            $table->primary(['vendor_user_id', 'department_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('department_vendor');
+    }
+};
+
+######## database/migrations/2025_01_01_000028_create_staff_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('staff', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vendor_id')->constrained('vendors', 'user_id')->cascadeOnDelete();
+            $table->string('name');
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('position')->nullable();
+            $table->text('bio')->nullable();
+            $table->date('hired_date')->nullable();
+            $table->string('employment_type')->nullable();
+            $table->json('working_days')->nullable();
+            $table->time('working_start_time')->nullable();
+            $table->time('working_end_time')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('staff');
+    }
+};
+
+######## database/migrations/2025_01_01_000029_create_shipping_addresses_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('shipping_addresses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('full_name');
+            $table->string('phone');
+            $table->string('address_line1');
+            $table->string('address_line2')->nullable();
+            $table->string('city');
+            $table->string('state');
+            $table->string('postal_code');
+            $table->string('country');
+            $table->boolean('is_default')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('shipping_addresses');
+    }
+};
+
+######## database/migrations/2025_01_01_000030_create_products_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->string('title', 2000);
+            $table->string('product_type')->default('product');
+            $table->string('slug', 2000);
+            $table->longText('description');
+            $table->foreignId('department_id')->constrained('departments');
+            $table->foreignId('category_id')->constrained('categories');
+            $table->decimal('price', 20, 4);
+            $table->string('status');
+            $table->string('highlight')->nullable();
+            $table->boolean('require_additional_file')->default(false);
+            $table->integer('quantity')->nullable();
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->constrained('users');
+            $table->softDeletes();
+            $table->timestamps();
+            $table->json('deleted_combinations')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('products');
+    }
+};
+
+######## database/migrations/2025_01_01_000031_create_staff_category_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('staff_category', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('staff_id')->constrained('staff')->cascadeOnDelete();
+            $table->foreignId('category_id')->constrained('categories')->cascadeOnDelete();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('staff_category');
+    }
+};
+
+######## database/migrations/2025_01_01_000032_create_product_variations_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('product_variations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+            $table->json('variation_type_option_ids');
+            $table->integer('quantity')->nullable();
+            $table->decimal('price', 20, 4)->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('product_variations');
+    }
+};
+
+######## database/migrations/2025_01_01_000033_create_product_group_product_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('product_group_product', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+            $table->foreignId('product_group_id')->constrained('product_groups')->cascadeOnDelete();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('product_group_product');
+    }
+};
+
+######## database/migrations/2025_01_01_000034_create_variation_types_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('variation_types', function (Blueprint $table) {
+            $table->id();
+            $table->integer('sort')->default(0);
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+            $table->string('name');
+            $table->string('type');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('variation_types');
+    }
+};
+
+######## database/migrations/2025_01_01_000035_create_vouchers_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('vouchers', function (Blueprint $table) {
+            $table->id();
+            $table->string('code')->unique();
+            $table->enum('type', ['gift', 'promo']);
+            $table->decimal('amount', 10, 2);
+            $table->enum('discount_type', ['fixed', 'percent'])->default('fixed');
+            $table->decimal('remaining_amount', 10, 2)->nullable();
+            $table->integer('max_uses')->nullable();
+            $table->integer('used_count')->default(0);
+            $table->foreignId('purchased_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('gifted_to_email')->nullable();
+            $table->foreignId('gift_card_product_id')->nullable()->constrained('products')->nullOnDelete();
+            $table->string('stripe_session_id')->nullable();
+            $table->string('stripe_coupon_id')->nullable();
+            $table->boolean('active')->default(false);
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamp('sent_at')->nullable();
+            $table->timestamps();
+            $table->foreignId('gift_card_template_id')->nullable()->constrained('gift_card_templates')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('vouchers');
+    }
+};
+
+######## database/migrations/2025_01_01_000036_create_variation_type_options_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('variation_type_options', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedInteger('sort')->nullable();
+            $table->foreignId('variation_type_id')->constrained('variation_types')->cascadeOnDelete();
+            $table->string('name');
+            $table->decimal('price_modifier', 10, 2)->default(0.00);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('variation_type_options');
+    }
+};
+
+######## database/migrations/2025_01_01_000037_create_orders_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('orders', function (Blueprint $table) {
+            $table->id();
+            $table->decimal('total_price', 20, 4);
+            $table->decimal('stripe_amount', 10, 2)->nullable();
+            $table->decimal('booking_fee', 10, 2)->default(0.00);
+            $table->decimal('voucher_discount', 10, 2)->default(0.00);
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('vendor_user_id');
+            $table->foreignId('staff_id')->nullable()->constrained('staff')->nullOnDelete();
+            $table->foreignId('shipping_address_id')->nullable()->constrained('shipping_addresses')->nullOnDelete();
+            $table->string('status');
+            $table->foreignId('voucher_id')->nullable()->constrained('vouchers')->nullOnDelete();
+            $table->decimal('discount_amount', 10, 2)->default(0.00);
+            $table->string('stripe_session_id')->nullable();
+            $table->string('stripe_charge_id')->nullable();
+            $table->boolean('is_manual')->default(false);
+            $table->string('payment_method')->nullable();
+            $table->timestamp('manual_paid_at')->nullable();
+            $table->boolean('is_paid')->default(false);
+            $table->text('admin_note')->nullable();
+            $table->string('payment_intent')->nullable();
+            $table->decimal('online_payment_comission', 20, 4)->nullable();
+            $table->decimal('website_payment_comission', 20, 4)->nullable();
+            $table->decimal('vendor_subtotal', 20, 4)->nullable();
+            $table->timestamps();
+            $table->timestamp('refunded_at')->nullable();
+            $table->string('refund_id')->nullable();
+            $table->decimal('refund_amount', 10, 2)->nullable();
+            $table->string('refund_reason')->nullable();
+            $table->boolean('is_read')->default(false);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('orders');
+    }
+};
+
+######## database/migrations/2025_01_01_000038_create_order_items_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('order_items', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->foreignId('product_id')->nullable()->constrained('products');
+            $table->decimal('price', 20, 4);
+            $table->boolean('designer')->default(false);
+            $table->integer('quantity');
+            $table->json('variation_type_option_ids')->nullable();
+            $table->string('attachment_path')->nullable();
+            $table->string('attachment_name')->nullable();
+            $table->foreignId('gift_card_template_id')->nullable()->constrained('gift_card_templates')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('order_items');
+    }
+};
+
+######## database/migrations/2025_01_01_000039_create_voucher_usages_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('voucher_usages', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('voucher_id')->constrained('vouchers')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete();
+            $table->decimal('amount_used', 10, 2);
+            $table->decimal('balance_before', 10, 2)->nullable();
+            $table->decimal('balance_after', 10, 2)->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('voucher_usages');
+    }
+};
+
+######## database/migrations/2025_01_01_000040_create_cart_items_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('cart_items', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')->nullable()->constrained('products')->cascadeOnDelete();
+            $table->foreignId('gift_card_template_id')->nullable()->constrained('gift_card_templates')->nullOnDelete();
+            $table->foreignId('user_id')->constrained('users');
+            $table->enum('item_type', ['product', 'gift_card'])->default('product');
+            $table->integer('quantity');
+            $table->decimal('price', 20, 4);
+            $table->decimal('amount', 10, 2)->nullable();
+            $table->boolean('designer')->default(false);
+            $table->string('attachment_path')->nullable();
+            $table->string('attachment_name')->nullable();
+            $table->json('variation_type_option_ids');
+            $table->boolean('saved_for_later')->default(false);
+            $table->timestamps();
+            $table->foreignId('voucher_id')->nullable()->constrained('vouchers')->nullOnDelete();
+            $table->string('gifted_to_email')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('cart_items');
+    }
+};
+
+######## database/migrations/2025_01_01_000041_create_bookings_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('bookings', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->nullable()->constrained('orders')->cascadeOnDelete();
+            $table->unsignedBigInteger('user_id');
+            $table->date('booking_date');
+            $table->boolean('is_read')->default(false);
+            $table->string('time_slot');
+            $table->timestamps();
+            $table->string('google_event_id')->nullable();
+            $table->boolean('booking_fee_refunded')->default(false);
+            $table->decimal('booking_fee_refund_amount', 10, 2)->nullable();
+            $table->foreignId('staff_id')->nullable()->constrained('staff')->nullOnDelete();
+            $table->timestamp('edited_at')->nullable();
+            $table->foreignId('preferred_staff_id')->nullable()->constrained('staff')->nullOnDelete();
+            $table->foreignId('assigned_staff_id')->nullable()->constrained('staff')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('bookings');
+    }
+};
+
+######## database/migrations/2025_01_01_000042_create_refunds_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('refunds', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->enum('type', ['full', 'booking_fee', 'except_booking_fee']);
+            $table->decimal('amount', 10, 2);
+            $table->boolean('is_marker')->default(false);
+            $table->string('stripe_refund_id')->nullable();
+            $table->string('reason')->nullable();
+            $table->foreignId('refunded_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+
+            $table->unique(['order_id', 'type']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('refunds');
+    }
+};
+
+######## database/migrations/2025_01_01_000043_create_reviews_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('reviews', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+            $table->unsignedTinyInteger('rating');
+            $table->text('comment')->nullable();
+            $table->string('comment_title')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('reviews');
+    }
+};
+
+######## database/migrations/2026_07_12_162838_make_vendor_user_id_nullable_on_orders_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->foreignId('vendor_user_id')->nullable()->change();
+    });
+}
+
+public function down(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->foreignId('vendor_user_id')->nullable(false)->change();
+    });
+}
+};
+
+######## database/migrations/2026_07_12_180346_add_hidden_to_vouchers_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up()
+{
+    Schema::table('vouchers', function (Blueprint $table) {
+        $table->boolean('hidden')->default(false);
+    });
+}
+
+public function down()
+{
+    Schema::table('vouchers', function (Blueprint $table) {
+        $table->dropColumn('hidden');
+    });
+}
+};
+
+######## database/migrations/2026_07_14_233306_add_social_links_to_vendors_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+   public function up(): void
+{
+    Schema::table('vendors', function (Blueprint $table) {
+        $table->string('facebook_url')->nullable();
+        $table->string('instagram_url')->nullable();
+        $table->string('tiktok_url')->nullable();
+
+    });
+}
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('vendors', function (Blueprint $table) {
+            //
+        });
+    }
+};
+
+######## database/migrations/2026_07_18_155021_add_sort_minutes_to_bookings_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+   public function up(): void
+{
+    Schema::table('bookings', function (Blueprint $table) {
+        $table->unsignedSmallInteger('sort_minutes')->nullable()->after('time_slot');
+    });
+}
+
+public function down(): void
+{
+    Schema::table('bookings', function (Blueprint $table) {
+        $table->dropColumn('sort_minutes');
+    });
+}
+};
+
+######## database/migrations/2026_07_19_083126_add_voucher_restored_to_refunds_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->decimal('voucher_restored', 10, 2)->default(0)->after('amount');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->dropColumn('voucher_restored');
+        });
+    }
+};
+
+######## database/migrations/2026_07_25_100826_relax_unique_constraint_on_refunds_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->dropForeign(['order_id']);
+            $table->dropUnique(['order_id', 'type']);
+        });
+
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->dropForeign(['order_id']);
+        });
+
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->unique(['order_id', 'type']);
+            $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
+        });
+    }
+};
+
+######## database/migrations/2026_07_25_101201_add_custom_to_refunds_type_enum.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->string('type', 255)->change();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('refunds', function (Blueprint $table) {
+            $table->string('type', 255)->change();
+        });
+    }
+};
+
+######## database/migrations/2026_07_27_220058_add_youtube_url_to_vendors_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+   public function up(): void
+{
+    Schema::table('vendors', function (Blueprint $table) {
+        $table->string('youtube_url')->nullable()->after('tiktok_url');
+    });
+}
+
+public function down(): void
+{
+    Schema::table('vendors', function (Blueprint $table) {
+        $table->dropColumn('youtube_url');
+    });
+}
+};
+
+######## database/migrations/2026_07_29_220346_add_payout_id_to_orders_table.php ########
+<?php
+// save as database/migrations/xxxx_xx_xx_xxxxxx_add_payout_id_to_orders_table.php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('orders', function (Blueprint $table) {
+            $table->foreignId('payout_id')
+                ->nullable()
+                ->after('vendor_subtotal')
+                ->constrained('payouts')
+                ->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('payout_id');
+        });
+    }
+};
+
+######## database/migrations/2026_08_01_204728_add_indexes_to_products_bookings_and_orders_tables.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Products: status is filtered on almost every public query
+        // (forWebsite(), filterApproved(), home/search/department pages).
+        // slug is used for product lookups by URL.
+        Schema::table('products', function (Blueprint $table) {
+            $table->index('status');
+            $table->index('slug');
+            // Composite index speeds up the very common
+            // "published products in department X" queries.
+            $table->index(['status', 'department_id']);
+        });
+
+        // Bookings: booking_date is used with whereDate()/orderBy() on the
+        // admin dashboard, roster, and upcoming-bookings queries.
+        // user_id is a plain unsignedBigInteger with no FK, so no index exists.
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->index('booking_date');
+            $table->index('user_id');
+        });
+
+        // Orders: status/is_paid are filtered on the dashboard and admin order
+        // list; user_id/vendor_user_id are plain unsignedBigInteger columns
+        // (no FK constraint), so they currently have no index at all.
+        Schema::table('orders', function (Blueprint $table) {
+            $table->index('status');
+            $table->index('is_paid');
+            $table->index('user_id');
+            $table->index('vendor_user_id');
+            // Speeds up the dashboard's "paid orders in last 30 days" sum/group-by
+            $table->index(['is_paid', 'created_at']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropIndex(['status']);
+            $table->dropIndex(['slug']);
+            $table->dropIndex(['status', 'department_id']);
+        });
+
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->dropIndex(['booking_date']);
+            $table->dropIndex(['user_id']);
+        });
+
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropIndex(['status']);
+            $table->dropIndex(['is_paid']);
+            $table->dropIndex(['user_id']);
+            $table->dropIndex(['vendor_user_id']);
+            $table->dropIndex(['is_paid', 'created_at']);
+        });
+    }
+};
+
+######## database/migrations/2026_08_02_151356_add_missing_indexes_for_search_queries.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->index(['status', 'created_by']);
+            $table->index(['status', 'created_at']);
+            $table->index(['status', 'category_id']);
+        });
+
+        Schema::table('vendors', function (Blueprint $table) {
+            $table->index(['user_id', 'status']);
+        });
+
+        Schema::table('reviews', function (Blueprint $table) {
+            $table->index('product_id');
+        });
+
+        Schema::table('categories', function (Blueprint $table) {
+            $table->index('department_id');
+        });
+
+        Schema::table('product_group_product', function (Blueprint $table) {
+            $table->index('product_group_id');
+            $table->index('product_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropIndex(['status', 'created_by']);
+            $table->dropIndex(['status', 'created_at']);
+            $table->dropIndex(['status', 'category_id']);
+        });
+
+        Schema::table('vendors', function (Blueprint $table) {
+            $table->dropIndex(['user_id', 'status']);
+        });
+
+        Schema::table('reviews', function (Blueprint $table) {
+            $table->dropIndex(['product_id']);
+        });
+
+        Schema::table('categories', function (Blueprint $table) {
+            $table->dropIndex(['department_id']);
+        });
+
+        Schema::table('product_group_product', function (Blueprint $table) {
+            $table->dropIndex(['product_group_id']);
+            $table->dropIndex(['product_id']);
+        });
+    }
+};
+
+######## database/migrations/2026_08_02_184548_change_variation_type_option_ids_to_jsonb.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('
+                ALTER TABLE cart_items
+                ALTER COLUMN variation_type_option_ids
+                TYPE jsonb
+                USING variation_type_option_ids::jsonb
+            ');
+        }
+        // MySQL/MariaDB already creates this column as JSON
+        // in the original create_cart_items_table migration.
+    }
+
+    public function down(): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('
+                ALTER TABLE cart_items
+                ALTER COLUMN variation_type_option_ids
+                TYPE json
+                USING variation_type_option_ids::json
+            ');
+        }
+    }
+};
+
+######## database/migrations/2026_08_02_185054_change_more_variation_columns_to_jsonb.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('
+                ALTER TABLE product_variations
+                ALTER COLUMN variation_type_option_ids
+                TYPE jsonb
+                USING variation_type_option_ids::jsonb
+            ');
+
+            DB::statement('
+                ALTER TABLE order_items
+                ALTER COLUMN variation_type_option_ids
+                TYPE jsonb
+                USING variation_type_option_ids::jsonb
+            ');
+        }
+
+        // MariaDB/MySQL:
+        // These columns are already created as JSON by their original migrations.
+    }
+
+    public function down(): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('
+                ALTER TABLE product_variations
+                ALTER COLUMN variation_type_option_ids
+                TYPE json
+                USING variation_type_option_ids::json
+            ');
+
+            DB::statement('
+                ALTER TABLE order_items
+                ALTER COLUMN variation_type_option_ids
+                TYPE json
+                USING variation_type_option_ids::json
+            ');
+        }
+    }
+};
+
+######## database/migrations/2026_08_03_235429_add_slug_to_categories_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // 1. Add the column as nullable first (no unique constraint yet)
+        Schema::table('categories', function (Blueprint $table) {
+            $table->string('slug')->nullable()->after('name');
+        });
+
+        // 2. Backfill existing rows from their name
+        $categories = DB::table('categories')->select('id', 'name')->get();
+
+        $usedSlugs = [];
+
+        foreach ($categories as $category) {
+            $base = Str::slug($category->name);
+            $slug = $base;
+            $i = 2;
+
+            while (in_array($slug, $usedSlugs, true)) {
+                $slug = "{$base}-{$i}";
+                $i++;
+            }
+
+            $usedSlugs[] = $slug;
+
+            DB::table('categories')
+                ->where('id', $category->id)
+                ->update(['slug' => $slug]);
+        }
+
+        // 3. Now that every row has a value, enforce NOT NULL + UNIQUE
+        Schema::table('categories', function (Blueprint $table) {
+            $table->string('slug')->nullable(false)->unique()->change();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('categories', function (Blueprint $table) {
+            $table->dropUnique(['categories_slug_unique']);
+            $table->dropColumn('slug');
+        });
+    }
+};
+
+######## database/migrations/2026_08_09_093216_add_vendor_user_id_to_gift_card_templates_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('gift_card_templates', function (Blueprint $table) {
+    $table->foreignId('vendor_user_id')
+        ->nullable()
+        ->after('id')
+        ->constrained('users')
+        ->nullOnDelete();
+
+    $table->index('vendor_user_id');
+});
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('gift_card_templates', function (Blueprint $table) {
+            //
+        });
+    }
+};
+
+######## database/migrations/2026_08_10_000001_create_events_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('events', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vendor_user_id')->constrained('users')->cascadeOnDelete();
+
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->text('description')->nullable();
+
+            // standalone = single event_leg, tour = multiple legs
+            $table->enum('type', ['standalone', 'tour'])->default('standalone');
+
+            // draft: vendor still editing, not visible anywhere
+            // proposed: visible on watchlist page, no tickets on sale yet
+            // published: live, tickets on sale
+            // cancelled: pulled after publishing
+            $table->enum('status', ['draft', 'proposed', 'published', 'cancelled'])->default('draft');
+
+            // cultural/language tags for discovery, e.g. ["tamil","punjabi"]
+            // deliberately about the EVENT's content, not the organizer's identity
+            $table->json('languages')->nullable();
+
+            $table->boolean('watchlist_enabled')->default(true);
+            $table->timestamp('published_at')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['status', 'type']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('events');
+    }
+};
+
+######## database/migrations/2026_08_10_000002_create_event_category_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    // Pivot against your existing `categories` table (reused from the salon platform)
+    public function up(): void
+    {
+        Schema::create('event_category', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('category_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+
+            $table->unique(['event_id', 'category_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('event_category');
+    }
+};
+
+######## database/migrations/2026_08_10_000003_create_event_legs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('event_legs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+
+            $table->string('venue_name');
+            $table->string('address')->nullable();
+            $table->string('city')->nullable();
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+
+            $table->date('event_date');
+            $table->unsignedInteger('capacity');
+
+            // ordering within a tour (leg 1, leg 2, ...); irrelevant for standalone
+            $table->unsignedSmallInteger('sequence')->default(1);
+
+            $table->timestamps();
+
+            $table->index(['event_id', 'event_date']);
+            $table->index(['latitude', 'longitude']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('event_legs');
+    }
+};
+
+######## database/migrations/2026_08_10_000004_create_ticket_tiers_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ticket_tiers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_leg_id')->constrained()->cascadeOnDelete();
+
+            $table->string('name'); // "Early bird", "1st lot", "Door price"
+            $table->decimal('price', 8, 2);
+
+            $table->unsignedInteger('quantity');   // total allocated for this tier
+            $table->unsignedInteger('remaining');  // decremented atomically on purchase
+
+            // date-window pricing: tier is only purchasable within [starts_at, ends_at]
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at');
+
+            $table->timestamps();
+
+            $table->index(['event_leg_id', 'starts_at', 'ends_at']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ticket_tiers');
+    }
+};
+
+######## database/migrations/2026_08_10_000005_create_artists_and_pivot_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('artists', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->timestamps();
+        });
+
+        Schema::create('event_artist', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('artist_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+
+            $table->unique(['event_id', 'artist_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('event_artist');
+        Schema::dropIfExists('artists');
+    }
+};
+
+######## database/migrations/2026_08_10_000006_create_tickets_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('tickets', function (Blueprint $table) {
+            $table->id();
+
+            // assumes your existing multivendor `orders` table
+            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('ticket_tier_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('event_leg_id')->constrained()->cascadeOnDelete();
+
+            // signed/opaque identity encoded into the QR + barcode.
+            // never expose the auto-increment id directly on the code.
+            $table->string('code', 64)->unique();
+
+            $table->string('qr_path')->nullable();
+            $table->string('barcode_path')->nullable();
+
+            // optional per-ticket attendee info (buyer can name each ticket
+            // for entry lists / transfers without changing order ownership)
+            $table->string('holder_name')->nullable();
+            $table->string('holder_email')->nullable();
+
+            $table->enum('status', ['valid', 'used', 'void'])->default('valid');
+            $table->timestamp('scanned_at')->nullable();
+            $table->foreignId('scanned_by')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->timestamps();
+
+            $table->index(['event_leg_id', 'status']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('tickets');
+    }
+};
+
+######## database/migrations/2026_08_10_000007_create_event_watchlist_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('event_watchlist', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+
+            $table->string('email');
+            // null when a signed-out visitor just leaves an email
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+
+            $table->boolean('notified')->default(false);
+            $table->timestamp('notified_at')->nullable();
+
+            $table->timestamps();
+
+            $table->unique(['event_id', 'email']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('event_watchlist');
+    }
+};
+
+######## database/migrations/2026_08_10_100000_add_ticket_tier_id_to_cart_and_order_items.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('cart_items', function (Blueprint $table) {
+            $table->foreignId('ticket_tier_id')
+                ->nullable()
+                ->after('gift_card_template_id')
+                ->constrained('ticket_tiers')
+                ->nullOnDelete();
+        });
+
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement(
+                "ALTER TABLE cart_items
+                 MODIFY item_type ENUM('product', 'gift_card', 'ticket')
+                 DEFAULT 'product'"
+            );
+        }
+
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->foreignId('ticket_tier_id')
+                ->nullable()
+                ->after('gift_card_template_id')
+                ->constrained('ticket_tiers')
+                ->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('cart_items', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('ticket_tier_id');
+        });
+
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement(
+                "ALTER TABLE cart_items
+                 MODIFY item_type ENUM('product', 'gift_card')
+                 DEFAULT 'product'"
+            );
+        }
+
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('ticket_tier_id');
+        });
+    }
+};
+
+######## database/migrations/2026_08_13_224924_add_phone_to_vendors_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('vendors', function (Blueprint $table) {
+            $table->string('phone', 30)->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('vendors', function (Blueprint $table) {
+            $table->dropColumn('phone');
+        });
+    }
+};
+
+######## database/migrations/2026_08_15_065458_add_created_by_to_categories_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('categories', function (Blueprint $table) {
+            $table->foreignId('created_by')
+                ->nullable()
+                ->after('id')
+                ->constrained('users')
+                ->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('categories', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('created_by');
+        });
+    }
+};
+
+######## database/migrations/2026_08_20_214233_add_vendor_notified_at_to_orders_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('orders', function (Blueprint $table) {
+            $table->timestamp('vendor_notified_at')->nullable()->after('stripe_charge_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropColumn('vendor_notified_at');
+        });
+    }
+};
+
+######## database/migrations/2026_08_20_220817_add_milestone_timestamps_to_orders_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+  public function up(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->timestamp('paid_at')->nullable()->after('is_paid');
+        $table->timestamp('fees_calculated_at')->nullable()->after('vendor_subtotal');
+        $table->timestamp('paid_out_at')->nullable()->after('payout_id');
+    });
+}
+
+public function down(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->dropColumn(['paid_at', 'fees_calculated_at', 'paid_out_at']);
+    });
+}
+};
+
+######## database/migrations/2026_08_20_235730_create_processed_stripe_events_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('processed_stripe_events', function (Blueprint $table) {
+            $table->id();
+            $table->string('stripe_event_id')->unique();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('processed_stripe_events');
+    }
+};
+
+######## database/migrations/2026_08_22_191154_create_category_event_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('category_event', function (Blueprint $table) {
+            $table->foreignId('category_id')
+                ->constrained('categories')
+                ->cascadeOnDelete();
+
+            $table->foreignId('event_id')
+                ->constrained('events')
+                ->cascadeOnDelete();
+
+            $table->primary(['category_id', 'event_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('category_event');
+    }
+};
+######## database/migrations/2026_08_22_191335_create_artist_event_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('artist_event', function (Blueprint $table) {
+            $table->foreignId('artist_id')
+                ->constrained('artists')
+                ->cascadeOnDelete();
+
+            $table->foreignId('event_id')
+                ->constrained('events')
+                ->cascadeOnDelete();
+
+            $table->primary(['artist_id', 'event_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('artist_event');
+    }
+};
+######## database/migrations/2026_08_23_092629_add_seating_type_to_event_legs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('event_legs', function (Blueprint $table) {
+            $table->string('seating_type')
+                ->default('general')
+                ->after('capacity');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('event_legs', function (Blueprint $table) {
+            $table->dropColumn('seating_type');
+        });
+    }
+};
+
+######## database/migrations/2026_08_23_092712_create_event_seats_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('event_seats', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('event_leg_id')
+                ->constrained('event_legs')
+                ->cascadeOnDelete();
+
+            $table->foreignId('ticket_tier_id')
+                ->nullable()
+                ->constrained('ticket_tiers')
+                ->nullOnDelete();
+
+            $table->string('row_label', 20);
+            $table->unsignedInteger('seat_number');
+            $table->string('label', 50);
+
+            $table->enum('status', [
+                'available',
+                'reserved',
+                'sold',
+                'blocked',
+            ])->default('available');
+
+            $table->timestamps();
+
+            $table->unique(
+                ['event_leg_id', 'row_label', 'seat_number'],
+                'event_seats_leg_row_number_unique'
+            );
+
+            $table->index(['event_leg_id', 'status']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('event_seats');
+    }
+};
+
+######## database/migrations/2026_08_23_093038_add_seat_id_to_tickets_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->foreignId('seat_id')
+                ->nullable()
+                ->after('event_leg_id')
+                ->constrained('event_seats')
+                ->nullOnDelete();
+
+            $table->index('seat_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('seat_id');
+        });
+    }
+};
+
+######## database/migrations/2026_08_23_093159_add_seat_ids_to_order_items_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->json('seat_ids')
+                ->nullable()
+                ->after('ticket_tier_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->dropColumn('seat_ids');
+        });
+    }
+};
+
+######## database/migrations/2026_08_23_093249_add_seat_ids_to_cart_items_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('cart_items', function (Blueprint $table) {
+            $table->json('seat_ids')
+                ->nullable()
+                ->after('ticket_tier_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('cart_items', function (Blueprint $table) {
+            $table->dropColumn('seat_ids');
+        });
+    }
+};
+
+######## database/migrations/2026_08_23_112818_create_venues_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('venues', function (Blueprint $table) {
+            $table->id();
+
+            // Who added it — for attribution only, NOT an access-control
+            // gate. Any authenticated Admin|Vendor can select any active
+            // venue when building an event; this just tracks provenance.
+            $table->foreignId('created_by_user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->string('name');
+            $table->string('address')->nullable();
+            $table->string('city')->nullable();
+            $table->string('state')->nullable();
+            $table->string('postcode')->nullable();
+            $table->string('country')->default('Australia');
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+
+            $table->unsignedInteger('capacity')->nullable();
+
+            // Physical property of the room — same enum as event_legs.seating_type.
+            $table->string('seating_type')->default('general');
+
+            $table->string('contact_name')->nullable();
+            $table->string('contact_email')->nullable();
+            $table->string('contact_phone')->nullable();
+            $table->text('notes')->nullable();
+            $table->string('image_url')->nullable();
+
+            // Soft-disable instead of deleting — past events may still
+            // reference this venue via event_legs.venue_id.
+            $table->boolean('is_active')->default(true);
+
+            $table->timestamps();
+
+            $table->index(['city', 'is_active']);
+            $table->index(['latitude', 'longitude']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('venues');
+    }
+};
+
+######## database/migrations/2026_08_23_121314_add_venue_id_to_event_legs_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('event_legs', function (Blueprint $table) {
+            // Nullable + nullOnDelete: a leg can still exist as a one-off
+            // location with no catalog venue attached, and deleting a
+            // venue must never cascade-delete the events/tickets that
+            // reference it — it should just detach.
+            //
+            // venue_name/address/city/latitude/longitude on event_legs
+            // are NOT removed by this migration. They stay as a snapshot
+            // of the venue at the time the leg was created/saved, so a
+            // later edit to the Venue record (rename, address fix) never
+            // silently rewrites historical event/ticket data.
+            $table->foreignId('venue_id')
+                ->nullable()
+                ->after('event_id')
+                ->constrained('venues')
+                ->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('event_legs', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('venue_id');
+        });
+    }
+};
+
+######## database/migrations/2026_08_23_145210_create_venue_sections_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('venue_sections', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('venue_id')
+                ->constrained('venues')
+                ->cascadeOnDelete();
+
+            $table->string('name');
+            $table->string('code')->nullable();
+
+            $table->unsignedInteger('sort_order')->default(0);
+
+            $table->unsignedInteger('capacity')->default(0);
+
+            $table->boolean('is_active')->default(true);
+
+            $table->timestamps();
+
+            $table->index(['venue_id', 'sort_order']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('venue_sections');
+    }
+};
+
+######## database/migrations/2026_08_23_145238_create_venue_seats_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('venue_seats', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('venue_id')
+                ->constrained('venues')
+                ->cascadeOnDelete();
+
+            $table->foreignId('venue_section_id')
+                ->nullable()
+                ->constrained('venue_sections')
+                ->nullOnDelete();
+
+            $table->string('row_label')->nullable();
+
+            $table->unsignedInteger('seat_number')->nullable();
+
+            $table->string('label');
+
+            $table->string('seat_type')->default('standard');
+
+            /*
+             * Optional visual seat-map coordinates.
+             */
+            $table->decimal('x', 10, 3)->nullable();
+            $table->decimal('y', 10, 3)->nullable();
+
+            $table->boolean('is_active')->default(true);
+
+            $table->timestamps();
+
+            $table->index([
+                'venue_id',
+                'venue_section_id',
+            ]);
+
+            $table->unique([
+                'venue_id',
+                'label',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('venue_seats');
+    }
+};
+
+######## database/migrations/2026_08_23_145541_add_venue_seat_id_to_event_seats_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('event_seats', function (Blueprint $table) {
+            $table->foreignId('venue_seat_id')
+                ->nullable()
+                ->after('event_leg_id')
+                ->constrained('venue_seats')
+                ->nullOnDelete();
+
+            $table->index([
+                'event_leg_id',
+                'venue_seat_id',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('event_seats', function (Blueprint $table) {
+            $table->dropForeign(['venue_seat_id']);
+            $table->dropColumn('venue_seat_id');
+        });
+    }
+};
+
+######## database/migrations/2026_08_25_184112_add_resale_fields_to_tickets_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->foreignId('owner_user_id')
+                ->nullable()
+                ->after('order_id')
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->unsignedInteger('times_resold')
+                ->default(0)
+                ->after('status');
+        });
+
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement('
+                UPDATE tickets
+                INNER JOIN orders ON orders.id = tickets.order_id
+                SET tickets.owner_user_id = orders.user_id
+                WHERE tickets.owner_user_id IS NULL
+            ');
+        } else {
+            DB::statement('
+                UPDATE tickets
+                SET owner_user_id = (
+                    SELECT orders.user_id
+                    FROM orders
+                    WHERE orders.id = tickets.order_id
+                )
+                WHERE owner_user_id IS NULL
+            ');
+        }
+
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement(
+                "ALTER TABLE tickets
+                 MODIFY status ENUM('valid', 'listed', 'used', 'void')
+                 DEFAULT 'valid'"
+            );
+        }
+    }
+
+    public function down(): void
+    {
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement(
+                "ALTER TABLE tickets
+                 MODIFY status ENUM('valid', 'used', 'void')
+                 DEFAULT 'valid'"
+            );
+        }
+
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('owner_user_id');
+            $table->dropColumn('times_resold');
+        });
+    }
+};
+
+######## database/migrations/2026_08_25_184549_create_ticket_resale_listings_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ticket_resale_listings', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('ticket_id')->constrained()->cascadeOnDelete();
+
+            // Snapshot of who was selling and who bought — kept even if
+            // ticket ownership later changes again, so this row stays a
+            // true record of THIS transaction regardless of what
+            // happens to the ticket afterward.
+            $table->foreignId('seller_user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('buyer_user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->decimal('price', 10, 2);
+            $table->decimal('commission_pct', 5, 2);
+            $table->decimal('commission_amount', 10, 2)->nullable();
+            $table->decimal('seller_payout_amount', 10, 2)->nullable();
+
+            // active   = listed, waiting for a buyer
+            // sold     = payment confirmed, ticket transferred
+            // cancelled = seller pulled the listing before it sold
+            $table->enum('status', ['active', 'sold', 'cancelled'])->default('active');
+
+            $table->string('stripe_session_id')->nullable();
+            $table->string('stripe_payment_intent')->nullable();
+
+            // Whether the seller has actually been paid out for this
+            // sale — separate from `status`, since payment collection
+            // (buyer -> platform) and payout (platform -> seller) are
+            // two different events, potentially on different rails.
+            $table->boolean('seller_paid_out')->default(false);
+            $table->timestamp('seller_paid_out_at')->nullable();
+
+            $table->timestamp('sold_at')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+
+            $table->timestamps();
+
+            $table->index(['ticket_id', 'status']);
+
+            // NOTE: a ticket can only have ONE active listing at a time —
+            // this is enforced in TicketResaleService, not by a DB
+            // constraint here. MySQL doesn't support partial/filtered
+            // unique indexes (unlike Postgres), so a plain unique index
+            // on ticket_id would incorrectly block a ticket from EVER
+            // being resold a second time after its first listing is
+            // sold/cancelled. The service uses lockForUpdate() + an
+            // explicit "does an active listing already exist" check
+            // inside a transaction instead — see listTicket() below.
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ticket_resale_listings');
+    }
+};
+
+######## database/migrations/2026_08_25_220738_create_event_media_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+   public function up(): void
+{
+    Schema::create('event_media', function (Blueprint $table) {
+        $table->id();
+
+        $table->foreignId('event_id')
+            ->constrained('events')
+            ->cascadeOnDelete();
+
+        $table->enum('type', ['image', 'video']);
+
+        $table->string('path');
+
+        $table->string('mime_type')->nullable();
+
+        $table->unsignedBigInteger('size')->nullable();
+
+        $table->unsignedInteger('position')->default(0);
+
+        $table->timestamps();
+
+        $table->index(['event_id', 'position']);
+    });
+}
+
+public function down(): void
+{
+    Schema::dropIfExists('event_media');
+}
+};
+
+######## database/migrations/2026_08_26_231437_add_fulfillment_error_to_orders_table.php ########
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->text('fulfillment_error')->nullable()->after('paid_at');
+    });
+}
+
+public function down(): void
+{
+    Schema::table('orders', function (Blueprint $table) {
+        $table->dropColumn('fulfillment_error');
+    });
+}
+};
+
+===== ENUMS =====
+
+######## app/Enums/ContactReasonEnum.php ########
+<?php
+namespace App\Enums;
+
+enum ContactReasonEnum: string
+{
+    case Inquiry = 'inquiry';
+    case Other = 'other';
+    case GettingQuote = 'getting_quote';
+    case Complain = 'complain';
+}
+
+######## app/Enums/OrderStatusEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum OrderStatusEnum: string
+{
+    case Draft='draft';
+    case Paid='paid';
+     case PaidFulfillmentFailed = 'paid_fulfillment_failed';
+    // case Shipped='shipped';
+    case Delivered='delivered';
+    case Cancelled='cancelled';
+        case Refunded = 'refunded';
+
+
+    public static function labels()
+    {
+        return[
+            self::Draft->value=>__('Draft'),
+            self::Delivered->value=>__('Delivered'),
+            self::Cancelled->value=>__('Cancelled'),
+            // self::Shipped->value=>__('Shipped'),
+             self::Refunded->value => __('Refunded'),
+            self::Paid->value=>__('Paid'),
+        ];
+    }
+}
+
+######## app/Enums/PermissionsEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum PermissionsEnum:string
+{
+    case ApproveVendors='ApproveVendors';
+    case SellProducts='SellProducts';
+    case BuyProducts='BuyProducts';
+}
+
+######## app/Enums/ProductHighlightEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum ProductHighlightEnum: string
+{
+    case Trending = 'trending';
+    case Sale = 'sale';
+    case Hot = 'hot';
+    case New = 'new';
+
+    public static function labels(): array
+    {
+        return [
+            self::Trending->value => 'Trending',
+            self::Sale->value => 'Sale',
+            self::Hot->value => 'Hot',
+            self::New->value => 'New',
+        ];
+    }
+
+    public static function colors(): array
+    {
+        return [
+            self::Trending->value => 'info',
+            self::Sale->value => 'success',
+            self::Hot->value => 'danger',
+            self::New->value => 'warning',
+        ];
+    }
+}
+
+######## app/Enums/ProductStatusEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum ProductStatusEnum: string
+{
+    case Draft='draft';
+    case Published='published';
+
+    public static function labels():array
+    {
+return[
+self::Draft->value=>__('Draft'),
+self::Published->value=>__('Published'),
+
+
+];
+    }
+
+
+    public static function colors():array
+    {
+return[
+'gray'=>self::Draft->value,
+'success'=>self::Published->value,
+
+
+];
+    }
+
+
+
+}
+
+######## app/Enums/ProductVariationTypeEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum ProductVariationTypeEnum: string
+{
+    case Select='Select';
+    case Radio='Radio';
+    case Image='Image';
+
+    public static function labels():array
+    {
+        return[
+            self::Select->value=>__('Select'),
+            self::Radio->value=>__('Radio'),
+            self::Image->value=>__('Image'),
+        ];
+    }
+}
+
+######## app/Enums/RolesEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum RolesEnum:string
+{
+    case Admin='Admin';
+    case Vendor='Vendor';
+    case User='User';
+}
+
+######## app/Enums/VendorStatusEnum.php ########
+<?php
+
+namespace App\Enums;
+
+enum VendorStatusEnum: string
+{
+    case Pending = 'active';
+
+    case Approved = 'approved';
+    case Rejected = 'rejected';
+
+
+public function label(): string
+{
+    return match($this) {
+        self::Pending => __('Pending'),
+        self::Approved => __('Approved'),
+        self::Rejected => __('Rejected'),
+    };
+}
+
+    public static function labels():array
+    {
+        return[
+            self::Pending->value=>__('Pending'),
+            self::Approved->value=>__('Approved'),
+            self::Rejected->value=>__('Rejected'),
+
+
+        ];
+    }
+
+    public static function colors():array
+    {
+        return [
+            'grey'=>self::Pending->value,
+            'success'=>self::Approved->value,
+            'danger'=>self::Rejected->value,
+        ];
+    }
+
+}
+
+######## app/Enums/VendorType.php ########
+<?php
+
+namespace App\Enums;
+
+enum VendorType: string
+{
+    case APPOINTMENT = 'appointment';
+    case ECOMMERCE = 'ecommerce';
+
+    public static function labels(): array
+    {
+        return [
+            self::APPOINTMENT->value => 'Appointment',
+            self::ECOMMERCE->value => 'E-commerce',
+        ];
+    }
+}

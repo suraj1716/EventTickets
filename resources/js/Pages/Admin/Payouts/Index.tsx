@@ -2,19 +2,7 @@
 import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader,
-  AdminTable,
-  AdminBtn,
-  ActionBtn,
-  FilterBar,
-  Pagination,
-  Tr,
-  Td,
-  FlashMessage,
-  ConfirmModal,
-  Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminTable, AdminBtn, ActionBtn, FilterBar, Pagination, Tr, Td, FlashMessage, ConfirmModal, Icons, C } from "../../../Components/Admin/AdminComponents";
 import { formatDate, formatDateRange } from "@/utils/dateFormat";
 
 interface Vendor {
@@ -113,11 +101,11 @@ export default function PayoutsIndex({ payouts, vendors, filters, flash }: Props
         {showForm && (
           <div
             style={{
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-sm)",
+              border: `1px solid ${C.border}`,
+              borderRadius: "8px",
               padding: 16,
               marginBottom: 16,
-              background: "var(--color-surface)",
+              background: `${C.surface}`,
               display: "flex",
               gap: 12,
               alignItems: "flex-end",
@@ -227,7 +215,7 @@ export default function PayoutsIndex({ payouts, vendors, filters, flash }: Props
                 {formatDate(p.starting_from)} → {formatDate(p.until)}
               </Td>
               <Td>
-                <span style={{ color: "var(--color-primary)", fontWeight: 500 }}>
+                <span style={{ color: `${C.amber}`, fontWeight: 500 }}>
                   A${Number(p.amount).toFixed(2)}
                 </span>
               </Td>

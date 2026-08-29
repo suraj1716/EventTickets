@@ -17,11 +17,11 @@ class TicketResaleCheckoutController extends Controller
     {
         abort_unless($listing->status === 'active', 422, 'This listing is no longer available.');
 
-        abort_if(
-            $listing->seller_user_id === $request->user()->id,
-            422,
-            'You cannot buy your own resale listing.'
-        );
+      if ($listing->seller_user_id === $request->user()->id) {
+    return back()->withErrors([
+        'resale' => 'You cannot buy your own resale listing.',
+    ]);
+}
 
         Stripe::setApiKey(config('app.stripe_secret_key'));
 
@@ -52,6 +52,6 @@ class TicketResaleCheckoutController extends Controller
             'cancel_url' => route('resale.index'),
         ]);
 
-        return redirect($session->url);
+        return \Inertia\Inertia::location($session->url);
     }
 }

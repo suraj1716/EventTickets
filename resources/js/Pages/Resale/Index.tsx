@@ -6,6 +6,7 @@
 
 import { Head, Link, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import toast from "react-hot-toast";
 
 interface Listing {
   id: number;
@@ -17,7 +18,19 @@ interface Listing {
     event_leg: {
       venue_name: string;
       event_date: string;
-      event: { name: string; slug: string; image_url: string | null } | null;
+      event: {
+        name: string;
+        slug: string;
+        media: {
+          id: number;
+          type: string;
+          path: string;
+          mime_type: string;
+          size: number;
+          position: number;
+          url: string;
+        }[];
+      } | null;
     } | null;
   };
 }
@@ -31,9 +44,30 @@ interface Props {
 }
 
 export default function ResaleIndex({ listings }: Props) {
-  function buy(listingId: number) {
-    router.post(route("resale.checkout", listingId));
-  }
+function buy(listingId: number) {
+  router.post(
+    route("resale.checkout", listingId),
+    {},
+    {
+      preserveScroll: true,
+
+      onError: (errors) => {
+        console.log("RESALE CHECKOUT ERRORS:", errors);
+
+        if (errors.resale) {
+          toast.error(errors.resale);
+          return;
+        }
+
+        toast.error("Unable to purchase this ticket.");
+      },
+
+      onFinish: () => {
+        console.log("Resale checkout request finished");
+      },
+    }
+  );
+}
   return (
     <AuthenticatedLayout>
       <Head title="Resale tickets" />
@@ -67,63 +101,94 @@ export default function ResaleIndex({ listings }: Props) {
             <div className="mt-8 space-y-3">
               {listings.data.map((listing) => (
                 <div
-  key={listing.id}
-  className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-[#26232E] bg-[#15141B] p-4"
+                  key={listing.id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-[#26232E] bg-[#15141B] p-4"
+                >
+                  {/* Event poster thumbnail — landscape, full-width on mobile */}
+{/* Event poster thumbnail */}
+<Link
+  href={
+    listing.ticket.event_leg?.event?.slug
+      ? route("events.show", listing.ticket.event_leg.event.slug)
+      : "#"
+  }
+  className="relative h-40 w-full sm:h-16 sm:w-28 shrink-0 overflow-hidden rounded-lg border border-[#26232E] block"
 >
-  {/* Event poster thumbnail — landscape, full-width on mobile */}
-  <div className="relative h-40 w-full sm:h-16 sm:w-28 shrink-0 overflow-hidden rounded-lg border border-[#26232E]">
-    {listing.ticket.event_leg?.event?.image_url ? (
-      <img
-        src={listing.ticket.event_leg.event.image_url}
-        alt=""
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <div className="h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
-        <span className="font-['Anton'] text-lg uppercase text-white/10 select-none">Live</span>
-      </div>
-    )}
-  </div>
-
-  <div className="min-w-0 flex-1">
-    <p className="font-semibold text-white truncate">
-      {listing.ticket.event_leg?.event?.name ?? 'Event'}
-    </p>
-    <p className="text-xs text-[#9C97A8] mt-1">
-      {listing.ticket.event_leg?.venue_name}
-      {listing.ticket.ticket_tier ? ` · ${listing.ticket.ticket_tier.name}` : ''}
-    </p>
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-      {listing.ticket.event_leg?.event_date && (
-        <p className="font-['IBM_Plex_Mono'] text-[11px] text-[#6B6775]">
-          {new Date(listing.ticket.event_leg.event_date).toLocaleDateString(undefined, {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
-        </p>
-      )}
-      <span className="hidden sm:inline text-[11px] text-[#6B6775]">·</span>
-      <p className="text-[11px] text-[#6B6775]">
-        Sold by <span className="text-[#9C97A8]">{listing.seller.name}</span>
-      </p>
+  {listing.ticket.event_leg?.event?.media?.length ? (
+    <img
+      src={listing.ticket.event_leg.event.media[0].url}
+      alt={listing.ticket.event_leg.event.name}
+      className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
+    />
+  ) : (
+    <div className="h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
+      <span className="font-['Anton'] text-lg uppercase text-white/10 select-none">
+        Live
+      </span>
     </div>
-  </div>
+  )}
+</Link>
 
-  <div className="flex items-center justify-between sm:flex-col sm:items-end shrink-0 gap-2 sm:gap-0">
-    <p className="font-['IBM_Plex_Mono'] text-lg font-semibold text-[#FFB627]">
-      ${listing.price}
+<div className="min-w-0 flex-1">
+  <Link
+    href={
+      listing.ticket.event_leg?.event?.slug
+        ? route("events.show", listing.ticket.event_leg.event.slug)
+        : "#"
+    }
+    className="font-semibold text-white truncate block hover:text-[#FFB627] transition-colors"
+  >
+    {listing.ticket.event_leg?.event?.name ?? "Event"}
+  </Link>
+
+  <p className="text-xs text-[#9C97A8] mt-1">
+    {listing.ticket.event_leg?.venue_name}
+    {listing.ticket.ticket_tier
+      ? ` · ${listing.ticket.ticket_tier.name}`
+      : ""}
+  </p>
+
+  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+    {listing.ticket.event_leg?.event_date && (
+      <p className="font-['IBM_Plex_Mono'] text-[11px] text-[#6B6775]">
+        {new Date(
+          listing.ticket.event_leg.event_date
+        ).toLocaleDateString(undefined, {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })}
+      </p>
+    )}
+
+    <span className="hidden sm:inline text-[11px] text-[#6B6775]">
+      ·
+    </span>
+
+    <p className="text-[11px] text-[#6B6775]">
+      Sold by{" "}
+      <span className="text-[#9C97A8]">
+        {listing.seller.name}
+      </span>
     </p>
-    <button
-      type="button"
-      onClick={() => buy(listing.id)}
-      className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2"
-    >
-      Buy
-    </button>
   </div>
 </div>
+
+
+                  <div className="flex items-center justify-between sm:flex-col sm:items-end shrink-0 gap-2 sm:gap-0">
+                    <p className="font-['IBM_Plex_Mono'] text-lg font-semibold text-[#FFB627]">
+                      ${listing.price}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => buy(listing.id)}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2"
+                    >
+                      Buy
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}

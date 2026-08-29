@@ -1,15 +1,20 @@
 import { Head, Link, router } from "@inertiajs/react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 import AdminLayout from "../AdminLayout";
 import {
   ActionBtn,
+  AdminBtn,
   AdminPageHeader,
   AdminTable,
+  ConfirmModal,
   FilterBar,
   Icons,
   Pagination,
   StatusBadge,
+  Tr,
   Td,
+  C,
 } from "../../../Components/Admin/AdminComponents";
 
 type Booking = {
@@ -25,6 +30,7 @@ type Booking = {
 };
 
 type Props = {
+  bookings: { data: Booking[]; links: any[] };
   filters: {
     search?: string;
     date?: string;
@@ -34,88 +40,75 @@ type Props = {
   };
 };
 
-const btnStyle = (color = "var(--color-primary)"): React.CSSProperties => ({
-  background: "transparent",
-  border: `1px solid ${color}`,
-  color,
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  padding: "4px 12px",
-  cursor: "pointer",
-  textDecoration: "none",
-  display: "inline-block",
-});
-
 export default function BookingsIndex({ bookings, filters }: Props) {
-  const handleDelete = (id: number) => {
-    if (!confirm("Delete this booking?")) return;
-    router.delete(route("admin.bookings.destroy", id), {
+  const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    router.delete(route("admin.bookings.destroy", deleteTarget.id), {
       preserveScroll: true,
       onSuccess: () => toast.success("Booking deleted"),
-      onError: () => toast.error("Failed"),
+      onError: () => toast.error("Failed to delete booking"),
+      onFinish: () => setDeleteTarget(null),
     });
   };
 
-  const handleCancel = (id: number) => {
-    if (
-      !confirm("Cancel this booking? The linked order will also be cancelled.")
-    )
-      return;
+  const handleCancel = () => {
+    if (!cancelTarget) return;
     router.post(
-      route("admin.bookings.cancel", id),
+      route("admin.bookings.cancel", cancelTarget.id),
       {},
       {
         preserveScroll: true,
         onSuccess: () => toast.success("Booking cancelled"),
-        onError: () => toast.error("Failed"),
+        onError: () => toast.error("Failed to cancel booking"),
+        onFinish: () => setCancelTarget(null),
       },
     );
   };
+
   const sort = (key: string) => {
-    const direction =
-      filters.sort === key && filters.direction === "asc" ? "desc" : "asc";
-
-    const params = {
-      ...filters,
-      sort: key,
-      direction,
-    };
-
-    console.log("filters:", filters);
-    console.log("params:", params);
-
-    router.get(route("admin.bookings.index"), params, {
+    const direction = filters.sort === key && filters.direction === "asc" ? "desc" : "asc";
+    router.get(route("admin.bookings.index"), { ...filters, sort: key, direction }, {
       preserveState: true,
       preserveScroll: true,
     });
   };
+
   return (
     <AdminLayout>
-      <Head title="Admin — Bookings" />
+      <Head title="Bookings" />
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={`Delete booking #${deleteTarget.id}?`}
+          description="This will permanently remove the booking. This action cannot be undone."
+          confirmLabel="Delete Booking"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {cancelTarget && (
+        <ConfirmModal
+          title={`Cancel booking #${cancelTarget.id}?`}
+          description="The linked order will also be cancelled."
+          confirmLabel="Cancel Booking"
+          onConfirm={handleCancel}
+          onCancel={() => setCancelTarget(null)}
+        />
+      )}
 
       <AdminPageHeader
-        eyebrow="Manage"
+        eyebrow="Operations"
         title="Bookings"
+        meta={`${bookings.data.length} records shown`}
         action={
-          <Link
-            href={route("admin.bookings.create")}
-            style={{
-              background: "var(--color-primary)",
-              color: "#fff",
-              border: "none",
-              fontFamily: "var(--font-body)",
-              fontSize: "var(--text-xs)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              padding: "0.75rem 1.75rem",
-              cursor: "pointer",
-              textDecoration: "none",
-            }}
-          >
-            + Create Booking
-          </Link>
+          <AdminBtn as={Link} href={route("admin.bookings.create")} variant="accent">
+            <Icons.Plus />
+            New Booking
+          </AdminBtn>
         }
       />
 
@@ -123,24 +116,13 @@ export default function BookingsIndex({ bookings, filters }: Props) {
         routeName="admin.bookings.index"
         filters={filters}
         fields={[
-          { key: "search", placeholder: "Search customer…" },
-          {
-            key: "is_read",
-            type: "select",
-            placeholder: "New / Unread",
-            options: [
-              { value: "1", label: "New" },
-              { value: "0", label: "Unread" },
-            ],
-          },
+          { key: "search", placeholder: "Search customer…", flex: true },
           { key: "date", type: "date", placeholder: "Booking date" },
           {
             key: "status",
             type: "select",
             placeholder: "All statuses",
-            options: ["draft", "paid", "shipped", "delivered", "cancelled"].map(
-              (s) => ({ value: s, label: s }),
-            ),
+            options: ["draft", "paid", "shipped", "delivered", "cancelled"].map((s) => ({ value: s, label: s })),
           },
         ]}
       />
@@ -149,39 +131,25 @@ export default function BookingsIndex({ bookings, filters }: Props) {
         headers={[
           "#",
           "Customer",
-          <span
-            key="date"
-            onClick={() => sort("booking_date")}
-            style={{ cursor: "pointer" }}
-          >
+          <span key="date" onClick={() => sort("booking_date")} style={{ cursor: "pointer" }}>
             Booking Date ↕
           </span>,
           "Time Slot",
           "Order",
           "Order Status",
-          <span
-            key="total"
-            onClick={() => sort("order_total")}
-            style={{ cursor: "pointer" }}
-          >
+          <span key="total" onClick={() => sort("order_total")} style={{ cursor: "pointer" }}>
             Total ↕
           </span>,
           "Actions",
         ]}
+        empty="✦ No bookings found"
       >
         {bookings.data.map((b) => (
-          <tr key={b.id}>
+          <Tr key={b.id}>
             <Td muted>#{b.id}</Td>
             <Td>
               <div>{b.customer}</div>
-              <div
-                style={{
-                  fontSize: "var(--text-xs)",
-                  color: "var(--color-text-light)",
-                }}
-              >
-                {b.email}
-              </div>
+              <div style={{ fontSize: 11, color: C.textFaint }}>{b.email}</div>
             </Td>
             <Td>{b.booking_date.split("T")[0]}</Td>
             <Td muted>{b.time_slot}</Td>
@@ -191,51 +159,28 @@ export default function BookingsIndex({ bookings, filters }: Props) {
             </Td>
             <Td>
               {b.order_total > 0 ? (
-                <span
-                  style={{ color: "var(--color-primary)", fontWeight: 500 }}
-                >
-                  A${b.order_total}
-                </span>
+                <span style={{ color: C.amber, fontWeight: 500 }}>A${b.order_total}</span>
               ) : (
-                <span style={{ color: "var(--color-text-light)" }}>—</span>
+                <span style={{ color: C.textFaint }}>—</span>
               )}
             </Td>
             <Td>
-              <div style={{ display: "flex", gap: 6 }}>
-                <ActionBtn
-                  variant="view"
-                  title="View"
-                  as="a"
-                  href={route("admin.bookings.show", b.id)}
-                >
+              <div style={{ display: "flex", gap: 4 }}>
+                <ActionBtn variant="view" title="View" as="a" href={route("admin.bookings.show", b.id)}>
                   <Icons.View />
                 </ActionBtn>
-                <ActionBtn
-                  variant="edit"
-                  title="Edit"
-                  as="a"
-                  href={route("admin.bookings.edit", b.id)}
-                >
+                <ActionBtn variant="edit" title="Edit" as="a" href={route("admin.bookings.edit", b.id)}>
                   <Icons.Edit />
                 </ActionBtn>
-                <ActionBtn
-                  variant="delete"
-                  title="Cancel"
-                  onClick={() => handleCancel(b.id)}
-                >
+                <ActionBtn variant="delete" title="Cancel Booking" onClick={() => setCancelTarget(b)}>
                   ↩
                 </ActionBtn>
-
-                <ActionBtn
-                  variant="delete"
-                  title="Delete"
-                  onClick={() => handleDelete(b.id)}
-                >
+                <ActionBtn variant="delete" title="Delete" onClick={() => setDeleteTarget(b)}>
                   <Icons.Delete />
                 </ActionBtn>
               </div>
             </Td>
-          </tr>
+          </Tr>
         ))}
       </AdminTable>
 

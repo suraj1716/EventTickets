@@ -16,11 +16,16 @@ class EventWatchlist extends Model
         'event_id',
         'email',
         'user_id',
+        'verified_at',
+        'verification_token_hash',
+        'verification_expires_at',
         'notified',
         'notified_at',
     ];
 
     protected $casts = [
+        'verified_at' => 'datetime',
+        'verification_expires_at' => 'datetime',
         'notified' => 'boolean',
         'notified_at' => 'datetime',
     ];

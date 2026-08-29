@@ -259,7 +259,7 @@ export default function EventsIndex({ events, filters }: Props) {
       alert('Every location needs at least one ticket tier before publishing.');
       return;
     }
-    router.post(route('vendor.events.publish', event.id));
+    router.post(route('admin.events.publish', event.id));
   }
 
   function handleDelete(event: Event) {

@@ -1,7 +1,7 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { toast } from "react-toastify";
 import AdminLayout from "../AdminLayout";
-import { StatusBadge } from "../../../Components/Admin/AdminComponents";
+import { StatusBadge, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 type Props = {
   voucher: {
@@ -38,33 +38,33 @@ export default function VoucherShow({ voucher }: Props) {
   };
 
   const sectionStyle: React.CSSProperties = {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    marginBottom: "var(--space-lg)",
+    background: `${C.surface}`,
+    border: `1px solid ${C.border}`,
+    marginBottom: "24px",
   };
   const sectionHead: React.CSSProperties = {
-    padding: "var(--space-md) var(--space-xl)",
-    borderBottom: "1px solid var(--color-border)",
-    fontFamily: "var(--font-body)", fontSize: "var(--text-xs)",
+    padding: "16px 32px",
+    borderBottom: `1px solid ${C.border}`,
+    fontFamily: `${fontBody}`, fontSize: "11px",
     letterSpacing: "0.15em", textTransform: "uppercase",
-    color: "var(--color-text-light)", fontWeight: 500,
+    color: `${C.textFaint}`, fontWeight: 500,
   };
-  const sectionBody: React.CSSProperties = { padding: "var(--space-xl)" };
+  const sectionBody: React.CSSProperties = { padding: "32px" };
   const row: React.CSSProperties = {
     display: "grid", gridTemplateColumns: "160px 1fr",
-    gap: "var(--space-sm)", paddingBottom: "var(--space-sm)",
-    borderBottom: "1px solid var(--color-border)", marginBottom: "var(--space-sm)",
+    gap: "8px", paddingBottom: "8px",
+    borderBottom: `1px solid ${C.border}`, marginBottom: "8px",
   };
   const label: React.CSSProperties = {
-    fontFamily: "var(--font-body)", fontSize: "var(--text-xs)",
-    letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-light)",
+    fontFamily: `${fontBody}`, fontSize: "11px",
+    letterSpacing: "0.1em", textTransform: "uppercase", color: `${C.textFaint}`,
   };
   const value: React.CSSProperties = {
-    fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text)",
+    fontFamily: `${fontBody}`, fontSize: "13px", color: `${C.text}`,
   };
   const btnStyle = (color: string): React.CSSProperties => ({
     background: "transparent", border: `1px solid ${color}`, color,
-    fontFamily: "var(--font-body)", fontSize: "var(--text-xs)",
+    fontFamily: `${fontBody}`, fontSize: "11px",
     letterSpacing: "0.1em", textTransform: "uppercase",
     padding: "0.6rem 1.25rem", cursor: "pointer", textDecoration: "none",
     display: "inline-block",
@@ -74,39 +74,39 @@ export default function VoucherShow({ voucher }: Props) {
     <AdminLayout>
       <Head title={`Voucher ${voucher.code}`} />
 
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "var(--space-2xl)" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "48px" }}>
         <div>
-          <Link href={route("admin.vouchers.index")} style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-light)", textDecoration: "none", display: "inline-block", marginBottom: "var(--space-sm)" }}>
+          <Link href={route("admin.vouchers.index")} style={{ fontFamily: `${fontBody}`, fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: `${C.textFaint}`, textDecoration: "none", display: "inline-block", marginBottom: "8px" }}>
             ← Vouchers
           </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-lg)" }}>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.75rem,3vw,2.25rem)", fontWeight: 300, color: "var(--color-text)", margin: 0, letterSpacing: "0.05em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+            <h1 style={{ fontFamily: `${fontDisplay}`, fontSize: "clamp(1.75rem,3vw,2.25rem)", fontWeight: 300, color: `${C.text}`, margin: 0, letterSpacing: "0.05em" }}>
               {voucher.code}
             </h1>
             <StatusBadge status={voucher.type} />
             <StatusBadge status={voucher.active ? "approved" : "rejected"} />
           </div>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", color: "var(--color-text-light)" }}>
+          <span style={{ fontFamily: `${fontBody}`, fontSize: "11px", color: `${C.textFaint}` }}>
             Created {voucher.created_at}
           </span>
         </div>
-        <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-          <Link href={route("admin.vouchers.edit", voucher.id)} style={btnStyle("var(--color-primary)")}>Edit</Link>
-          <button onClick={handleToggle} style={btnStyle(voucher.active ? "var(--color-warning)" : "var(--color-success)")}>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Link href={route("admin.vouchers.edit", voucher.id)} style={btnStyle(`${C.amber}`)}>Edit</Link>
+          <button onClick={handleToggle} style={btnStyle(voucher.active ? `${C.amber}` : `${C.success}`)}>
             {voucher.active ? "Deactivate" : "Activate"}
           </button>
-          <button onClick={handleDelete} style={btnStyle("var(--color-error)")}>Delete</button>
+          <button onClick={handleDelete} style={btnStyle(`${C.error}`)}>Delete</button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "var(--space-lg)", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "24px", alignItems: "start" }}>
         <div>
           <div style={sectionStyle}>
             <div style={sectionHead}>Voucher Details</div>
             <div style={sectionBody}>
               <div style={row}>
                 <span style={label}>Code</span>
-                <span style={{ ...value, fontWeight: 600, letterSpacing: "0.1em", color: "var(--color-primary)" }}>{voucher.code}</span>
+                <span style={{ ...value, fontWeight: 600, letterSpacing: "0.1em", color: `${C.amber}` }}>{voucher.code}</span>
               </div>
               <div style={row}>
                 <span style={label}>Type</span>
@@ -118,7 +118,7 @@ export default function VoucherShow({ voucher }: Props) {
               </div>
               <div style={row}>
                 <span style={label}>Amount</span>
-                <span style={{ ...value, color: "var(--color-primary)", fontWeight: 500 }}>
+                <span style={{ ...value, color: `${C.amber}`, fontWeight: 500 }}>
                   {voucher.discount_type === "percent" ? `${voucher.amount}%` : `A$${voucher.amount}`}
                 </span>
               </div>

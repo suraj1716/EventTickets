@@ -23,11 +23,28 @@ interface Listing {
   };
 }
 
+interface PayoutSummary {
+  stripe_account_active: boolean;
+  total_sold: number;
+  gross_sales: number;
+  platform_fee: number;
+  total_payout_amount: number;
+  paid_out_amount: number;
+  pending_amount: number;
+  progress_pct: number;
+  schedule: {
+    interval: string | null;
+    next_payout_date: string | null;
+    next_payout_amount: number | null;
+  } | null;
+}
+
 interface Props {
   listings: {
     data: Listing[];
     meta: { total: number };
   };
+  payoutSummary: PayoutSummary;
 }
 
 const STATUS_STYLE: Record<Listing['status'], string> = {
@@ -36,11 +53,22 @@ const STATUS_STYLE: Record<Listing['status'], string> = {
   cancelled: 'bg-neutral-900 text-neutral-500 border-neutral-800',
 };
 
-export default function ResaleMine({ listings }: Props) {
+export default function ResaleMine({ listings, payoutSummary }: Props) {
   function cancelListing(id: number) {
     if (!confirm('Cancel this resale listing? Your ticket will become valid again.')) return;
     router.delete(route('resale.destroy', id), { preserveScroll: true });
   }
+
+  const {
+    stripe_account_active,
+    gross_sales,
+    platform_fee,
+    total_payout_amount,
+    paid_out_amount,
+    pending_amount,
+    progress_pct,
+    schedule,
+  } = payoutSummary;
 
   return (
     <AuthenticatedLayout>
@@ -50,6 +78,73 @@ export default function ResaleMine({ listings }: Props) {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
           <p className="text-xs uppercase tracking-wide text-[#6B6775] mb-1">Your account</p>
           <h1 className="text-3xl font-bold mb-8">My resale listings</h1>
+
+          <div className="rounded-xl border border-[#26232E] bg-[#15141B] p-5 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-semibold">Payouts</p>
+              <span
+                className={`text-[10px] uppercase tracking-wide px-2 py-1 rounded-full border ${
+                  stripe_account_active
+                    ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900'
+                    : 'bg-amber-950/30 text-amber-400 border-amber-900'
+                }`}
+              >
+                {stripe_account_active ? 'Active' : 'Setup required'}
+              </span>
+            </div>
+
+            {!stripe_account_active && (
+              <a href={route('resale.connect')} className="text-sm text-[#FFB627] underline mb-4 inline-block">
+                Set up payouts
+              </a>
+            )}
+
+            {/* Breakdown: gross sales -> platform fee -> net payout */}
+            <div className="grid grid-cols-3 gap-3 text-sm mb-4 pb-4 border-b border-[#26232E]">
+              <div>
+                <div className="text-[#6B6775] text-xs mb-1">Gross sales</div>
+                <div className="font-['IBM_Plex_Mono'] font-medium">${gross_sales.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-[#6B6775] text-xs mb-1">Platform fee</div>
+                <div className="font-['IBM_Plex_Mono'] font-medium text-red-400">-${platform_fee.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-[#6B6775] text-xs mb-1">Net payout</div>
+                <div className="font-['IBM_Plex_Mono'] font-medium text-[#FFB627]">${total_payout_amount.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {/* Paid vs pending progress */}
+            <div className="w-full h-2 rounded-full bg-[#26232E] overflow-hidden mb-2">
+              <div
+                className="h-full bg-[#FFB627] rounded-full transition-all"
+                style={{ width: `${progress_pct}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-[#9C97A8] mb-4">
+              <span className="font-['IBM_Plex_Mono'] text-emerald-400">${paid_out_amount.toFixed(2)} paid out</span>
+              <span className="font-['IBM_Plex_Mono'] text-amber-400">${pending_amount.toFixed(2)} pending</span>
+            </div>
+
+            {/* Next payout */}
+            {schedule?.next_payout_date ? (
+              <div className="pt-3 border-t border-[#26232E] text-xs text-[#9C97A8]">
+                <p>
+                  Next payout: <span className="text-white font-medium">${schedule.next_payout_amount?.toFixed(2)}</span>{' '}
+                  on <span className="text-white font-medium">{schedule.next_payout_date}</span>
+                </p>
+                {schedule.interval && (
+                  <p className="mt-1 text-[#6B6775]">Payout schedule: {schedule.interval}</p>
+                )}
+              </div>
+            ) : stripe_account_active && pending_amount > 0 ? (
+              <p className="pt-3 border-t border-[#26232E] text-xs text-[#6B6775]">
+                Funds are still clearing with Stripe — no payout scheduled yet.
+              </p>
+            ) : null}
+          </div>
 
           {listings.data.length === 0 ? (
             <div className="border border-dashed border-[#26232E] rounded-2xl py-16 text-center">

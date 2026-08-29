@@ -61,7 +61,8 @@ const NAV_GROUPS: {
       { label: "Events", href: "admin.events.index", icon: Ticket, countKey: null },
       { label: "New Event", href: "admin.events.create", icon: PlusCircle, countKey: null },
       { label: "Venues", href: "admin.venues.index", icon: MapPin, countKey: null },
-      { label: "Ticket Orders", href: "admin.events.orders.index", icon: ClipboardList, countKey: null },
+            { label: "Orders", href: "admin.orders.index", icon: ClipboardList, countKey: "orders" },
+
       { label: "Tickets", href: "admin.events.tickets.index", icon: TicketCheck, countKey: null },
       { label: "Watchlist", href: "admin.events.watchlist.index", icon: Eye, countKey: null },
       { label: "Ticket Scan", href: "staff.scan.index", icon: ScanLine, countKey: null },
@@ -141,11 +142,12 @@ export default function AdminLayout({
   const adminCounts = (props.adminCounts ?? {}) as Record<string, number>;
 
   const [collapsed, setCollapsed] = useState(false);
-  const [openGroups, setOpenGroups] = useState<string[]>([
-    "Catalogue",
-    "Commerce",
-    "People",
-  ]);
+ const [openGroups, setOpenGroups] = useState<string[]>([
+  "Events",
+  "Catalogue",
+  "Commerce",
+  "People",
+]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 

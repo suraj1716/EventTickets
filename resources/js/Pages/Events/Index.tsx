@@ -123,19 +123,18 @@ console.log('events',events)
 
       <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
         {/* Hero — marquee */}
-        <section className="relative overflow-hidden border-b border-[#26232E]">
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -top-32 -left-24 h-80 w-80 rounded-full bg-[#FFB627] opacity-[0.16] blur-[100px]"
-            animate={{ y: [0, 30, 0], x: [0, 20, 0] }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-[#8B6BFF] opacity-[0.16] blur-[110px]"
-            animate={{ y: [0, -25, 0], x: [0, -15, 0] }}
-            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-          />
+                <section className="relative overflow-hidden border-b border-[#26232E] min-h-[800px] sm:min-h-[600px] lg:min-h-[550px] flex items-center">
+                   <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          >
+            <source src="/videos/concert.mp4" type="video/mp4" />
+          </video>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B0B10]" />
+          <div className="pointer-events-none absolute inset-0" />
 
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
             <motion.p
@@ -152,7 +151,7 @@ console.log('events',events)
               Box office — open now
             </motion.p>
 
-            <h1 className="font-['Anton'] uppercase leading-[0.88] text-5xl sm:text-6xl lg:text-7xl tracking-tight flex flex-wrap gap-x-4">
+            <h1 className="font-['Anton'] uppercase leading-[0.88] text-5xl sm:text-6xl lg:text-7xl tracking-tight flex flex-wrap gap-x-4 gap-y-2">
               {heroWords.map((word, i) => (
                 <motion.span
                   key={word + i}

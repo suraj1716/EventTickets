@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import { Head, router, usePage } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader,
-  AdminBtn,
-  FlashMessage,
-  Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, FlashMessage, Icons, fontBody, fontDisplay, C } from "../../../Components/Admin/AdminComponents";
 
 interface Product {
   id: number;
@@ -77,30 +72,30 @@ function buildTimeSlots() {
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "10px",
   fontWeight: 500,
   letterSpacing: "0.18em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted)",
+  color: `${C.textMuted}`,
   marginBottom: 6,
 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "9px 12px",
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "13px",
-  color: "var(--color-text)",
-  background: "var(--color-bg-alt)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "var(--radius-sm)",
+  color: `${C.text}`,
+  background: `${C.bgAlt}`,
+  border: `1px solid ${C.border}`,
+  borderRadius: "8px",
   outline: "none",
   boxSizing: "border-box",
 };
 const errStyle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "11px",
-  color: "var(--color-error)",
+  color: `${C.error}`,
   marginTop: 4,
 };
 
@@ -114,17 +109,17 @@ function Card({
   return (
     <div
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-md)",
+        background: `${C.surface}`,
+        border: `1px solid ${C.border}`,
+        borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: "12px 20px",
-          borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-bg-alt)",
+          borderBottom: `1px solid ${C.border}`,
+          background: `${C.bgAlt}`,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -134,17 +129,17 @@ function Card({
           style={{
             width: 3,
             height: 16,
-            background: "var(--color-accent)",
+            background: `${C.amber}`,
             borderRadius: 2,
           }}
         />
         <span
           style={{
-            fontFamily: "var(--font-body)",
+            fontFamily: `${fontBody}`,
             fontSize: "10px",
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: "var(--color-text-muted)",
+            color: `${C.textMuted}`,
             fontWeight: 500,
           }}
         >
@@ -170,8 +165,8 @@ function Toggle({
       style={{
         width: 44,
         height: 24,
-        borderRadius: "var(--radius-full)",
-        background: checked ? "var(--color-success)" : "var(--color-border)",
+        borderRadius: "999px",
+        background: checked ? `${C.success}` : `${C.border}`,
         border: "none",
         cursor: "pointer",
         position: "relative",
@@ -434,7 +429,7 @@ if (!order) {
                     padding: "12px 16px",
                     background: "rgba(58,125,68,0.06)",
                     border: "1px solid rgba(58,125,68,0.2)",
-                    borderRadius: "var(--radius-sm)",
+                    borderRadius: "8px",
                     marginBottom: 12,
                     display: "flex",
                     alignItems: "center",
@@ -444,19 +439,19 @@ if (!order) {
                   <div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "13px",
                         fontWeight: 500,
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                       }}
                     >
                       ✓ {foundUser.name}
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "11px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginTop: 3,
                       }}
                     >
@@ -473,11 +468,11 @@ if (!order) {
                       setResolvedUserId(null);
                     }}
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "10px",
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
-                      color: "var(--color-accent)",
+                      color: `${C.amber}`,
                       background: "none",
                       border: "none",
                       cursor: "pointer",
@@ -505,11 +500,11 @@ if (!order) {
                     onClick={handlePhoneLookup}
                     style={{
                       padding: "9px 16px",
-                      background: "var(--color-primary)",
+                      background: `${C.amber}`,
                       color: "white",
                       border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      fontFamily: "var(--font-body)",
+                      borderRadius: "8px",
+                      fontFamily: `${fontBody}`,
                       fontSize: "11px",
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
@@ -524,9 +519,9 @@ if (!order) {
               {lookupState === "searching" && (
                 <p
                   style={{
-                    fontFamily: "var(--font-body)",
+                    fontFamily: `${fontBody}`,
                     fontSize: "12px",
-                    color: "var(--color-text-muted)",
+                    color: `${C.textMuted}`,
                   }}
                 >
                   Searching…
@@ -537,9 +532,9 @@ if (!order) {
                 <div style={{ marginTop: 8 }}>
                   <p
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "12px",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginBottom: 12,
                     }}
                   >
@@ -582,9 +577,9 @@ if (!order) {
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "11px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         textAlign: "left",
                         padding: 0,
                       }}
@@ -622,7 +617,7 @@ if (!order) {
                       left: 10,
                       top: "50%",
                       transform: "translateY(-50%)",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       pointerEvents: "none",
                     }}
                   >
@@ -637,9 +632,9 @@ if (!order) {
                         left: 0,
                         right: 0,
                         zIndex: 20,
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "var(--radius-sm)",
+                        background: `${C.surface}`,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: "8px",
                         maxHeight: 200,
                         overflowY: "auto",
                         boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
@@ -657,16 +652,16 @@ if (!order) {
                             cursor: "pointer",
                             display: "flex",
                             justifyContent: "space-between",
-                            borderBottom: "1px solid var(--color-border)",
+                            borderBottom: `1px solid ${C.border}`,
                             background:
                               selectedPid === String(p.id)
-                                ? "var(--color-bg-alt)"
+                                ? `${C.bgAlt}`
                                 : "transparent",
                           }}
                         >
                           <span
                             style={{
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
                             }}
                           >
@@ -674,9 +669,9 @@ if (!order) {
                           </span>
                           <span
                             style={{
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "12px",
-                              color: "var(--color-primary)",
+                              color: `${C.amber}`,
                               fontWeight: 500,
                             }}
                           >
@@ -701,9 +696,9 @@ if (!order) {
                   style={{
                     padding: "28px 0",
                     textAlign: "center",
-                    color: "var(--color-text-muted)",
+                    color: `${C.textMuted}`,
                     fontSize: 13,
-                    fontFamily: "var(--font-body)",
+                    fontFamily: `${fontBody}`,
                     opacity: 0.6,
                   }}
                 >
@@ -712,8 +707,8 @@ if (!order) {
               ) : (
                 <div
                   style={{
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     overflow: "hidden",
                   }}
                 >
@@ -721,8 +716,8 @@ if (!order) {
                     <thead>
                       <tr
                         style={{
-                          background: "var(--color-bg-alt)",
-                          borderBottom: "1px solid var(--color-border)",
+                          background: `${C.bgAlt}`,
+                          borderBottom: `1px solid ${C.border}`,
                         }}
                       >
                         {["Product", "Qty", "Price", "Subtotal", ""].map(
@@ -732,11 +727,11 @@ if (!order) {
                               style={{
                                 padding: "8px 12px",
                                 textAlign: "left",
-                                fontFamily: "var(--font-body)",
+                                fontFamily: `${fontBody}`,
                                 fontSize: "9px",
                                 letterSpacing: "0.15em",
                                 textTransform: "uppercase",
-                                color: "var(--color-text-muted)",
+                                color: `${C.textMuted}`,
                                 fontWeight: 500,
                               }}
                             >
@@ -751,15 +746,15 @@ if (!order) {
                         <tr
                           key={item.product_id}
                           style={{
-                            borderBottom: "1px solid var(--color-border)",
+                            borderBottom: `1px solid ${C.border}`,
                           }}
                         >
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text)",
+                              color: `${C.text}`,
                             }}
                           >
                             {item.title}
@@ -802,9 +797,9 @@ if (!order) {
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-primary)",
+                              color: `${C.amber}`,
                               fontWeight: 500,
                             }}
                           >
@@ -817,7 +812,7 @@ if (!order) {
                                 background: "none",
                                 border: "none",
                                 cursor: "pointer",
-                                color: "var(--color-error)",
+                                color: `${C.error}`,
                                 display: "flex",
                               }}
                             >
@@ -830,8 +825,8 @@ if (!order) {
                     <tfoot>
                       <tr
                         style={{
-                          borderTop: "2px solid var(--color-border)",
-                          background: "var(--color-bg-alt)",
+                          borderTop: `2px solid ${C.border}`,
+                          background: `${C.bgAlt}`,
                         }}
                       >
                         <td
@@ -839,11 +834,11 @@ if (!order) {
                           style={{
                             padding: "12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "10px",
                             letterSpacing: "0.14em",
                             textTransform: "uppercase",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           Total
@@ -851,9 +846,9 @@ if (!order) {
                         <td
                           style={{
                             padding: "12px",
-                            fontFamily: "var(--font-display)",
+                            fontFamily: `${fontDisplay}`,
                             fontSize: "1.2rem",
-                            color: "var(--color-primary)",
+                            color: `${C.amber}`,
                           }}
                         >
                           A${total.toFixed(2)}
@@ -880,9 +875,9 @@ if (!order) {
                 <div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "13px",
-                      color: "var(--color-text)",
+                      color: `${C.text}`,
                       fontWeight: 500,
                     }}
                   >
@@ -890,9 +885,9 @@ if (!order) {
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "11px",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginTop: 2,
                     }}
                   >
@@ -996,27 +991,27 @@ if (!order) {
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    background: "var(--color-bg-alt)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)",
+                    background: `${C.bgAlt}`,
+                    borderRadius: "8px",
+                    border: `1px solid ${C.border}`,
                   }}
                 >
                   <div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                       }}
                     >
                       Paid
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginTop: 1,
                       }}
                     >
@@ -1040,15 +1035,15 @@ if (!order) {
         onClick={() => setPayMethod(m)}
         style={{
           padding: "9px 0",
-          fontFamily: "var(--font-body)",
+          fontFamily: `${fontBody}`,
           fontSize: "10px",
           letterSpacing: "0.12em",
           textTransform: "uppercase",
           cursor: "pointer",
-          border: `1px solid ${payMethod === m ? "var(--color-accent)" : "var(--color-border)"}`,
+          border: `1px solid ${payMethod === m ? `${C.amber}` : `${C.border}`}`,
           background: payMethod === m ? "rgba(201,169,110,0.1)" : "transparent",
-          color: payMethod === m ? "var(--color-accent)" : "var(--color-text-muted)",
-          borderRadius: "var(--radius-sm)",
+          color: payMethod === m ? `${C.amber}` : `${C.textMuted}`,
+          borderRadius: "8px",
           transition: "all 150ms",
         }}
       >
@@ -1058,9 +1053,9 @@ if (!order) {
   </div>
   {order.payment_intent && (
     <p style={{
-      fontFamily: "var(--font-body)",
+      fontFamily: `${fontBody}`,
       fontSize: "10px",
-      color: "var(--color-text-muted)",
+      color: `${C.textMuted}`,
       marginTop: 8,
       letterSpacing: "0.05em",
     }}>
@@ -1086,25 +1081,25 @@ if (!order) {
                       display: "flex",
                       justifyContent: "space-between",
                       padding: "8px 0",
-                      borderBottom: "1px solid var(--color-border)",
+                      borderBottom: `1px solid ${C.border}`,
                     }}
                   >
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
                         textTransform: "uppercase",
                         letterSpacing: "0.12em",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                       }}
                     >
                       {k}
                     </span>
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "12px",
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                         fontWeight: k === "Total" ? 500 : 400,
                       }}
                     >
@@ -1123,8 +1118,8 @@ if (!order) {
             position: "sticky",
             bottom: 0,
             zIndex: 40,
-            background: "var(--color-surface)",
-            borderTop: "1px solid var(--color-border)",
+            background: `${C.surface}`,
+            borderTop: `1px solid ${C.border}`,
             padding: "12px 20px",
             margin: "24px -28px -32px",
             display: "flex",
@@ -1135,9 +1130,9 @@ if (!order) {
         >
           <span
             style={{
-              fontFamily: "var(--font-body)",
+              fontFamily: `${fontBody}`,
               fontSize: "11px",
-              color: "var(--color-text-muted)",
+              color: `${C.textMuted}`,
             }}
           >
             Order #{order.id} · {items.length} item(s) · A${total.toFixed(2)}

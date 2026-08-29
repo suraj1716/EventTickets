@@ -1,4 +1,4 @@
-import React, { Children, useMemo, useState } from "react";
+import React, { Children, useEffect, useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 
 /* ─────────────────────────────────────────────
@@ -70,7 +70,7 @@ const COLORS: Record<string, string> = {
   void: C.error,
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const color = COLORS[status?.toLowerCase()] ?? C.textMuted;
   return (
     <span
@@ -101,7 +101,7 @@ export function StatusBadge({ status }: { status: string }) {
           flexShrink: 0,
         }}
       />
-      {status}
+      {label ?? status}
     </span>
   );
 }
@@ -433,9 +433,11 @@ export function AdminTable({
 export function Tr({
   children,
   onClick,
+  style,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -448,6 +450,7 @@ export function Tr({
         background: hovered ? C.bgAlt : "transparent",
         transition: "background 150ms ease",
         cursor: onClick ? "pointer" : "default",
+        ...style,
       }}
     >
       {children}
@@ -923,6 +926,237 @@ export function ConfirmModal({
           </AdminBtn>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   SlideOver — the single left-sliding drawer used
+   for EVERY admin create/edit flow.
+
+   Two ways to close it, pick one:
+   - onClose: local state toggle (index-managed modals
+     like GiftCardTemplates / HeroBanner / Vendors)
+   - closeHref: an Inertia route to visit (dedicated
+     Create/Edit pages navigated to via routing)
+
+   Usage:
+     <SlideOver eyebrow="Catalogue" title="New Category" onClose={...}
+       footer={<SlideOverActions onCancel={...} onSubmit={...} submitLabel="Create" processing={p} />}>
+       ...fields...
+     </SlideOver>
+───────────────────────────────────────────── */
+export function SlideOver({
+  eyebrow,
+  title,
+  subtitle,
+  onClose,
+  closeHref,
+  children,
+  footer,
+  width = 520,
+}: {
+  eyebrow?: string;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  onClose?: () => void;
+  closeHref?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  width?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else if (closeHref) {
+      setVisible(false);
+      router.visit(closeHref);
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9990, display: "flex" }}>
+      {/* backdrop */}
+      <div
+        onClick={handleClose}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(11,11,16,0.72)",
+          backdropFilter: "blur(3px)",
+          opacity: visible ? 1 : 0,
+          transition: "opacity 240ms ease",
+        }}
+      />
+
+      {/* panel — slides in from the left */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "relative",
+          height: "100%",
+          width: `min(92vw, ${width}px)`,
+          background: C.surface,
+          borderRight: `1px solid ${C.border}`,
+          boxShadow: "16px 0 48px rgba(0,0,0,0.5)",
+          display: "flex",
+          flexDirection: "column",
+          transform: visible ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 280ms cubic-bezier(0.4,0,0.2,1)",
+        }}
+      >
+        {/* header */}
+        <div
+          style={{
+            padding: "24px 28px",
+            borderBottom: `1px dashed ${C.borderDashed}`,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            {eyebrow && (
+              <span
+                style={{
+                  display: "block",
+                  fontFamily: fontMono,
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: C.amber,
+                  marginBottom: "6px",
+                }}
+              >
+                {eyebrow}
+              </span>
+            )}
+            <h2
+              style={{
+                fontFamily: fontDisplay,
+                textTransform: "uppercase",
+                fontSize: "1.4rem",
+                fontWeight: 400,
+                color: C.text,
+                margin: 0,
+                lineHeight: 1.15,
+              }}
+            >
+              {title}
+            </h2>
+            {subtitle && (
+              <p
+                style={{
+                  fontFamily: fontBody,
+                  fontSize: "12px",
+                  color: C.textFaint,
+                  margin: "6px 0 0",
+                }}
+              >
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: "8px",
+              border: `1px solid ${C.border}`,
+              background: "transparent",
+              color: C.textMuted,
+              cursor: "pointer",
+              flexShrink: 0,
+              fontSize: 16,
+              lineHeight: 1,
+              transition: "all 150ms ease",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
+          {children}
+        </div>
+
+        {/* footer */}
+        {footer && (
+          <div
+            style={{
+              flexShrink: 0,
+              borderTop: `1px dashed ${C.borderDashed}`,
+              padding: "16px 28px",
+              background: C.surface,
+            }}
+          >
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   SlideOverActions — standard Cancel / Submit
+   footer bar for a SlideOver form.
+───────────────────────────────────────────── */
+export function SlideOverActions({
+  onCancel,
+  onSubmit,
+  submitLabel = "Save",
+  processingLabel = "Saving…",
+  processing,
+  disabled,
+}: {
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel?: string;
+  processingLabel?: string;
+  processing?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+      <AdminBtn variant="ghost" onClick={onCancel} disabled={processing}>
+        Cancel
+      </AdminBtn>
+      <AdminBtn
+        variant="accent"
+        onClick={onSubmit}
+        disabled={processing || disabled}
+      >
+        <Icons.Check />
+        {processing ? processingLabel : submitLabel}
+      </AdminBtn>
     </div>
   );
 }

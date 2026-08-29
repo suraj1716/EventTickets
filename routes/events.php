@@ -44,6 +44,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/resale/connect', [\App\Http\Controllers\ResaleSellerConnectController::class, 'connect'])
         ->name('resale.connect');
 
+    Route::get('/resale/connect/status', [\App\Http\Controllers\ResaleSellerConnectController::class, 'status'])
+        ->name('resale.connect.status');
+
     Route::post('/tickets/{ticket}/resell', [TicketResaleController::class, 'store'])
         ->name('resale.store');
 
@@ -64,6 +67,8 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
+
+
 Route::get('/coming-soon', [EventSearchController::class, 'comingSoon'])
     ->name('events.coming-soon');
 
@@ -78,6 +83,8 @@ Route::post('/events/{event}/watchlist', [EventWatchlistController::class, 'stor
 
 Route::delete('/events/{event}/watchlist', [EventWatchlistController::class, 'destroy'])
     ->name('events.watchlist.destroy');
+Route::get('/events/watchlist/verify/{token}', [EventWatchlistController::class, 'verify'])
+    ->name('events.watchlist.verify');
 
 Route::middleware('auth')->post('/checkout', [TicketCheckoutController::class, 'store'])
     ->name('checkout.store');

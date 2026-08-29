@@ -257,7 +257,7 @@ const submit: FormEventHandler = (e) => {
     post(route("admin.events.update", event!.id), {
       forceFormData: true,
       onSuccess: () => {
-        router.post(route("admin.vendor.events.publish", event!.id));
+       router.post(route("admin.events.publish", event!.id));
       },
     });
   } else {
@@ -286,7 +286,7 @@ function handlePublish() {
   post(route("admin.events.update", event!.id), {
     forceFormData: true,
     onSuccess: () => {
-      router.post(route("admin.vendor.events.publish", event!.id));
+      router.post(route("admin.events.publish", event!.id));
     },
   });
 }

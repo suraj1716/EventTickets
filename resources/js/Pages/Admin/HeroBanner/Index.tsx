@@ -13,9 +13,10 @@ import {
   AdminBtn,
   Icons,
   ConfirmModal,
+  SlideOver,
+  SlideOverActions,
   C,
   fontBody,
-  fontDisplay,
 } from "@/Components/Admin/AdminComponents";
 import toast from "react-hot-toast";
 import AdminLayout from "../AdminLayout";
@@ -97,44 +98,19 @@ function BannerModal({
   }, [imagePreview]);
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "rgba(0,0,0,0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backdropFilter: "blur(4px)",
-      }}
+    <SlideOver
+      eyebrow="Storefront"
+      title={isEdit ? "Edit Hero Banner" : "New Hero Banner"}
+      onClose={onClose}
+      footer={
+        <SlideOverActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          processing={processing}
+          submitLabel={isEdit ? "Save Changes" : "Create Banner"}
+        />
+      }
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: C.surface,
-          border: `1px solid ${C.border}`,
-          borderRadius: "12px",
-          padding: "28px 32px",
-          width: "480px",
-          maxWidth: "90vw",
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
-      >
-        <h3
-          style={{
-            fontFamily: fontDisplay,
-            fontSize: "1.2rem",
-            fontWeight: 300,
-            color: C.text,
-            margin: "0 0 20px",
-          }}
-        >
-          {isEdit ? "Edit Hero Banner" : "New Hero Banner"}
-        </h3>
-
         <Field label="Title" error={errors.title}>
           <AdminInput
             type="text"
@@ -208,32 +184,7 @@ function BannerModal({
             </label>
           </div>
         )}
-
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            justifyContent: "flex-end",
-            marginTop: 24,
-          }}
-        >
-          <AdminBtn variant="ghost" onClick={onClose}>
-            Cancel
-          </AdminBtn>
-          <AdminBtn
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={processing}
-          >
-            {processing
-              ? "Saving…"
-              : isEdit
-                ? "Save Changes"
-                : "Create Banner"}
-          </AdminBtn>
-        </div>
-      </div>
-    </div>
+    </SlideOver>
   );
 }
 
@@ -292,11 +243,13 @@ export default function HeroBannerIndex({ banners, filters }: Props) {
       )}
 
       <AdminPageHeader
-        eyebrow="Manage"
+        eyebrow="Storefront"
         title="Hero Banners"
+        meta={`${banners.data.length} records shown`}
         action={
-          <AdminBtn variant="primary" onClick={() => setModalTarget("new")}>
-            + New Banner
+          <AdminBtn variant="accent" onClick={() => setModalTarget("new")}>
+            <Icons.Plus />
+            New Banner
           </AdminBtn>
         }
       />
@@ -319,10 +272,12 @@ export default function HeroBannerIndex({ banners, filters }: Props) {
       />
 
       <AdminTable
-        headers={["Image", "Title", "Subtitle", "Button", "Status", "Actions"]}
+        headers={["#", "Image", "Title", "Subtitle", "Button", "Status", "Actions"]}
+        empty="✦ No hero banners found"
       >
         {banners.data.map((b) => (
           <Tr key={b.id}>
+            <Td muted>{b.id}</Td>
             <Td>
               {b.image_url ? (
                 <img

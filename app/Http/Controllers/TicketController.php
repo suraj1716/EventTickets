@@ -8,29 +8,45 @@ use Inertia\Inertia;
 
 class TicketController extends Controller
 {
-    public function index(Request $request)
-    {
-        $tickets = Ticket::query()
-            ->whereHas('order', function ($query) use ($request) {
-                $query->where('user_id', $request->user()->id);
-            })
-            ->with([
-                'ticketTier',
-                'eventLeg.event',
-                'order',
-            ])
-            ->latest()
-            ->get();
+public function index(Request $request)
+{
+    $tickets = Ticket::query()
+        ->where('owner_user_id', $request->user()->id)
+        ->with([
+            'ticketTier',
+            'eventLeg.event.media',
+            'order',
+            'resaleListings' => function ($query) {
+                $query->where('status', 'sold')
+                    ->latest('sold_at')
+                    ->with('seller')
+                    ->limit(1);
+            },
+        ])
+        ->latest()
+        ->get()
+        ->map(function ($ticket) {
+            $lastSale = $ticket->resaleListings->first();
 
-        return Inertia::render('Tickets/Index', [
-            'tickets' => $tickets,
-        ]);
-    }
+            return [
+                ...$ticket->toArray(),
+                'last_resale' => $lastSale ? [
+                    'price' => $lastSale->price,
+                    'sold_at' => $lastSale->sold_at,
+                    'seller_name' => $lastSale->seller?->name,
+                ] : null,
+            ];
+        });
+
+    return Inertia::render('Tickets/Index', [
+        'tickets' => $tickets,
+    ]);
+}
 
     public function show(Request $request, Ticket $ticket)
     {
         abort_unless(
-            $ticket->order?->user_id === $request->user()->id,
+            $ticket->owner_user_id === $request->user()->id,
             403
         );
 
@@ -43,6 +59,12 @@ class TicketController extends Controller
     ->where('status', 'active')
     ->first();
 
+        $lastSale = $ticket->resaleListings()
+    ->where('status', 'sold')
+    ->latest('sold_at')
+    ->with('seller')
+    ->first();
+
        return Inertia::render('Tickets/Show', [
     'ticket' => [
         ...$ticket->toArray(),
@@ -51,6 +73,12 @@ class TicketController extends Controller
 
         'stripe_account_active' =>
             (bool) auth()->user()->stripe_account_active,
+
+        'last_resale' => $lastSale ? [
+            'price' => $lastSale->price,
+            'sold_at' => $lastSale->sold_at,
+            'seller_name' => $lastSale->seller?->name,
+        ] : null,
 
         'active_listing' => $activeListing
             ? [

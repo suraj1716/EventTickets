@@ -9,6 +9,9 @@ import {
   StatusBadge,
   ActionBtn,
   Icons,
+  C,
+  fontBody,
+  fontDisplay,
 } from '../../../Components/Admin/AdminComponents'
 import AdminLayout from '../AdminLayout'
 
@@ -102,7 +105,7 @@ function AssignDrawer({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'var(--color-overlay)',
+        background: "rgba(11,11,16,0.72)",
         backdropFilter: 'blur(4px)',
         zIndex: 9998,
         display: 'flex',
@@ -113,9 +116,9 @@ function AssignDrawer({
     >
       <div
         style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          boxShadow: 'var(--shadow-xl)',
+          background: `${C.surface}`,
+          border: `1px solid ${C.border}`,
+          boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
           width: 420,
           maxWidth: 'calc(100vw - 32px)',
           zIndex: 9999,
@@ -125,8 +128,8 @@ function AssignDrawer({
         {/* Header */}
         <div
           style={{
-            padding: 'var(--space-xl)',
-            borderBottom: '1px solid var(--color-border)',
+            padding: "32px",
+            borderBottom: `1px solid ${C.border}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -134,17 +137,17 @@ function AssignDrawer({
         >
           <span
             style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-xl)',
+              fontFamily: `${fontDisplay}`,
+              fontSize: "22px",
               fontWeight: 400,
-              color: 'var(--color-text)',
+              color: `${C.text}`,
             }}
           >
             Assign Staff
           </span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-light)' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: `${C.textFaint}` }}
           >
             ✕
           </button>
@@ -153,22 +156,22 @@ function AssignDrawer({
         {/* Booking summary */}
         <div
           style={{
-            padding: 'var(--space-lg) var(--space-xl)',
-            borderBottom: '1px solid var(--color-border)',
-            background: 'var(--color-bg)',
+            padding: "24px 32px",
+            borderBottom: `1px solid ${C.border}`,
+            background: `${C.bg}`,
           }}
         >
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          <div style={{ fontSize: "11px", color: `${C.textMuted}`, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
             Booking #{booking.id}
           </div>
-          <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>
+          <div style={{ fontFamily: `${fontBody}`, fontWeight: 600, color: `${C.text}`, marginBottom: 2 }}>
             {booking.customer ?? '—'}
           </div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+          <div style={{ fontSize: "13px", color: `${C.textMuted}` }}>
             {booking.service ?? '—'}
           </div>
           {booking.time && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-light)', marginTop: 2 }}>
+            <div style={{ fontSize: "11px", color: `${C.textFaint}`, marginTop: 2 }}>
               {booking.date} · {booking.time}
             </div>
           )}
@@ -177,19 +180,19 @@ function AssignDrawer({
         {/* Form */}
         <form
           onSubmit={submit}
-          style={{ padding: 'var(--space-xl)', display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}
+          style={{ padding: "32px", display: 'flex', flexDirection: 'column', gap: "24px" }}
         >
           <div>
             <label
               style={{
                 display: 'block',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-xs)',
+                fontFamily: `${fontBody}`,
+                fontSize: "11px",
                 fontWeight: 500,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                color: 'var(--color-text-muted)',
-                marginBottom: 'var(--space-xs)',
+                color: `${C.textMuted}`,
+                marginBottom: "4px",
               }}
             >
               Select Staff Member
@@ -201,11 +204,11 @@ function AssignDrawer({
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text)',
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                fontFamily: `${fontBody}`,
+                fontSize: "13px",
+                color: `${C.text}`,
+                background: `${C.bg}`,
+                border: `1px solid ${C.border}`,
                 outline: 'none',
               }}
             >
@@ -218,20 +221,20 @@ function AssignDrawer({
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', gap: "8px" }}>
             <button
               type="button"
               onClick={onClose}
               style={{
                 flex: 1,
                 padding: '0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-xs)',
+                fontFamily: `${fontBody}`,
+                fontSize: "11px",
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
                 background: 'transparent',
-                color: 'var(--color-text-muted)',
-                border: '1px solid var(--color-border)',
+                color: `${C.textMuted}`,
+                border: `1px solid ${C.border}`,
                 cursor: 'pointer',
               }}
             >
@@ -242,11 +245,11 @@ function AssignDrawer({
               style={{
                 flex: 2,
                 padding: '0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-xs)',
+                fontFamily: `${fontBody}`,
+                fontSize: "11px",
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                background: 'var(--color-primary)',
+                background: `${C.amber}`,
                 color: '#fff',
                 border: 'none',
                 cursor: 'pointer',
@@ -361,26 +364,26 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
               onChange={(e) => setFrom(e.target.value)}
               style={{
                 padding: '0.5rem 0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text)',
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                fontFamily: `${fontBody}`,
+                fontSize: "13px",
+                color: `${C.text}`,
+                background: `${C.bg}`,
+                border: `1px solid ${C.border}`,
                 outline: 'none',
               }}
             />
-            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>→</span>
+            <span style={{ color: `${C.textMuted}`, fontSize: "13px" }}>→</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               style={{
                 padding: '0.5rem 0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text)',
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                fontFamily: `${fontBody}`,
+                fontSize: "13px",
+                color: `${C.text}`,
+                background: `${C.bg}`,
+                border: `1px solid ${C.border}`,
                 outline: 'none',
               }}
             />
@@ -389,11 +392,11 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
               onChange={(e) => setServiceId(e.target.value)}
               style={{
                 padding: '0.5rem 0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text)',
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                fontFamily: `${fontBody}`,
+                fontSize: "13px",
+                color: `${C.text}`,
+                background: `${C.bg}`,
+                border: `1px solid ${C.border}`,
                 outline: 'none',
               }}
             >
@@ -408,11 +411,11 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
               onClick={applyFilters}
               style={{
                 padding: '0.5rem 1.25rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-xs)',
+                fontFamily: `${fontBody}`,
+                fontSize: "11px",
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                background: 'var(--color-primary)',
+                background: `${C.amber}`,
                 color: '#fff',
                 border: 'none',
                 cursor: 'pointer',
@@ -428,18 +431,18 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
       {unassigned.length > 0 && (
         <div
           style={{
-            margin: '0 0 var(--space-lg)',
-            padding: 'var(--space-md) var(--space-lg)',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-bg)',
+            margin: "0 0 24px",
+            padding: "16px 24px",
+            border: `1px solid ${C.border}`,
+            background: `${C.bg}`,
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            fontSize: 'var(--text-sm)',
-            color: 'var(--color-text-muted)',
+            fontSize: "13px",
+            color: `${C.textMuted}`,
           }}
         >
-          <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+          <span style={{ fontWeight: 600, color: `${C.text}` }}>
             {unassigned.length} booking{unassigned.length > 1 ? 's' : ''}
           </span>
           awaiting staff assignment
@@ -451,8 +454,8 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: 'var(--space-md)',
-          marginBottom: 'var(--space-xl)',
+          gap: "16px",
+          marginBottom: "32px",
         }}
       >
         {[
@@ -464,15 +467,15 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
           <div
             key={label}
             style={{
-              padding: 'var(--space-lg)',
-              border: `1px solid var(--color-border)`,
-              background: 'var(--color-surface)',
+              padding: "24px",
+              border: `1px solid ${C.border}`,
+              background: `${C.surface}`,
             }}
           >
             <div
               style={{
-                fontSize: 'var(--text-xs)',
-                color: warn ? 'var(--color-error, #c0392b)' : 'var(--color-text-muted)',
+                fontSize: "11px",
+                color: warn ? `${C.error}` : `${C.textMuted}`,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 marginBottom: 4,
@@ -484,8 +487,8 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
               style={{
                 fontSize: 24,
                 fontWeight: 600,
-                fontFamily: 'var(--font-display)',
-                color: warn ? 'var(--color-error, #c0392b)' : 'var(--color-text)',
+                fontFamily: `${fontDisplay}`,
+                color: warn ? `${C.error}` : `${C.text}`,
               }}
             >
               {value}
@@ -518,20 +521,20 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                         width: 28,
                         height: 28,
                         borderRadius: '50%',
-                        background: 'var(--color-bg)',
-                        border: '1px solid var(--color-border)',
+                        background: `${C.bg}`,
+                        border: `1px solid ${C.border}`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: 10,
                         fontWeight: 600,
-                        color: 'var(--color-primary)',
+                        color: `${C.amber}`,
                         flexShrink: 0,
                       }}
                     >
                       {member.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--color-primary)' }}>
+                    <span style={{ fontFamily: `${fontBody}`, fontWeight: 600, color: `${C.amber}` }}>
                       {member.name}
                     </span>
                   </div>
@@ -544,9 +547,9 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                   const isToday = d === today()
                   return (
                     <Td key={d}>
-                      <div style={{ background: isToday ? 'var(--color-bg)' : undefined, minWidth: 110 }}>
+                      <div style={{ background: isToday ? `${C.bg}` : undefined, minWidth: 110 }}>
                         {dayBookings.length === 0 ? (
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-light)' }}>—</span>
+                          <span style={{ fontSize: "11px", color: `${C.textFaint}` }}>—</span>
                         ) : (
                           dayBookings.map((b) => (
                             <div
@@ -554,12 +557,12 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                               style={{
                                 padding: '4px 8px',
                                 marginBottom: 4,
-                                border: '1px solid var(--color-border)',
-                                background: 'var(--color-surface)',
-                                fontSize: 'var(--text-xs)',
+                                border: `1px solid ${C.border}`,
+                                background: `${C.surface}`,
+                                fontSize: "11px",
                               }}
                             >
-                              <div style={{ fontWeight: 600, color: 'var(--color-text)', display: 'flex', justifyContent: 'space-between' }}>
+                              <div style={{ fontWeight: 600, color: `${C.text}`, display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{b.customer ?? '—'}</span>
                                 <button
                                   onClick={() => handleDeassign(b.id)}
@@ -568,7 +571,7 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                                     background: 'none',
                                     border: 'none',
                                     cursor: 'pointer',
-                                    color: 'var(--color-text-light)',
+                                    color: `${C.textFaint}`,
                                     fontSize: 11,
                                     padding: 0,
                                     lineHeight: 1,
@@ -577,9 +580,9 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                                   ✕
                                 </button>
                               </div>
-                              <div style={{ color: 'var(--color-text-muted)' }}>{b.service ?? '—'}</div>
+                              <div style={{ color: `${C.textMuted}` }}>{b.service ?? '—'}</div>
                               {b.time && (
-                                <div style={{ color: 'var(--color-text-light)' }}>{b.time}</div>
+                                <div style={{ color: `${C.textFaint}` }}>{b.time}</div>
                               )}
                             </div>
                           ))
@@ -606,19 +609,19 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                       width: 28,
                       height: 28,
                       borderRadius: '50%',
-                      background: 'var(--color-bg)',
-                      border: '1px solid var(--color-border)',
+                      background: `${C.bg}`,
+                      border: `1px solid ${C.border}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 14,
-                      color: 'var(--color-text-light)',
+                      color: `${C.textFaint}`,
                       flexShrink: 0,
                     }}
                   >
                     ?
                   </div>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                  <span style={{ fontFamily: `${fontBody}`, fontWeight: 600, color: `${C.textMuted}` }}>
                     No preference
                   </span>
                 </div>
@@ -629,7 +632,7 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                 return (
                   <Td key={d}>
                     {dayU.length === 0 ? (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-light)' }}>—</span>
+                      <span style={{ fontSize: "11px", color: `${C.textFaint}` }}>—</span>
                     ) : (
                       dayU.map((b) => (
                         <div
@@ -637,25 +640,25 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
                           style={{
                             padding: '4px 8px',
                             marginBottom: 4,
-                            border: '1px solid var(--color-border)',
-                            background: 'var(--color-surface)',
-                            fontSize: 'var(--text-xs)',
+                            border: `1px solid ${C.border}`,
+                            background: `${C.surface}`,
+                            fontSize: "11px",
                           }}
                         >
-                          <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{b.customer ?? '—'}</div>
-                          <div style={{ color: 'var(--color-text-muted)' }}>{b.service ?? '—'}</div>
-                          {b.time && <div style={{ color: 'var(--color-text-light)' }}>{b.time}</div>}
+                          <div style={{ fontWeight: 600, color: `${C.text}` }}>{b.customer ?? '—'}</div>
+                          <div style={{ color: `${C.textMuted}` }}>{b.service ?? '—'}</div>
+                          {b.time && <div style={{ color: `${C.textFaint}` }}>{b.time}</div>}
                           <button
                             onClick={() => setAssigningBooking(b)}
                             style={{
                               marginTop: 4,
                               width: '100%',
                               padding: '3px 0',
-                              fontFamily: 'var(--font-body)',
-                              fontSize: 'var(--text-xs)',
+                              fontFamily: `${fontBody}`,
+                              fontSize: "11px",
                               letterSpacing: '0.08em',
                               textTransform: 'uppercase',
-                              background: 'var(--color-primary)',
+                              background: `${C.amber}`,
                               color: '#fff',
                               border: 'none',
                               cursor: 'pointer',
@@ -679,7 +682,7 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
           {/* Day totals row */}
           <tr>
             <Td muted>
-              <span style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: "11px", textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Day totals
               </span>
             </Td>
@@ -687,14 +690,14 @@ export default function RosterIndex({ bookings, staff, services, filters }: Prop
               const count = filtered.filter((b) => b.date === d && b.assigned_staff_id !== null).length
               return (
                 <Td key={d} muted>
-                  <span style={{ fontWeight: count ? 600 : 400, color: count ? 'var(--color-text)' : 'var(--color-text-light)' }}>
+                  <span style={{ fontWeight: count ? 600 : 400, color: count ? `${C.text}` : `${C.textFaint}` }}>
                     {count || '—'}
                   </span>
                 </Td>
               )
             })}
             <Td muted>
-              <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{weekTotal}</span>
+              <span style={{ fontWeight: 600, color: `${C.text}` }}>{weekTotal}</span>
             </Td>
           </tr>
         </AdminTable>

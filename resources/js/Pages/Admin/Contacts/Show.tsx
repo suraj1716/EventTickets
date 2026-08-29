@@ -1,9 +1,7 @@
 import React from "react";
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader, AdminBtn, FlashMessage, Icons, StatusBadge,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, FlashMessage, Icons, StatusBadge, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 interface Contact {
   id: number;
@@ -29,17 +27,17 @@ interface Props {
 const row = (label: string, value: React.ReactNode) => value ? (
   <div style={{
     display: "flex", gap: 16, padding: "12px 0",
-    borderBottom: "1px solid var(--color-border)",
+    borderBottom: `1px solid ${C.border}`,
   }}>
     <span style={{
       width: 160, flexShrink: 0,
-      fontFamily: "var(--font-body)", fontSize: 10,
+      fontFamily: `${fontBody}`, fontSize: 10,
       letterSpacing: "0.14em", textTransform: "uppercase",
-      color: "var(--color-text-muted)", paddingTop: 1,
+      color: `${C.textMuted}`, paddingTop: 1,
     }}>
       {label}
     </span>
-    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text)", lineHeight: 1.6 }}>
+    <span style={{ fontFamily: `${fontBody}`, fontSize: 13, color: `${C.text}`, lineHeight: 1.6 }}>
       {value}
     </span>
   </div>
@@ -86,20 +84,20 @@ export default function ContactShow({ contact, flash }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 280px", gap: 20, alignItems: "start" }}>
           {/* Main */}
           <div style={{
-            background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-md)", padding: 24,
+            background: `${C.surface}`, border: `1px solid ${C.border}`,
+            borderRadius: "12px", padding: 24,
           }}>
             <div style={{
-              fontFamily: "var(--font-body)", fontSize: 10, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: "var(--color-text-muted)",
-              marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--color-border)",
+              fontFamily: `${fontBody}`, fontSize: 10, letterSpacing: "0.18em",
+              textTransform: "uppercase", color: `${C.textMuted}`,
+              marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${C.border}`,
             }}>
               Contact Details
             </div>
 
             {row("Name", contact.name)}
              {row("Phone", contact.phone)}
-            {row("Email", <a href={`mailto:${contact.email}`} style={{ color: "var(--color-primary)" }}>{contact.email}</a>)}
+            {row("Email", <a href={`mailto:${contact.email}`} style={{ color: `${C.amber}` }}>{contact.email}</a>)}
             {row("Reason", contact.reason?.replace(/_/g, " "))}
             {row("Department", contact.department?.name)}
             {row("Category", contact.category?.name)}
@@ -110,7 +108,7 @@ export default function ContactShow({ contact, flash }: Props) {
                <a href={`/storage/${contact.file_path}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "var(--color-primary)" }}
+                style={{ color: `${C.amber}` }}
               >
                 View File ↗
               </a>
@@ -119,16 +117,16 @@ export default function ContactShow({ contact, flash }: Props) {
             {/* Message */}
             <div style={{ marginTop: 20 }}>
               <div style={{
-                fontFamily: "var(--font-body)", fontSize: 10, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: 10,
+                fontFamily: `${fontBody}`, fontSize: 10, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: `${C.textMuted}`, marginBottom: 10,
               }}>
                 Message
               </div>
               <div style={{
-                fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text)",
+                fontFamily: `${fontBody}`, fontSize: 13, color: `${C.text}`,
                 lineHeight: 1.8, whiteSpace: "pre-wrap",
-                background: "var(--color-bg-alt)", padding: 16,
-                borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)",
+                background: `${C.bgAlt}`, padding: 16,
+                borderRadius: "8px", border: `1px solid ${C.border}`,
               }}>
                 {contact.message}
               </div>
@@ -137,43 +135,43 @@ export default function ContactShow({ contact, flash }: Props) {
 
           {/* Sidebar */}
           <div style={{
-            background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-md)", padding: 20,
+            background: `${C.surface}`, border: `1px solid ${C.border}`,
+            borderRadius: "12px", padding: 20,
             display: "flex", flexDirection: "column", gap: 16,
           }}>
             <div style={{
-              fontFamily: "var(--font-body)", fontSize: 10, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: "var(--color-text-muted)",
+              fontFamily: `${fontBody}`, fontSize: 10, letterSpacing: "0.18em",
+              textTransform: "uppercase", color: `${C.textMuted}`,
             }}>
               Status
             </div>
             <StatusBadge status={contact.is_read ? "active" : "draft"} />
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--color-text-muted)" }}>
+            <div style={{ fontFamily: `${fontBody}`, fontSize: 11, color: `${C.textMuted}` }}>
               {contact.is_read ? "This message has been read." : "This message is unread."}
             </div>
             <button
               onClick={handleToggleRead}
               style={{
-                padding: "8px 0", fontFamily: "var(--font-body)", fontSize: 11,
+                padding: "8px 0", fontFamily: `${fontBody}`, fontSize: 11,
                 letterSpacing: "0.1em", textTransform: "uppercase",
-                background: "none", border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-sm)", cursor: "pointer",
-                color: "var(--color-text-muted)",
+                background: "none", border: `1px solid ${C.border}`,
+                borderRadius: "8px", cursor: "pointer",
+                color: `${C.textMuted}`,
               }}
             >
               {contact.is_read ? "↩ Mark Unread" : "✓ Mark Read"}
             </button>
 
-            <div style={{ height: 1, background: "var(--color-border)" }} />
+            <div style={{ height: 1, background: `${C.border}` }} />
 
 
              <a href={`mailto:${contact.email}`}
               style={{
                 display: "block", textAlign: "center",
-                padding: "10px 0", fontFamily: "var(--font-body)", fontSize: 11,
+                padding: "10px 0", fontFamily: `${fontBody}`, fontSize: 11,
                 letterSpacing: "0.1em", textTransform: "uppercase",
-                background: "var(--color-primary)", color: "var(--color-text-inverse)",
-                borderRadius: "var(--radius-sm)", textDecoration: "none",
+                background: `${C.amber}`, color: `${C.textInverse}`,
+                borderRadius: "8px", textDecoration: "none",
               }}
             >
               ✉ Reply via Email

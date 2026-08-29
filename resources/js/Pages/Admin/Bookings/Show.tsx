@@ -1,14 +1,7 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { toast } from "react-toastify";
 import AdminLayout from "../AdminLayout";
-import {
-  ActionBtn,
-  AdminBtn,
-  AdminPageHeader,
-  ConfirmModal,
-  Icons,
-  StatusBadge,
-} from "../../../Components/Admin/AdminComponents";
+import { ActionBtn, AdminBtn, AdminPageHeader, ConfirmModal, Icons, StatusBadge, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
 import { useState } from "react";
 import { OrderItem } from "@/types";
 
@@ -46,17 +39,17 @@ function Card({
   return (
     <div
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-md)",
+        background: `${C.surface}`,
+        border: `1px solid ${C.border}`,
+        borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: "12px 20px",
-          borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-bg-alt)",
+          borderBottom: `1px solid ${C.border}`,
+          background: `${C.bgAlt}`,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -66,17 +59,17 @@ function Card({
           style={{
             width: 3,
             height: 16,
-            background: "var(--color-accent)",
+            background: `${C.amber}`,
             borderRadius: 2,
           }}
         />
         <span
           style={{
-            fontFamily: "var(--font-body)",
+            fontFamily: `${fontBody}`,
             fontSize: "10px",
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: "var(--color-text-muted)",
+            color: `${C.textMuted}`,
             fontWeight: 500,
           }}
         >
@@ -119,20 +112,20 @@ console.log('order items', booking.order?.items);
     gridTemplateColumns: "140px 1fr",
     gap: 8,
     paddingBottom: 10,
-    borderBottom: "1px solid var(--color-border)",
+    borderBottom: `1px solid ${C.border}`,
     marginBottom: 10,
   };
   const label: React.CSSProperties = {
-    fontFamily: "var(--font-body)",
+    fontFamily: `${fontBody}`,
     fontSize: "10px",
     letterSpacing: "0.12em",
     textTransform: "uppercase",
-    color: "var(--color-text-muted)",
+    color: `${C.textMuted}`,
   };
   const value: React.CSSProperties = {
-    fontFamily: "var(--font-body)",
+    fontFamily: `${fontBody}`,
     fontSize: "13px",
-    color: "var(--color-text)",
+    color: `${C.text}`,
   };
 
   return (
@@ -147,7 +140,7 @@ console.log('order items', booking.order?.items);
               <em
                 style={{
                   fontStyle: "italic",
-                  color: "var(--color-accent-light)",
+                  color: `${C.amberHover}`,
                 }}
               >
                 #{booking.id}
@@ -217,7 +210,7 @@ console.log('order items', booking.order?.items);
                     justifyContent: "space-between",
                     paddingBottom: 14,
                     marginBottom: 14,
-                    borderBottom: "1px solid var(--color-border)",
+                    borderBottom: `1px solid ${C.border}`,
                   }}
                 >
                   <div
@@ -229,9 +222,9 @@ console.log('order items', booking.order?.items);
                   >
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "13px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                       }}
                     >
                       #{booking.order.id}
@@ -240,9 +233,9 @@ console.log('order items', booking.order?.items);
                     {booking.order.is_paid && <StatusBadge status="paid" />}
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "13px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                       }}
                     >
                       {booking.order.vendor}
@@ -251,11 +244,11 @@ console.log('order items', booking.order?.items);
                   <Link
                     href={route("admin.orders.show", booking.order.id)}
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "10px",
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
-                      color: "var(--color-primary)",
+                      color: `${C.amber}`,
                       textDecoration: "none",
                     }}
                   >
@@ -265,8 +258,8 @@ console.log('order items', booking.order?.items);
 
                 <div
                   style={{
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     overflow: "hidden",
                   }}
                 >
@@ -274,8 +267,8 @@ console.log('order items', booking.order?.items);
                     <thead>
                       <tr
                         style={{
-                          background: "var(--color-bg-alt)",
-                          borderBottom: "1px solid var(--color-border)",
+                          background: `${C.bgAlt}`,
+                          borderBottom: `1px solid ${C.border}`,
                         }}
                       >
                         {["Product", "Price", "Subtotal"].map((h) => (
@@ -284,11 +277,11 @@ console.log('order items', booking.order?.items);
                             style={{
                               padding: "8px 12px",
                               textAlign: "left",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "9px",
                               letterSpacing: "0.15em",
                               textTransform: "uppercase",
-                              color: "var(--color-text-muted)",
+                              color: `${C.textMuted}`,
                               fontWeight: 500,
                             }}
                           >
@@ -304,16 +297,16 @@ console.log('order items', booking.order?.items);
                           style={{
                             borderBottom:
                               i < booking.order!.items.length - 1
-                                ? "1px solid var(--color-border)"
+                                ? `1px solid ${C.border}`
                                 : "none",
                           }}
                         >
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text)",
+                              color: `${C.text}`,
                             }}
                           >
                             {item.title}
@@ -321,9 +314,9 @@ console.log('order items', booking.order?.items);
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text-muted)",
+                              color: `${C.textMuted}`,
                             }}
                           >
                             {item.quantity}
@@ -331,9 +324,9 @@ console.log('order items', booking.order?.items);
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text-muted)",
+                              color: `${C.textMuted}`,
                             }}
                           >
                             A${item.price}
@@ -341,9 +334,9 @@ console.log('order items', booking.order?.items);
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-primary)",
+                              color: `${C.amber}`,
                               fontWeight: 500,
                             }}
                           >
@@ -355,8 +348,8 @@ console.log('order items', booking.order?.items);
                     <tfoot>
                       <tr
                         style={{
-                          borderTop: "2px solid var(--color-border)",
-                          background: "var(--color-bg-alt)",
+                          borderTop: `2px solid ${C.border}`,
+                          background: `${C.bgAlt}`,
                         }}
                       >
                         <td
@@ -364,11 +357,11 @@ console.log('order items', booking.order?.items);
                           style={{
                             padding: "12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "10px",
                             letterSpacing: "0.14em",
                             textTransform: "uppercase",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           Total
@@ -376,9 +369,9 @@ console.log('order items', booking.order?.items);
                         <td
                           style={{
                             padding: "12px",
-                            fontFamily: "var(--font-display)",
+                            fontFamily: `${fontDisplay}`,
                             fontSize: "1.2rem",
-                            color: "var(--color-primary)",
+                            color: `${C.amber}`,
                           }}
                         >
                           A${booking.order.total_price}

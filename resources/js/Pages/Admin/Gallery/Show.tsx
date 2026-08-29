@@ -2,13 +2,7 @@ import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
 
-import {
-  AdminPageHeader,
-  AdminBtn,
-  ActionBtn,
-  FlashMessage,
-  StatusBadge,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, ActionBtn, FlashMessage, StatusBadge, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 interface GalleryImage {
   id: number;
@@ -99,13 +93,13 @@ function Lightbox({
           display: "flex", justifyContent: "space-between", alignItems: "flex-end",
         }}>
           <span style={{
-            fontFamily: "var(--font-display)", fontStyle: "italic",
+            fontFamily: `${fontDisplay}`, fontStyle: "italic",
             fontSize: "0.9rem", color: "rgba(255,255,255,0.7)",
           }}>
             {img.name}
           </span>
           <span style={{
-            fontFamily: "var(--font-body)", fontSize: "10px",
+            fontFamily: `${fontBody}`, fontSize: "10px",
             letterSpacing: "0.12em", color: "rgba(255,255,255,0.4)",
           }}>
             {cur + 1} / {images.length}
@@ -166,10 +160,10 @@ function ImageTile({
       style={{
         position: "relative",
         aspectRatio: "4/3",
-        borderRadius: "var(--radius-sm)",
+        borderRadius: "8px",
         overflow: "hidden",
-        background: "var(--color-bg-alt)",
-        border: `1px solid ${hovered ? "rgba(201,169,110,0.4)" : "var(--color-border)"}`,
+        background: `${C.bgAlt}`,
+        border: `1px solid ${hovered ? "rgba(201,169,110,0.4)" : `${C.border}`}`,
         cursor: "pointer",
         transition: "border-color 200ms ease",
       }}
@@ -204,7 +198,7 @@ function ImageTile({
             width: 28, height: 28,
             background: "rgba(201,169,110,0.15)",
             border: "1px solid rgba(201,169,110,0.4)",
-            borderRadius: "var(--radius-sm)",
+            borderRadius: "8px",
             color: "white", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
@@ -220,7 +214,7 @@ function ImageTile({
             width: 28, height: 28,
             background: "rgba(192,57,43,0.15)",
             border: "1px solid rgba(192,57,43,0.4)",
-            borderRadius: "var(--radius-sm)",
+            borderRadius: "8px",
             color: "white", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
@@ -236,8 +230,8 @@ function ImageTile({
         position: "absolute", top: 6, left: 6,
         background: "rgba(12,10,8,0.6)",
         padding: "2px 7px",
-        borderRadius: "var(--radius-full)",
-        fontFamily: "var(--font-body)", fontSize: "9px",
+        borderRadius: "999px",
+        fontFamily: `${fontBody}`, fontSize: "9px",
         letterSpacing: "0.06em",
         color: "rgba(255,255,255,0.55)",
       }}>
@@ -297,13 +291,13 @@ export default function GalleryShow({ gallery, flash }: Props) {
         display: "flex", alignItems: "center", gap: 12,
         marginBottom: 24,
         padding: "12px 16px",
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-sm)",
+        background: `${C.surface}`,
+        border: `1px solid ${C.border}`,
+        borderRadius: "8px",
       }}>
         <StatusBadge status={gallery.active ? "active" : "draft"} />
-        <div style={{ width: 1, height: 16, background: "var(--color-border)" }} />
-        <span style={{ fontFamily: "var(--font-body)", fontSize: "12px", color: "var(--color-text-muted)" }}>
+        <div style={{ width: 1, height: 16, background: `${C.border}` }} />
+        <span style={{ fontFamily: `${fontBody}`, fontSize: "12px", color: `${C.textMuted}` }}>
           {gallery.images.length} image{gallery.images.length !== 1 ? "s" : ""}
         </span>
         <div style={{ flex: 1 }} />
@@ -318,17 +312,17 @@ export default function GalleryShow({ gallery, flash }: Props) {
       {/* Image grid */}
       {gallery.images.length === 0 ? (
         <div style={{
-          background: "var(--color-surface)",
-          border: "1px dashed var(--color-border)",
-          borderRadius: "var(--radius-md)",
+          background: `${C.surface}`,
+          border: `1px dashed ${C.border}`,
+          borderRadius: "12px",
           padding: "64px 20px",
           textAlign: "center",
         }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"
-            style={{ width: 40, height: 40, color: "var(--color-text-muted)", margin: "0 auto 12px", display: "block" }}>
+            style={{ width: 40, height: 40, color: `${C.textMuted}`, margin: "0 auto 12px", display: "block" }}>
             <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
           </svg>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", fontWeight: 300, color: "var(--color-text-muted)", margin: "0 0 16px" }}>
+          <p style={{ fontFamily: `${fontDisplay}`, fontSize: "1.1rem", fontWeight: 300, color: `${C.textMuted}`, margin: "0 0 16px" }}>
             No images yet
           </p>
           <AdminBtn variant="accent" as="a" href={route("admin.gallery.edit", gallery.id)}>

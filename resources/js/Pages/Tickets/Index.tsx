@@ -28,6 +28,11 @@ interface Ticket {
   qr_path: string | null;
   barcode_path: string | null;
   status: string;
+  last_resale?: {
+    price: string;
+    sold_at: string;
+    seller_name: string | null;
+  } | null;
   ticket_tier?: {
     id: number;
     name: string;
@@ -42,6 +47,8 @@ interface Ticket {
       id: number;
       name: string;
       slug: string;
+      image_url: string | null;
+      media?: { path: string }[];
     };
   };
 }
@@ -265,13 +272,13 @@ export default function TicketsIndex({ tickets }: Props) {
         : `/storage/${ticket.event_leg.event.media[0].path}`
     }
     alt=""
-    className="h-full w-full object-cover"
+    className="h-full w-full object-cover  object-center"
   />
 ) : ticket.event_leg?.event?.image_url ? (
   <img
     src={ticket.event_leg.event.image_url}
     alt=""
-    className="h-full w-full object-cover"
+    className="h-full w-full object-cover  object-center"
   />
 ) : (
             <div
@@ -315,6 +322,20 @@ export default function TicketsIndex({ tickets }: Props) {
                 {ticket.ticket_tier?.name ?? 'Ticket'}
                 {ticket.ticket_tier?.price ? ` · $${ticket.ticket_tier.price}` : ''}
               </p>
+              {ticket.last_resale && (
+                <p
+                  className="font-['IBM_Plex_Mono']"
+                  style={{
+                    fontSize: 11,
+                    color: C.amber,
+                    marginTop: 4,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  Resold � ${ticket.last_resale.price}
+                  {ticket.last_resale.seller_name ? ` � from ${ticket.last_resale.seller_name}` : ''}
+                </p>
+              )}
 
               {(ticket.event_leg?.venue_name || eventDate) && (
                 <p

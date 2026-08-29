@@ -21,42 +21,113 @@ use Illuminate\Support\Str;
 class EventSeeder extends Seeder
 {
     /**
-     * Download a real placeholder image and save it to:
+     * Pexels API key. Add PEXELS_API_KEY=... to your .env
+     * (free tier: https://www.pexels.com/api/)
+     */
+    protected string $pexelsKey;
+
+    public function __construct()
+    {
+        $this->pexelsKey = (string) env('PEXELS_API_KEY', '');
+    }
+
+    /**
+     * Category => search query used to pull a relevant
+     * photo + video from Pexels, instead of random
+     * Picsum placeholders.
+     */
+    protected array $categoryQueries = [
+        'Live Music' => 'live concert crowd stage lights',
+        'Concerts' => 'concert stage lights crowd',
+        'Festivals' => 'music festival crowd outdoor',
+        'Comedy' => 'comedy stand up stage microphone',
+        'Theatre' => 'theatre stage performance audience',
+        'Sports' => 'stadium sports crowd game',
+        'Workshops' => 'workshop people learning event',
+        'Conferences' => 'conference business event audience',
+        'Family Events' => 'family event festival fun outdoor',
+        'Cultural Events' => 'cultural festival celebration event',
+    ];
+
+    /**
+     * Download a category-matched photo + video from Pexels and
+     * save them to:
      *
      * storage/app/public/events/{event_id}/{slug}.jpg
+     * storage/app/public/events/{event_id}/{slug}.mp4
      *
-     * Then create an event_media record.
+     * Then create event_media records (image position 0, video position 1).
+     * Keeps the "2 media items per event" rule.
      */
-    protected function downloadEventImage(Event $event): void
+    protected function downloadEventMedia(Event $event, string $category): void
     {
+        if (empty($this->pexelsKey)) {
+            $this->command?->warn(
+                "PEXELS_API_KEY not set — skipping media for '{$event->name}'."
+            );
+
+            return;
+        }
+
+        $query = $this->categoryQueries[$category] ?? 'live event crowd';
         $slug = Str::slug($event->name);
+
+        $this->downloadEventPhoto($event, $slug, $query);
+        $this->downloadEventVideo($event, $slug, $query);
+    }
+
+    protected function downloadEventPhoto(Event $event, string $slug, string $query): void
+    {
         $path = "events/{$event->id}/{$slug}.jpg";
 
-        // Don't create duplicate media when the seeder is run again.
-        if (
-            $event->media()
-                ->where('path', $path)
-                ->exists()
-        ) {
+        if ($event->media()->where('path', $path)->exists()) {
             return;
         }
 
         try {
-            $response = Http::timeout(10)
-                ->get("https://picsum.photos/seed/{$slug}/1200/675");
+            $search = Http::withHeaders([
+                'Authorization' => $this->pexelsKey,
+            ])->timeout(10)->get('https://api.pexels.com/v1/search', [
+                'query' => $query,
+                'orientation' => 'landscape',
+                'per_page' => 1,
+            ]);
 
-            if (! $response->successful()) {
+            if (! $search->successful()) {
                 $this->command?->warn(
-                    "Could not download image for '{$event->name}' — skipped."
+                    "Pexels photo search failed for '{$event->name}' — skipped."
                 );
 
                 return;
             }
 
-            Storage::disk('public')->put(
-                $path,
-                $response->body()
-            );
+            $photo = $search->json('photos.0');
+
+            if (! $photo) {
+                $this->command?->warn(
+                    "No Pexels photo found for '{$event->name}' ({$query})."
+                );
+
+                return;
+            }
+
+            $imageUrl = $photo['src']['large'] ?? $photo['src']['medium'] ?? null;
+
+            if (! $imageUrl) {
+                return;
+            }
+
+            $response = Http::timeout(15)->get($imageUrl);
+
+            if (! $response->successful()) {
+                $this->command?->warn(
+                    "Could not download photo for '{$event->name}' — skipped."
+                );
+
+                return;
+            }
+
+            Storage::disk('public')->put($path, $response->body());
 
             $event->media()->create([
                 'type' => 'image',
@@ -66,13 +137,87 @@ class EventSeeder extends Seeder
                 'position' => 0,
             ]);
 
-            $this->command?->info(
-                "Image added for '{$event->name}'."
-            );
+            $this->command?->info("Photo added for '{$event->name}'.");
         } catch (\Exception $e) {
             $this->command?->warn(
-                "Image download failed for '{$event->name}': "
-                . $e->getMessage()
+                "Photo download failed for '{$event->name}': " . $e->getMessage()
+            );
+        }
+    }
+
+    protected function downloadEventVideo(Event $event, string $slug, string $query): void
+    {
+        $path = "events/{$event->id}/{$slug}.mp4";
+
+        if ($event->media()->where('path', $path)->exists()) {
+            return;
+        }
+
+        try {
+            $search = Http::withHeaders([
+                'Authorization' => $this->pexelsKey,
+            ])->timeout(10)->get('https://api.pexels.com/videos/search', [
+                'query' => $query,
+                'orientation' => 'landscape',
+                'per_page' => 1,
+            ]);
+
+            if (! $search->successful()) {
+                $this->command?->warn(
+                    "Pexels video search failed for '{$event->name}' — skipped."
+                );
+
+                return;
+            }
+
+            $video = $search->json('videos.0');
+
+            if (! $video) {
+                $this->command?->warn(
+                    "No Pexels video found for '{$event->name}' ({$query})."
+                );
+
+                return;
+            }
+
+            // Pick the smallest usable mp4 file to keep the seed fast/light.
+            $files = collect($video['video_files'] ?? [])
+                ->where('file_type', 'video/mp4')
+                ->filter(fn ($f) => ! empty($f['link']))
+                ->sortBy(fn ($f) => $f['width'] ?? 9999)
+                ->values();
+
+            $file = $files->first(fn ($f) => ($f['width'] ?? 0) >= 480 && ($f['width'] ?? 0) <= 960)
+                ?? $files->first();
+
+            if (! $file) {
+                return;
+            }
+
+            $response = Http::timeout(30)->get($file['link']);
+
+            if (! $response->successful()) {
+                $this->command?->warn(
+                    "Could not download video for '{$event->name}' — skipped."
+                );
+
+                return;
+            }
+
+            Storage::disk('public')->put($path, $response->body());
+
+            $event->media()->create([
+                'type' => 'video',
+                'path' => $path,
+                'mime_type' => 'video/mp4',
+                'size' => Storage::disk('public')->size($path),
+                'position' => 1,
+            ]);
+
+            $this->command?->info("Video added for '{$event->name}'.");
+        } catch (\Exception $e) {
+            $this->command?->warn(
+                "Video download failed for '{$event->name}': " . $e->getMessage()
             );
         }
     }
@@ -363,23 +508,22 @@ class EventSeeder extends Seeder
                         'description' =>
                             "Sample {$eventData['category']} event for testing the EventTickets platform.",
 
-                        'status' => 'published',
+                       'status' => $eventIndex >= 6 ? 'proposed' : 'published',
 
                         'languages' => ['English'],
 
-                        'watchlist_enabled' => true,
-
-                        'published_at' => now(),
+                        'watchlist_enabled' => $eventIndex >= 6,
+                        'published_at' => $eventIndex >= 6 ? null : now(),
                     ]
                 );
 
                 /*
                 |--------------------------------------------------------------------------
-                | Event Media
+                | Event Media (1 photo + 1 video, category-matched via Pexels)
                 |--------------------------------------------------------------------------
                 */
 
-                $this->downloadEventImage($event);
+                $this->downloadEventMedia($event, $eventData['category']);
 
                 /*
                 |--------------------------------------------------------------------------

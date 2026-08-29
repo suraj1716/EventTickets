@@ -231,3 +231,4 @@ Route::get('/cancellation-policy', fn () => Inertia::render('CancellationPolicy'
 require __DIR__ . '/auth.php';
 require __DIR__ . '/admin_routes.php';
 require __DIR__.'/events.php';
+

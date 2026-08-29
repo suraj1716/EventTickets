@@ -232,6 +232,7 @@ class TicketResaleService
             $listing->update([
                 'seller_paid_out' => true,
                 'seller_paid_out_at' => now(),
+                'stripe_transfer_id' => $transfer->id,
             ]);
 
             Log::info('Resale seller payout sent', [

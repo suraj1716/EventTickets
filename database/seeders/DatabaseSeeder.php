@@ -23,13 +23,14 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             DepartmentCategorySeeder::class,
             EventSeeder::class,
-
             // Other application data
             ProductSeeder::class,
             StaffSeeder::class,
             GallerySeeder::class,
             HeroBannerSeeder::class,
             OrderAndBookingSeeder::class,
+ ResaleSeeder::class,
+
             VoucherSeeder::class,
         ]);
     }

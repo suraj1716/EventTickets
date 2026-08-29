@@ -10,6 +10,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class VariationTypeOption extends Model implements HasMedia
 {
+
+protected $fillable = [
+    'variation_type_id',
+    'name',
+    'sort',
+];
+
     public $timestamps = false;
         use InteractsWithMedia;
     public function registerMediaConversions(?Media $media = null): void

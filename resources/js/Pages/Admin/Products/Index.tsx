@@ -2,20 +2,7 @@ import { useState } from "react";
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import AdminLayout from "@/Pages/Admin/AdminLayout";
 import { CurrencyFormatter } from "@/utils/CurrencyFormatter";
-import {
-  AdminPageHeader,
-  AdminBtn,
-  AdminTable,
-  Tr,
-  Td,
-  ActionBtn,
-  FilterBar,
-  Pagination,
-  FlashMessage,
-  StatusBadge,
-  ConfirmModal,
-  Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, AdminTable, Tr, Td, ActionBtn, FilterBar, Pagination, FlashMessage, StatusBadge, ConfirmModal, Icons, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 /* ─────────────────────────────────────────────
    Types
@@ -64,21 +51,21 @@ interface Props {
 const HIGHLIGHT_COLORS: Record<string, string> = {
   sale:     "#C0392B",
   hot:      "#C9650A",
-  trending: "var(--color-primary)",
-  new:      "var(--color-accent-dark)",
+  trending: `${C.amber}`,
+  new:      `${C.amberDark}`,
 };
 
 function HighlightBadge({ value }: { value: string }) {
-  const bg = HIGHLIGHT_COLORS[value] ?? "var(--color-primary)";
+  const bg = HIGHLIGHT_COLORS[value] ?? `${C.amber}`;
   return (
     <span style={{
       display: "inline-flex",
       padding: "2px 8px",
-      borderRadius: "var(--radius-full)",
+      borderRadius: "999px",
       fontSize: "9px", fontWeight: 600,
       letterSpacing: "0.1em", textTransform: "uppercase",
       color: "white", background: bg,
-      fontFamily: "var(--font-body)",
+      fontFamily: `${fontBody}`,
     }}>
       {value}
     </span>
@@ -161,10 +148,10 @@ console.log('products',products)
             <Td>
               <div style={{
                 width: 44, height: 44,
-                borderRadius: "var(--radius-sm)",
+                borderRadius: "8px",
                 overflow: "hidden", flexShrink: 0,
-                background: "var(--color-bg-alt)",
-                border: "1px solid var(--color-border)",
+                background: `${C.bgAlt}`,
+                border: `1px solid ${C.border}`,
               }}>
                 {product.thumb ? (
                   <img
@@ -186,13 +173,13 @@ console.log('products',products)
             {/* Product name + slug */}
             <Td>
               <div style={{
-                fontFamily: "var(--font-display)", fontSize: 15,
-                fontWeight: 400, color: "var(--color-text)", lineHeight: 1.2,
+                fontFamily: `${fontDisplay}`, fontSize: 15,
+                fontWeight: 400, color: `${C.text}`, lineHeight: 1.2,
               }}>
                 {product.title}
               </div>
               <div style={{
-                fontSize: 11, color: "var(--color-text-light)",
+                fontSize: 11, color: `${C.textFaint}`,
                 letterSpacing: "0.02em", marginTop: 2,
               }}>
                 {product.slug}
@@ -208,8 +195,8 @@ console.log('products',products)
             {/* Price */}
             <Td>
               <span style={{
-                fontWeight: 500, color: "var(--color-primary)",
-                fontFamily: "var(--font-display)", fontSize: 15,
+                fontWeight: 500, color: `${C.amber}`,
+                fontFamily: `${fontDisplay}`, fontSize: 15,
               }}>
                 <CurrencyFormatter amount={product.price} currency="AUD" />
               </span>
@@ -227,7 +214,7 @@ console.log('products',products)
             <Td>
               {product.highlight
                 ? <HighlightBadge value={product.highlight} />
-                : <span style={{ color: "var(--color-text-light)", fontSize: 11 }}>—</span>
+                : <span style={{ color: `${C.textFaint}`, fontSize: 11 }}>—</span>
               }
             </Td>
 
@@ -266,8 +253,8 @@ console.log('products',products)
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "14px 0", flexWrap: "wrap", gap: 12,
-          fontFamily: "var(--font-body)", fontSize: 12,
-          color: "var(--color-text-muted)",
+          fontFamily: `${fontBody}`, fontSize: 12,
+          color: `${C.textMuted}`,
         }}>
           <span>Showing {products.from}–{products.to} of {products.total}</span>
           <Pagination links={products.links} />
@@ -278,7 +265,7 @@ console.log('products',products)
       {deleteTarget && (
         <ConfirmModal
           title={
-            <>Delete <em style={{ fontStyle: "italic", color: "var(--color-accent)" }}>{deleteTarget.title}</em>?</>
+            <>Delete <em style={{ fontStyle: "italic", color: `${C.amber}` }}>{deleteTarget.title}</em>?</>
           }
           description={`This will permanently delete "${deleteTarget.title}" and all its data. This action cannot be undone.`}
           confirmLabel="Delete Product"

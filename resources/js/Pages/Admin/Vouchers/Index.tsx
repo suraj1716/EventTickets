@@ -1,17 +1,29 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { useState } from "react";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import AdminLayout from "../AdminLayout";
 import {
   ActionBtn,
+  AdminBtn,
   AdminPageHeader,
   AdminTable,
+  ConfirmModal,
   FilterBar,
   Icons,
   Pagination,
+  SlideOver,
+  SlideOverActions,
   StatusBadge,
+  Tr,
   Td,
+  C,
 } from "../../../Components/Admin/AdminComponents";
+import {
+  useAdminForm,
+  Field,
+  AdminInput,
+  AdminSelect,
+} from "../../../Components/Admin/useAdminForm";
 
 type Voucher = {
   id: number;
@@ -32,22 +44,8 @@ type Props = {
   filters: Record<string, string>;
 };
 
-const btnStyle = (color = "var(--color-primary)"): React.CSSProperties => ({
-  background: "transparent",
-  border: `1px solid ${color}`,
-  color,
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  padding: "4px 12px",
-  cursor: "pointer",
-  textDecoration: "none",
-  display: "inline-block",
-});
-
 function CreateModal({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({
+  const { data, set, errors, processing, post } = useAdminForm({
     code: "",
     type: "promo",
     discount_type: "fixed",
@@ -56,240 +54,98 @@ function CreateModal({ onClose }: { onClose: () => void }) {
     expires_at: "",
   });
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.post(route("admin.vouchers.store"), form as any, {
+  const handleSubmit = () => {
+    post(route("admin.vouchers.store"), {
       onSuccess: () => {
         toast.success("Voucher created");
         onClose();
       },
-      onError: () => toast.error("Validation failed"),
     });
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "0.75rem 1rem",
-    fontFamily: "var(--font-body)",
-    fontSize: "var(--text-sm)",
-    color: "var(--color-text)",
-    background: "var(--color-bg)",
-    border: "1px solid var(--color-border)",
-    outline: "none",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "block",
-    fontFamily: "var(--font-body)",
-    fontSize: "var(--text-xs)",
-    fontWeight: 500,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    color: "var(--color-text-muted)",
-    marginBottom: "var(--space-xs)",
-  };
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--color-overlay)",
-        backdropFilter: "blur(4px)",
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-      onClick={onClose}
+    <SlideOver
+      eyebrow="Vouchers"
+      title="New Voucher"
+      onClose={onClose}
+      footer={
+        <SlideOverActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          processing={processing}
+          submitLabel="Create Voucher"
+        />
+      }
     >
-      <div
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          boxShadow: "var(--shadow-xl)",
-          width: 480,
-          maxWidth: "calc(100vw - 32px)",
-          maxHeight: "calc(100vh - 64px)",
-          overflowY: "auto",
-          zIndex: 9999,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            padding: "var(--space-xl)",
-            borderBottom: "1px solid var(--color-border)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-xl)",
-              fontWeight: 400,
-              color: "var(--color-text)",
-            }}
+      <Field label="Code" error={errors.code} help="Auto-generated if left blank">
+        <AdminInput
+          type="text"
+          value={data.code}
+          onChange={(e) => set("code", e.target.value)}
+          placeholder="Auto-generated if blank"
+          error={!!errors.code}
+          autoFocus
+        />
+      </Field>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Field label="Type" error={errors.type}>
+          <AdminSelect value={data.type} onChange={(e) => set("type", e.target.value)} error={!!errors.type}>
+            <option value="promo">Promo Code</option>
+            <option value="gift">Gift Card</option>
+          </AdminSelect>
+        </Field>
+        <Field label="Discount Type" error={errors.discount_type}>
+          <AdminSelect
+            value={data.discount_type}
+            onChange={(e) => set("discount_type", e.target.value)}
+            error={!!errors.discount_type}
           >
-            Create Voucher
-          </span>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--color-text-light)",
-              fontSize: "1.1rem",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-        <form
-          onSubmit={submit}
-          style={{
-            padding: "var(--space-xl)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-lg)",
-          }}
-        >
-          <div>
-            <label style={labelStyle}>Code</label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
-              placeholder="Auto-generated if blank"
-              style={inputStyle}
-            />
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "var(--space-md)",
-            }}
-          >
-            <div>
-              <label style={labelStyle}>Type</label>
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                style={inputStyle}
-              >
-                <option value="promo">Promo Code</option>
-                <option value="gift">Gift Card</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Discount Type</label>
-              <select
-                value={form.discount_type}
-                onChange={(e) =>
-                  setForm({ ...form, discount_type: e.target.value })
-                }
-                style={inputStyle}
-              >
-                <option value="fixed">Fixed ($)</option>
-                <option value="percent">Percent (%)</option>
-              </select>
-            </div>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "var(--space-md)",
-            }}
-          >
-            <div>
-              <label style={labelStyle}>Amount</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="0.00"
-                min="0"
-                step="0.01"
-                style={inputStyle}
-                required
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Max Uses</label>
-              <input
-                type="number"
-                value={form.max_uses}
-                onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
-                placeholder="Unlimited"
-                min="1"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={labelStyle}>Expires At</label>
-            <input
-              type="date"
-              value={form.expires_at}
-              onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
-              style={inputStyle}
-            />
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-sm)",
-              paddingTop: "var(--space-sm)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: "0.75rem",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                background: "transparent",
-                color: "var(--color-text-muted)",
-                border: "1px solid var(--color-border)",
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{
-                flex: 2,
-                padding: "0.75rem",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                background: "var(--color-primary)",
-                color: "#fff",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Create Voucher
-            </button>
-          </div>
-        </form>
+            <option value="fixed">Fixed ($)</option>
+            <option value="percent">Percent (%)</option>
+          </AdminSelect>
+        </Field>
       </div>
-    </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Field label="Amount" required error={errors.amount}>
+          <AdminInput
+            type="number"
+            value={data.amount}
+            onChange={(e) => set("amount", e.target.value)}
+            placeholder="0.00"
+            min={0}
+            step="0.01"
+            error={!!errors.amount}
+          />
+        </Field>
+        <Field label="Max Uses" error={errors.max_uses}>
+          <AdminInput
+            type="number"
+            value={data.max_uses}
+            onChange={(e) => set("max_uses", e.target.value)}
+            placeholder="Unlimited"
+            min={1}
+            error={!!errors.max_uses}
+          />
+        </Field>
+      </div>
+
+      <Field label="Expires At" error={errors.expires_at}>
+        <AdminInput
+          type="date"
+          value={data.expires_at}
+          onChange={(e) => set("expires_at", e.target.value)}
+          error={!!errors.expires_at}
+        />
+      </Field>
+    </SlideOver>
   );
 }
 
 export default function VouchersIndex({ vouchers, filters }: Props) {
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Voucher | null>(null);
 
   const handleToggle = (id: number) => {
     router.patch(
@@ -303,40 +159,40 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
     );
   };
 
-  const handleDelete = (id: number) => {
-    if (!confirm("Delete this voucher permanently?")) return;
-    router.delete(route("admin.vouchers.destroy", id), {
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    router.delete(route("admin.vouchers.destroy", deleteTarget.id), {
       preserveScroll: true,
       onSuccess: () => toast.success("Voucher deleted"),
-      onError: () => toast.error("Failed"),
+      onError: () => toast.error("Failed to delete voucher"),
+      onFinish: () => setDeleteTarget(null),
     });
   };
 
   return (
     <AdminLayout>
-      <Head title="Admin — Vouchers" />
+      <Head title="Vouchers" />
       {showModal && <CreateModal onClose={() => setShowModal(false)} />}
 
+      {deleteTarget && (
+        <ConfirmModal
+          title={`Delete "${deleteTarget.code}"?`}
+          description="This will permanently remove the voucher. This action cannot be undone."
+          confirmLabel="Delete Voucher"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
       <AdminPageHeader
-        eyebrow="Manage"
+        eyebrow="Sales"
         title="Vouchers"
+        meta={`${vouchers.data.length} records shown`}
         action={
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              background: "var(--color-primary)",
-              color: "#fff",
-              border: "none",
-              fontFamily: "var(--font-body)",
-              fontSize: "var(--text-xs)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              padding: "0.75rem 1.75rem",
-              cursor: "pointer",
-            }}
-          >
-            + Create Voucher
-          </button>
+          <AdminBtn variant="accent" onClick={() => setShowModal(true)}>
+            <Icons.Plus />
+            New Voucher
+          </AdminBtn>
         }
       />
 
@@ -344,14 +200,14 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
         routeName="admin.vouchers.index"
         filters={filters}
         fields={[
-          { key: "search", placeholder: "Search code…" },
+          { key: "search", placeholder: "Search code…", flex: true },
           {
             key: "type",
             type: "select",
             placeholder: "All types",
             options: [
-              { value: "gift", label: "gift" },
-              { value: "promo", label: "promo" },
+              { value: "gift", label: "Gift" },
+              { value: "promo", label: "Promo" },
             ],
           },
           {
@@ -359,8 +215,8 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
             type: "select",
             placeholder: "All statuses",
             options: [
-              { value: "1", label: "active" },
-              { value: "0", label: "inactive" },
+              { value: "1", label: "Active" },
+              { value: "0", label: "Inactive" },
             ],
           },
         ]}
@@ -368,6 +224,7 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
 
       <AdminTable
         headers={[
+          "#",
           "Code",
           "Type",
           "Amount",
@@ -379,18 +236,15 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
           "Purchased By",
           "Actions",
         ]}
+        empty="✦ No vouchers found"
       >
         {vouchers.data.map((v) => (
-          <tr key={v.id}>
+          <Tr key={v.id}>
+            <Td muted>{v.id}</Td>
             <Td>
               <Link
                 href={route("admin.vouchers.show", v.id)}
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontWeight: 600,
-                  color: "var(--color-primary)",
-                  textDecoration: "none",
-                }}
+                style={{ fontWeight: 600, color: C.amber, textDecoration: "none" }}
               >
                 {v.code}
               </Link>
@@ -399,26 +253,17 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
               <StatusBadge status={v.type} />
             </Td>
             <Td>
-              <span style={{ color: "var(--color-primary)", fontWeight: 500 }}>
-                {v.discount_type === "percent"
-                  ? `${v.amount}%`
-                  : `A$${v.amount}`}
+              <span style={{ color: C.amber, fontWeight: 500 }}>
+                {v.discount_type === "percent" ? `${v.amount}%` : `A$${v.amount}`}
               </span>
             </Td>
-            <Td muted>
-              {v.remaining_amount !== null ? `A$${v.remaining_amount}` : "—"}
-            </Td>
+            <Td muted>{v.remaining_amount !== null ? `A$${v.remaining_amount}` : "—"}</Td>
             <Td muted>{v.used_count}</Td>
             <Td muted>{v.max_uses ?? "Unlimited"}</Td>
             <Td>
               <button
                 onClick={() => handleToggle(v.id)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                }}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
               >
                 <StatusBadge status={v.active ? "active" : "inactive"} />
               </button>
@@ -426,26 +271,16 @@ export default function VouchersIndex({ vouchers, filters }: Props) {
             <Td muted>{v.expires_at ?? "Never"}</Td>
             <Td muted>{v.purchased_by}</Td>
             <Td>
-              <div style={{ display: "flex", gap: 6 }}>
-                <ActionBtn
-                  variant="edit"
-                  title="Edit"
-                  as="a"
-                  href={route("admin.vouchers.edit", v.id)}
-                >
+              <div style={{ display: "flex", gap: 4 }}>
+                <ActionBtn variant="edit" title="Edit" as="a" href={route("admin.vouchers.edit", v.id)}>
                   <Icons.Edit />
                 </ActionBtn>
-
-                <ActionBtn
-                  variant="delete"
-                  title="Delete"
-                  onClick={() => handleDelete(v.id)}
-                >
+                <ActionBtn variant="delete" title="Delete" onClick={() => setDeleteTarget(v)}>
                   <Icons.Delete />
                 </ActionBtn>
               </div>
             </Td>
-          </tr>
+          </Tr>
         ))}
       </AdminTable>
 

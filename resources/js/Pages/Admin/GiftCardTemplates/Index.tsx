@@ -13,9 +13,10 @@ import {
   AdminBtn,
   Icons,
   ConfirmModal,
+  SlideOver,
+  SlideOverActions,
   C,
   fontBody,
-  fontDisplay,
 } from "@/Components/Admin/AdminComponents";
 import toast from "react-hot-toast";
 import AdminLayout from "../AdminLayout";
@@ -115,44 +116,19 @@ function TemplateModal({
     };
   }, [imagePreview]);
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "rgba(0,0,0,0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backdropFilter: "blur(4px)",
-      }}
+    <SlideOver
+      eyebrow="Gift Cards"
+      title={isEdit ? "Edit Gift Card Template" : "New Gift Card Template"}
+      onClose={onClose}
+      footer={
+        <SlideOverActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          processing={processing}
+          submitLabel={isEdit ? "Save Changes" : "Create Template"}
+        />
+      }
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: C.surface,
-          border: `1px solid ${C.border}`,
-          borderRadius: "12px",
-          padding: "28px 32px",
-          width: "480px",
-          maxWidth: "90vw",
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
-      >
-        <h3
-          style={{
-            fontFamily: fontDisplay,
-            fontSize: "1.2rem",
-            fontWeight: 300,
-            color: C.text,
-            margin: "0 0 20px",
-          }}
-        >
-          {isEdit ? "Edit Gift Card Template" : "New Gift Card Template"}
-        </h3>
-
         <Field label="Vendor" error={errors.vendor_user_id}>
           <AdminSelect
             value={data.vendor_user_id}
@@ -246,32 +222,7 @@ function TemplateModal({
             </label>
           </div>
         )}
-
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            justifyContent: "flex-end",
-            marginTop: 24,
-          }}
-        >
-          <AdminBtn variant="ghost" onClick={onClose}>
-            Cancel
-          </AdminBtn>
-          <AdminBtn
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={processing}
-          >
-            {processing
-              ? "Saving…"
-              : isEdit
-                ? "Save Changes"
-                : "Create Template"}
-          </AdminBtn>
-        </div>
-      </div>
-    </div>
+    </SlideOver>
   );
 }
 

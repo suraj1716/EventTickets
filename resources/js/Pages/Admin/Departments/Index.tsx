@@ -14,6 +14,8 @@ import {
   FlashMessage,
   ConfirmModal,
   Icons,
+  C,
+  fontMono,
 } from "../../../Components/Admin/AdminComponents";
 
 interface Department {
@@ -91,10 +93,10 @@ export default function DepartmentsIndex({ departments, filters, flash }: Props)
               <Td>
                 <div style={{
                   width: 38, height: 38,
-                  borderRadius: "var(--radius-sm)",
+                  borderRadius: "8px",
                   overflow: "hidden",
-                  background: "var(--color-bg-alt)",
-                  border: "1px solid var(--color-border)",
+                  background: C.bgAlt,
+                  border: `1px solid ${C.border}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
                 }}>
@@ -105,7 +107,7 @@ export default function DepartmentsIndex({ departments, filters, flash }: Props)
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <span style={{ color: "var(--color-text-muted)", opacity: 0.4 }}>
+                    <span style={{ color: C.textMuted, opacity: 0.4 }}>
                       <Icons.Image />
                     </span>
                   )}
@@ -117,7 +119,7 @@ export default function DepartmentsIndex({ departments, filters, flash }: Props)
                   <span style={{ fontWeight: 500 }}>{dept.name}</span>
                   {dept.meta_title && (
                     <div style={{
-                      fontSize: "11px", color: "var(--color-text-muted)",
+                      fontSize: "11px", color: C.textMuted,
                       marginTop: 2, maxWidth: 260,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
@@ -129,13 +131,13 @@ export default function DepartmentsIndex({ departments, filters, flash }: Props)
 
               <Td muted>
                 <span style={{
-                  fontFamily: "var(--font-mono, monospace)",
+                  fontFamily: fontMono,
                   fontSize: "11px",
-                  background: "var(--color-bg-alt)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-sm)",
+                  background: C.bgAlt,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "8px",
                   padding: "2px 8px",
-                  color: "var(--color-text-muted)",
+                  color: C.textMuted,
                 }}>
                   {dept.slug}
                 </span>

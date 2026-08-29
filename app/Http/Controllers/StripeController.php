@@ -601,6 +601,26 @@ class StripeController extends Controller
                 abort(404);
             }
 
+            // Resale ticket purchases don't create an Order row — the webhook
+            // (see resale_listing_id branch above) handles ownership transfer
+            // directly via TicketResaleService. Redirect straight to the
+            // buyer's ticket instead of falling through to gift-card logic.
+            if (!empty($stripeSession->metadata['resale_listing_id'])) {
+                $listing = \App\Models\TicketResaleListing::find(
+                    $stripeSession->metadata['resale_listing_id']
+                );
+
+                if ($listing && $listing->ticket_id) {
+                    return redirect()
+                        ->route('tickets.show', $listing->ticket_id)
+                        ->with('success', 'Ticket purchased! It is now in your account.');
+                }
+
+                return redirect()
+                    ->route('resale.index')
+                    ->with('success', 'Purchase complete! Check your tickets shortly.');
+            }
+
             $order = $this->fulfillGiftCardOrder($stripeSession);
 
             if (!$order) {

@@ -858,15 +858,11 @@ class EventController extends Controller
 
         $event->publish();
 
-        app(
-            \App\Services\EventWatchlistNotifier::class
-        )->notify($event);
-
         return redirect()
             ->back()
             ->with(
                 'success',
-                'Event published and watchlist notified.'
+                'Event published. Verified watchlist subscribers have been notified.'
             );
     }
 

@@ -3,7 +3,7 @@
 import React from "react";
 import { Head, Link } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import { AdminBtn, Icons } from "../../../Components/Admin/AdminComponents";
+import { AdminBtn, Icons, C } from "../../../Components/Admin/AdminComponents";
 import { formatDate } from "@/utils/dateFormat";
 
 interface RefundRow {
@@ -243,8 +243,8 @@ function OrderTimeline({ order }: { order: OrderRow }) {
         style={{
           marginBottom: 4,
           padding: 12,
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-sm)",
+          border: `1px solid ${C.border}`,
+          borderRadius: "8px",
           background: "rgba(0,0,0,0.015)",
         }}
       >
@@ -253,7 +253,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
             fontSize: 10,
             fontWeight: 700,
             textTransform: "uppercase",
-            color: "var(--color-text-muted)",
+            color: `${C.textMuted}`,
             marginBottom: 8,
             letterSpacing: "0.08em",
           }}
@@ -273,7 +273,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
             <div
               style={{
                 fontSize: 10,
-                color: "var(--color-text-muted)",
+                color: `${C.textMuted}`,
               }}
             >
               Gross
@@ -294,7 +294,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
             <div
               style={{
                 fontSize: 10,
-                color: "var(--color-text-muted)",
+                color: `${C.textMuted}`,
               }}
             >
               Gift Card
@@ -315,7 +315,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
             <div
               style={{
                 fontSize: 10,
-                color: "var(--color-text-muted)",
+                color: `${C.textMuted}`,
               }}
             >
               Card / Stripe
@@ -356,8 +356,8 @@ function OrderTimeline({ order }: { order: OrderRow }) {
                 height: 8,
                 borderRadius: "50%",
                 background: step.negative
-                  ? "var(--color-error)"
-                  : "var(--color-primary)",
+                  ? `${C.error}`
+                  : `${C.amber}`,
                 marginTop: 4,
                 flexShrink: 0,
               }}
@@ -368,7 +368,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
                 style={{
                   width: 1,
                   flex: 1,
-                  background: "var(--color-border)",
+                  background: `${C.border}`,
                   minHeight: 18,
                 }}
               />
@@ -388,7 +388,7 @@ function OrderTimeline({ order }: { order: OrderRow }) {
             <div
               style={{
                 fontSize: 11,
-                color: "var(--color-text-muted)",
+                color: `${C.textMuted}`,
               }}
             >
               {new Date(step.at).toLocaleString("en-AU")}
@@ -605,7 +605,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
             href={route("admin.payouts.index")}
             style={{
               fontSize: 12,
-              color: "var(--color-text-muted)",
+              color: `${C.textMuted}`,
             }}
           >
             ← Back to Payouts
@@ -620,9 +620,9 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
         <div
           className="invoice-sheet"
           style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-sm)",
+            background: `${C.surface}`,
+            border: `1px solid ${C.border}`,
+            borderRadius: "8px",
             padding: 32,
             maxWidth: 1100,
             margin: "0 auto",
@@ -633,7 +633,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              borderBottom: "2px solid var(--color-border)",
+              borderBottom: `2px solid ${C.border}`,
               paddingBottom: 20,
               marginBottom: 24,
               gap: 20,
@@ -652,7 +652,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <div
                 style={{
                   fontSize: 12,
-                  color: "var(--color-text-muted)",
+                  color: `${C.textMuted}`,
                 }}
               >
                 Reference #{payout.id} · Recorded{" "}
@@ -703,7 +703,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <span
                 style={{
                   marginLeft: 16,
-                  color: "var(--color-text-muted)",
+                  color: `${C.textMuted}`,
                 }}
               >
                 {orders.length} order
@@ -715,7 +715,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <div
                 style={{
                   fontSize: 12,
-                  color: "var(--color-error)",
+                  color: `${C.error}`,
                 }}
               >
                 ⚠ Recorded amount ({money(payout.amount)}) differs from
@@ -738,7 +738,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <thead>
                 <tr
                   style={{
-                    borderBottom: "1px solid var(--color-border)",
+                    borderBottom: `1px solid ${C.border}`,
                     textAlign: "left",
                   }}
                 >
@@ -863,7 +863,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                       <tr
                         className="payout-order-row"
                         style={{
-                          borderBottom: "1px solid var(--color-border)",
+                          borderBottom: `1px solid ${C.border}`,
                           cursor: "pointer",
                         }}
                         onClick={() => setExpandedId(isOpen ? null : o.id)}
@@ -872,7 +872,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                           className="payout-expand-cell"
                           style={{
                             padding: "6px 4px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           {isOpen ? "▾" : "▸"}
@@ -890,7 +890,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                         <td
                           style={{
                             padding: "6px 4px",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                             whiteSpace: "nowrap",
                           }}
                         >
@@ -958,7 +958,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                             padding: "6px 4px",
                             textAlign: "right",
                             color:
-                              refunded > 0 ? "var(--color-error)" : undefined,
+                              refunded > 0 ? `${C.error}` : undefined,
                           }}
                         >
                           {refunded > 0 ? `−${money(refunded)}` : "—"}
@@ -1018,7 +1018,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                       style={{
                         padding: 16,
                         textAlign: "center",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                       }}
                     >
                       No orders are attached to this payout.
@@ -1031,7 +1031,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <tfoot>
                 <tr
                   style={{
-                    borderTop: "2px solid var(--color-border)",
+                    borderTop: `2px solid ${C.border}`,
                     fontWeight: 600,
                   }}
                 >
@@ -1109,7 +1109,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                     style={{
                       padding: "8px 4px",
                       textAlign: "right",
-                      color: "var(--color-primary)",
+                      color: `${C.amber}`,
                     }}
                   >
                     {money(totals.netToVendor)}
@@ -1143,15 +1143,15 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               <div
                 key={label}
                 style={{
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-sm)",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "8px",
                   padding: 12,
                 }}
               >
                 <div
                   style={{
                     fontSize: 10,
-                    color: "var(--color-text-muted)",
+                    color: `${C.textMuted}`,
                     textTransform: "uppercase",
                   }}
                 >
@@ -1181,7 +1181,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               style={{
                 marginTop: 20,
                 fontSize: 11,
-                color: "var(--color-text-muted)",
+                color: `${C.textMuted}`,
               }}
             >
               Note: some orders in this period have one or more refunds recorded
@@ -1195,7 +1195,7 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
             style={{
               marginTop: 8,
               fontSize: 11,
-              color: "var(--color-text-muted)",
+              color: `${C.textMuted}`,
             }}
           >
             Click any order row to see its full timeline.

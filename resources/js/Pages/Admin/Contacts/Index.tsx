@@ -1,11 +1,7 @@
 import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader, AdminTable, ActionBtn,
-  FilterBar, Pagination, StatusBadge, Tr, Td,
-  FlashMessage, ConfirmModal, Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminTable, ActionBtn, FilterBar, Pagination, StatusBadge, Tr, Td, FlashMessage, ConfirmModal, Icons, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 interface Contact {
   id: number;
@@ -97,7 +93,7 @@ export default function ContactsIndex({ contacts, filters, reasons, flash }: Pro
 
               <Td>
                 <div style={{ fontWeight: c.is_read ? 400 : 600 }}>{c.name}</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 1 }}>
+                <div style={{ fontSize: 11, color: `${C.textMuted}`, marginTop: 1 }}>
                   {c.email}
                 </div>
               </Td>
@@ -106,8 +102,8 @@ export default function ContactsIndex({ contacts, filters, reasons, flash }: Pro
                 {c.reason ? (
                   <span style={{
                     fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
-                    background: "var(--color-bg-alt)", border: "1px solid var(--color-border)",
-                    padding: "2px 7px", borderRadius: "var(--radius-sm)",
+                    background: `${C.bgAlt}`, border: `1px solid ${C.border}`,
+                    padding: "2px 7px", borderRadius: "8px",
                   }}>
                     {c.reason.replace(/_/g, " ")}
                   </span>
@@ -127,7 +123,7 @@ export default function ContactsIndex({ contacts, filters, reasons, flash }: Pro
               <Td>
                 <div style={{
                   fontSize: 12,
-                  color: "var(--color-text-muted)",
+                  color: `${C.textMuted}`,
                   maxWidth: 200,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -147,13 +143,13 @@ export default function ContactsIndex({ contacts, filters, reasons, flash }: Pro
                   title={c.is_read ? "Mark unread" : "Mark read"}
                   style={{
                     background: "none",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     padding: "4px 8px",
                     cursor: "pointer",
                     fontSize: 11,
-                    color: c.is_read ? "var(--color-text-muted)" : "var(--color-accent)",
-                    fontFamily: "var(--font-body)",
+                    color: c.is_read ? `${C.textMuted}` : `${C.amber}`,
+                    fontFamily: `${fontBody}`,
                     letterSpacing: "0.08em",
                   }}
                 >

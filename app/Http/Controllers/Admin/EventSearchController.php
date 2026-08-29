@@ -127,62 +127,87 @@ class EventSearchController extends Controller
 
     // EventSearchController.php — add this method
 
-    public function comingSoon(Request $request)
-    {
-        $events = Event::query()
-            ->where('status', 'proposed')
-            ->with(['legs', 'artists', 'categories'])
-            ->withCount('watchlist')
+   public function comingSoon(Request $request)
+{
+    $events = Event::query()
+        ->where('status', 'proposed')
+        ->with([
+            'legs',
+            'artists',
+            'categories',
+            'media',
+        ])
+        ->withCount('watchlist')
 
-            ->when(
-                $request->filled('search'),
-                fn($q) => $q->where('name', 'like', '%' . $request->input('search') . '%')
+        ->when(
+            $request->filled('search'),
+            fn($q) => $q->where(
+                'name',
+                'like',
+                '%' . $request->input('search') . '%'
             )
+        )
 
-            ->when(
-                $request->filled('category'),
-                function ($q) use ($request) {
-                    $q->whereHas(
-                        'categories',
-                        fn($categoryQuery) => $categoryQuery->where('categories.id', $request->input('category'))
-                    );
-                }
-            )
+        ->when(
+            $request->filled('category'),
+            function ($q) use ($request) {
+                $q->whereHas(
+                    'categories',
+                    fn($categoryQuery) =>
+                        $categoryQuery->where(
+                            'categories.id',
+                            $request->input('category')
+                        )
+                );
+            }
+        )
 
-            ->orderByDesc('watchlist_count')
-            ->paginate(20)
-            ->withQueryString();
+        ->orderByDesc('watchlist_count')
+        ->paginate(20)
+        ->withQueryString();
 
-        $categories = Category::query()
-            ->where('active', true)
-            ->whereNull('parent_id')
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'department_id']);
-
-        return Inertia::render('Events/ComingSoon', [
-            'events' => [
-                'data' => $events->items(),
-                'links' => [
-                    'first' => $events->url(1),
-                    'last' => $events->url($events->lastPage()),
-                    'prev' => $events->previousPageUrl(),
-                    'next' => $events->nextPageUrl(),
-                ],
-                'meta' => [
-                    'current_page' => $events->currentPage(),
-                    'from' => $events->firstItem(),
-                    'last_page' => $events->lastPage(),
-                    'links' => $events->linkCollection()->toArray(),
-                    'path' => $events->path(),
-                    'per_page' => $events->perPage(),
-                    'to' => $events->lastItem(),
-                    'total' => $events->total(),
-                ],
-            ],
-            'categories' => $categories,
-            'filters' => $request->only(['search', 'category']),
+    $categories = Category::query()
+        ->where('active', true)
+        ->whereNull('parent_id')
+        ->orderBy('name')
+        ->get([
+            'id',
+            'name',
+            'slug',
+            'department_id'
         ]);
-    }
+
+    return Inertia::render('Events/ComingSoon', [
+        'events' => [
+            'data' => $events->items(),
+
+            'links' => [
+                'first' => $events->url(1),
+                'last' => $events->url($events->lastPage()),
+                'prev' => $events->previousPageUrl(),
+                'next' => $events->nextPageUrl(),
+            ],
+
+            'meta' => [
+                'current_page' => $events->currentPage(),
+                'from' => $events->firstItem(),
+                'last_page' => $events->lastPage(),
+                'links' => $events->linkCollection()->toArray(),
+                'path' => $events->path(),
+                'per_page' => $events->perPage(),
+                'to' => $events->lastItem(),
+                'total' => $events->total(),
+            ],
+        ],
+
+        'categories' => $categories,
+
+        'filters' => $request->only([
+            'search',
+            'category'
+        ]),
+    ]);
+}
 
 
     // Single event page — this is what resources/js/Pages/Events/Show.tsx

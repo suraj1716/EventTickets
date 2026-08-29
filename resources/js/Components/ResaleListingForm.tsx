@@ -28,10 +28,9 @@ export default function ResaleListingForm({
   }
 
   // GET is correct here because /resale/connect is a GET route.
-function connectPayouts() {
-  console.log('connectPayouts fired', route('resale.connect'));
-  window.location.href = route('resale.connect');
-}
+  function connectPayouts() {
+    window.location.href = route('resale.connect', { ticket: ticketId });
+  }
 
   // POST is required here because /tickets/{ticket}/resell
   // is registered as POST.

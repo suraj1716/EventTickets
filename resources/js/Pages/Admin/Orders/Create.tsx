@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Head, router, usePage } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader,
-  AdminBtn,
-  Icons,
-  FlashMessage,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminBtn, Icons, FlashMessage, fontBody, fontDisplay, C } from "../../../Components/Admin/AdminComponents";
 import { User, Vendor } from "@/types";
 
 /* ── Types ── */
@@ -43,31 +38,31 @@ interface Props {
 /* ── Style helpers ── */
 const label: React.CSSProperties = {
   display: "block",
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "10px",
   fontWeight: 500,
   letterSpacing: "0.18em",
   textTransform: "uppercase",
-  color: "var(--color-text-muted)",
+  color: `${C.textMuted}`,
   marginBottom: 6,
 };
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 12px",
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "13px",
-  color: "var(--color-text)",
-  background: "var(--color-bg-alt)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "var(--radius-sm)",
+  color: `${C.text}`,
+  background: `${C.bgAlt}`,
+  border: `1px solid ${C.border}`,
+  borderRadius: "8px",
   outline: "none",
   boxSizing: "border-box",
   transition: "border-color 150ms",
 };
 const err: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
+  fontFamily: `${fontBody}`,
   fontSize: "11px",
-  color: "var(--color-error)",
+  color: `${C.error}`,
   marginTop: 4,
 };
 const fieldWrap: React.CSSProperties = {
@@ -87,17 +82,17 @@ function Card({
   return (
     <div
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-md)",
+        background: `${C.surface}`,
+        border: `1px solid ${C.border}`,
+        borderRadius: "12px",
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: "12px 20px",
-          borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-bg-alt)",
+          borderBottom: `1px solid ${C.border}`,
+          background: `${C.bgAlt}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -108,17 +103,17 @@ function Card({
             style={{
               width: 3,
               height: 16,
-              background: "var(--color-accent)",
+              background: `${C.amber}`,
               borderRadius: 2,
             }}
           />
           <span
             style={{
-              fontFamily: "var(--font-body)",
+              fontFamily: `${fontBody}`,
               fontSize: "10px",
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "var(--color-text-muted)",
+              color: `${C.textMuted}`,
               fontWeight: 500,
             }}
           >
@@ -128,15 +123,15 @@ function Card({
         {badge && (
           <span
             style={{
-              fontFamily: "var(--font-body)",
+              fontFamily: `${fontBody}`,
               fontSize: "10px",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "var(--color-accent)",
+              color: `${C.amber}`,
               background: "rgba(201,169,110,0.1)",
               border: "1px solid rgba(201,169,110,0.25)",
               padding: "2px 8px",
-              borderRadius: "var(--radius-full)",
+              borderRadius: "999px",
             }}
           >
             {badge}
@@ -380,7 +375,7 @@ export default function Create({
               padding: "10px 14px",
               border: "1px solid rgba(192,57,43,0.2)",
               background: "rgba(192,57,43,0.06)",
-              borderRadius: "var(--radius-sm)",
+              borderRadius: "8px",
               marginBottom: 16,
             }}
           >
@@ -443,7 +438,7 @@ export default function Create({
                 <div
                   style={{
                     padding: "14px 16px",
-                    borderRadius: "var(--radius-sm)",
+                    borderRadius: "8px",
                     background: "rgba(58,125,68,0.06)",
                     border: "1px solid rgba(58,125,68,0.2)",
                     display: "flex",
@@ -455,19 +450,19 @@ export default function Create({
                   <div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "13px",
                         fontWeight: 500,
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                       }}
                     >
                       {foundUser.name}
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "11px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginTop: 2,
                       }}
                     >
@@ -479,11 +474,11 @@ export default function Create({
                   >
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
                         letterSpacing: "0.1em",
                         textTransform: "uppercase",
-                        color: "var(--color-success)",
+                        color: `${C.success}`,
                       }}
                     >
                       ✓ Existing customer
@@ -493,7 +488,7 @@ export default function Create({
                       style={{
                         background: "none",
                         border: "none",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         cursor: "pointer",
                         fontSize: 16,
                         lineHeight: 1,
@@ -509,16 +504,16 @@ export default function Create({
               {lookupState === "new" && (
                 <div
                   style={{
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                    border: `1px solid ${C.border}`,
                     overflow: "hidden",
                   }}
                 >
                   <div
                     style={{
                       padding: "10px 14px",
-                      background: "var(--color-bg-alt)",
-                      borderBottom: "1px solid var(--color-border)",
+                      background: `${C.bgAlt}`,
+                      borderBottom: `1px solid ${C.border}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -526,11 +521,11 @@ export default function Create({
                   >
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
                         letterSpacing: "0.16em",
                         textTransform: "uppercase",
-                        color: "var(--color-warning)",
+                        color: `${C.amber}`,
                       }}
                     >
                       ✦ No account found — register new customer
@@ -540,7 +535,7 @@ export default function Create({
                       style={{
                         background: "none",
                         border: "none",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         cursor: "pointer",
                         fontSize: 16,
                       }}
@@ -620,7 +615,7 @@ export default function Create({
                       left: 10,
                       top: "50%",
                       transform: "translateY(-50%)",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       pointerEvents: "none",
                     }}
                   >
@@ -645,9 +640,9 @@ export default function Create({
                         left: 0,
                         right: 0,
                         zIndex: 20,
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "var(--radius-sm)",
+                        background: `${C.surface}`,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: "8px",
                         maxHeight: 220,
                         overflowY: "auto",
                         boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
@@ -667,27 +662,27 @@ export default function Create({
                             alignItems: "center",
                             justifyContent: "space-between",
                             gap: 8,
-                            borderBottom: "1px solid var(--color-border)",
+                            borderBottom: `1px solid ${C.border}`,
                             background:
                               selectedPid === String(p.id)
-                                ? "var(--color-bg-alt)"
+                                ? `${C.bgAlt}`
                                 : "transparent",
                           }}
                         >
                           <span
                             style={{
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text)",
+                              color: `${C.text}`,
                             }}
                           >
                             {p.title}
                           </span>
                           <span
                             style={{
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "12px",
-                              color: "var(--color-primary)",
+                              color: `${C.amber}`,
                               fontWeight: 500,
                             }}
                           >
@@ -713,9 +708,9 @@ export default function Create({
                   style={{
                     padding: "32px 0",
                     textAlign: "center",
-                    fontFamily: "var(--font-body)",
+                    fontFamily: `${fontBody}`,
                     fontSize: "13px",
-                    color: "var(--color-text-muted)",
+                    color: `${C.textMuted}`,
                     opacity: 0.6,
                   }}
                 >
@@ -724,8 +719,8 @@ export default function Create({
               ) : (
                 <div
                   style={{
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     overflow: "hidden",
                   }}
                 >
@@ -733,8 +728,8 @@ export default function Create({
                     <thead>
                       <tr
                         style={{
-                          background: "var(--color-bg-alt)",
-                          borderBottom: "1px solid var(--color-border)",
+                          background: `${C.bgAlt}`,
+                          borderBottom: `1px solid ${C.border}`,
                         }}
                       >
                         {["Product", "Qty", "Price", "Subtotal", ""].map(
@@ -744,11 +739,11 @@ export default function Create({
                               style={{
                                 padding: "8px 12px",
                                 textAlign: "left",
-                                fontFamily: "var(--font-body)",
+                                fontFamily: `${fontBody}`,
                                 fontSize: "9px",
                                 letterSpacing: "0.15em",
                                 textTransform: "uppercase",
-                                color: "var(--color-text-muted)",
+                                color: `${C.textMuted}`,
                                 fontWeight: 500,
                               }}
                             >
@@ -763,15 +758,15 @@ export default function Create({
                         <tr
                           key={item.product_id}
                           style={{
-                            borderBottom: "1px solid var(--color-border)",
+                            borderBottom: `1px solid ${C.border}`,
                           }}
                         >
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-text)",
+                              color: `${C.text}`,
                             }}
                           >
                             {item.title}
@@ -814,9 +809,9 @@ export default function Create({
                           <td
                             style={{
                               padding: "10px 12px",
-                              fontFamily: "var(--font-body)",
+                              fontFamily: `${fontBody}`,
                               fontSize: "13px",
-                              color: "var(--color-primary)",
+                              color: `${C.amber}`,
                               fontWeight: 500,
                               whiteSpace: "nowrap",
                             }}
@@ -830,7 +825,7 @@ export default function Create({
                                 background: "none",
                                 border: "none",
                                 cursor: "pointer",
-                                color: "var(--color-error)",
+                                color: `${C.error}`,
                                 fontSize: 16,
                                 lineHeight: 1,
                                 display: "flex",
@@ -845,8 +840,8 @@ export default function Create({
                     <tfoot>
                       <tr
                         style={{
-                          borderTop: "2px solid var(--color-border)",
-                          background: "var(--color-bg-alt)",
+                          borderTop: `2px solid ${C.border}`,
+                          background: `${C.bgAlt}`,
                         }}
                       >
                         <td
@@ -854,11 +849,11 @@ export default function Create({
                           style={{
                             padding: "12px",
                             textAlign: "right",
-                            fontFamily: "var(--font-body)",
+                            fontFamily: `${fontBody}`,
                             fontSize: "10px",
                             letterSpacing: "0.14em",
                             textTransform: "uppercase",
-                            color: "var(--color-text-muted)",
+                            color: `${C.textMuted}`,
                           }}
                         >
                           Order Total
@@ -866,9 +861,9 @@ export default function Create({
                         <td
                           style={{
                             padding: "12px",
-                            fontFamily: "var(--font-display)",
+                            fontFamily: `${fontDisplay}`,
                             fontSize: "1.2rem",
-                            color: "var(--color-primary)",
+                            color: `${C.amber}`,
                             fontWeight: 400,
                           }}
                         >
@@ -896,9 +891,9 @@ export default function Create({
                 <div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "13px",
-                      color: "var(--color-text)",
+                      color: `${C.text}`,
                       fontWeight: 500,
                     }}
                   >
@@ -906,9 +901,9 @@ export default function Create({
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "11px",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginTop: 2,
                     }}
                   >
@@ -921,10 +916,10 @@ export default function Create({
                   style={{
                     width: 44,
                     height: 24,
-                    borderRadius: "var(--radius-full)",
+                    borderRadius: "999px",
                     background: addBooking
-                      ? "var(--color-primary)"
-                      : "var(--color-border)",
+                      ? `${C.amber}`
+                      : `${C.border}`,
                     border: "none",
                     cursor: "pointer",
                     position: "relative",
@@ -1002,9 +997,9 @@ export default function Create({
               <div
                 style={{
                   padding: "10px 14px",
-                  background: "var(--color-bg-alt)",
-                  borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--color-border)",
+                  background: `${C.bgAlt}`,
+                  borderRadius: "8px",
+                  border: `1px solid ${C.border}`,
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
@@ -1015,26 +1010,26 @@ export default function Create({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "var(--color-success)",
+                    background: `${C.success}`,
                     flexShrink: 0,
                   }}
                 />
                 <div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "12px",
                       fontWeight: 500,
-                      color: "var(--color-text)",
+                      color: `${C.text}`,
                     }}
                   >
                     {vendor_name}
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "10px",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginTop: 1,
                     }}
                   >
@@ -1066,21 +1061,21 @@ export default function Create({
                         onClick={() => setPaymentMethod(m)}
                         style={{
                           padding: "10px 0",
-                          fontFamily: "var(--font-body)",
+                          fontFamily: `${fontBody}`,
                           fontSize: "11px",
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
                           cursor: "pointer",
-                          border: `1px solid ${paymentMethod === m ? "var(--color-accent)" : "var(--color-border)"}`,
+                          border: `1px solid ${paymentMethod === m ? `${C.amber}` : `${C.border}`}`,
                           background:
                             paymentMethod === m
                               ? "rgba(201,169,110,0.1)"
                               : "transparent",
                           color:
                             paymentMethod === m
-                              ? "var(--color-accent)"
-                              : "var(--color-text-muted)",
-                          borderRadius: "var(--radius-sm)",
+                              ? `${C.amber}`
+                              : `${C.textMuted}`,
+                          borderRadius: "8px",
                           transition: "all 150ms",
                         }}
                       >
@@ -1097,27 +1092,27 @@ export default function Create({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    background: "var(--color-bg-alt)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--color-border)",
+                    background: `${C.bgAlt}`,
+                    borderRadius: "8px",
+                    border: `1px solid ${C.border}`,
                   }}
                 >
                   <div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                       }}
                     >
                       Mark as Paid
                     </div>
                     <div
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "10px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         marginTop: 1,
                       }}
                     >
@@ -1130,10 +1125,10 @@ export default function Create({
                     style={{
                       width: 44,
                       height: 24,
-                      borderRadius: "var(--radius-full)",
+                      borderRadius: "999px",
                       background: isPaid
-                        ? "var(--color-success)"
-                        : "var(--color-border)",
+                        ? `${C.success}`
+                        : `${C.border}`,
                       border: "none",
                       cursor: "pointer",
                       position: "relative",
@@ -1199,9 +1194,9 @@ export default function Create({
                   >
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "11px",
-                        color: "var(--color-text-muted)",
+                        color: `${C.textMuted}`,
                         textTransform: "uppercase",
                         letterSpacing: "0.1em",
                       }}
@@ -1210,9 +1205,9 @@ export default function Create({
                     </span>
                     <span
                       style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: `${fontBody}`,
                         fontSize: "12px",
-                        color: "var(--color-text)",
+                        color: `${C.text}`,
                         textAlign: "right",
                         maxWidth: 160,
                         wordBreak: "break-word",
@@ -1226,7 +1221,7 @@ export default function Create({
                 <div
                   style={{
                     height: 1,
-                    background: "var(--color-border)",
+                    background: `${C.border}`,
                     margin: "4px 0",
                   }}
                 />
@@ -1240,9 +1235,9 @@ export default function Create({
                 >
                   <span
                     style={{
-                      fontFamily: "var(--font-body)",
+                      fontFamily: `${fontBody}`,
                       fontSize: "11px",
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       textTransform: "uppercase",
                       letterSpacing: "0.1em",
                     }}
@@ -1251,9 +1246,9 @@ export default function Create({
                   </span>
                   <span
                     style={{
-                      fontFamily: "var(--font-display)",
+                      fontFamily: `${fontDisplay}`,
                       fontSize: "1.3rem",
-                      color: "var(--color-primary)",
+                      color: `${C.amber}`,
                     }}
                   >
                     A${total.toFixed(2)}
@@ -1275,9 +1270,9 @@ export default function Create({
             {!canSubmit && (
               <p
                 style={{
-                  fontFamily: "var(--font-body)",
+                  fontFamily: `${fontBody}`,
                   fontSize: "11px",
-                  color: "var(--color-text-muted)",
+                  color: `${C.textMuted}`,
                   textAlign: "center",
                   lineHeight: 1.6,
                 }}
@@ -1298,8 +1293,8 @@ export default function Create({
             position: "sticky",
             bottom: 0,
             zIndex: 40,
-            background: "var(--color-surface)",
-            borderTop: "1px solid var(--color-border)",
+            background: `${C.surface}`,
+            borderTop: `1px solid ${C.border}`,
             padding: "12px 20px",
             margin: "24px -28px -32px",
             display: "flex",
@@ -1310,9 +1305,9 @@ export default function Create({
         >
           <div
             style={{
-              fontFamily: "var(--font-body)",
+              fontFamily: `${fontBody}`,
               fontSize: "11px",
-              color: "var(--color-text-muted)",
+              color: `${C.textMuted}`,
             }}
           >
             {resolvedUserId || (lookupState === "new" && newName)

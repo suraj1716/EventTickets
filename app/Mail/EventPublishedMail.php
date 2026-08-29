@@ -1,4 +1,3 @@
-// app/Mail/EventPublishedMail.php
 <?php
 
 namespace App\Mail;

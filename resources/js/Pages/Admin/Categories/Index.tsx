@@ -14,6 +14,7 @@ import {
   FlashMessage,
   ConfirmModal,
   Icons,
+  C,
 } from "../../../Components/Admin/AdminComponents";
 
 /* ── Types ── */
@@ -112,10 +113,10 @@ export default function CategoriesIndex({ categories, departments, filters, flas
               <Td>
                 <div style={{
                   width: 38, height: 38,
-                  borderRadius: "var(--radius-sm)",
+                  borderRadius: "8px",
                   overflow: "hidden",
-                  background: "var(--color-bg-alt)",
-                  border: "1px solid var(--color-border)",
+                  background: C.bgAlt,
+                  border: `1px solid ${C.border}`,
                   flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
@@ -126,7 +127,7 @@ export default function CategoriesIndex({ categories, departments, filters, flas
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <span style={{ color: "var(--color-text-muted)", opacity: 0.4 }}>
+                    <span style={{ color: C.textMuted, opacity: 0.4 }}>
                       <Icons.Image />
                     </span>
                   )}
@@ -139,7 +140,7 @@ export default function CategoriesIndex({ categories, departments, filters, flas
                   {cat.description && (
                     <div style={{
                       fontSize: "11px",
-                      color: "var(--color-text-muted)",
+                      color: C.textMuted,
                       marginTop: 2,
                       maxWidth: 240,
                       overflow: "hidden",
@@ -158,16 +159,16 @@ export default function CategoriesIndex({ categories, departments, filters, flas
                 {cat.parent ? (
                   <span style={{
                     fontSize: "11px",
-                    background: "var(--color-bg-alt)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-sm)",
+                    background: C.bgAlt,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
                     padding: "2px 8px",
-                    color: "var(--color-text-muted)",
+                    color: C.textMuted,
                   }}>
                     {cat.parent.name}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--color-text-muted)", opacity: 0.4, fontSize: 11 }}>Root</span>
+                  <span style={{ color: C.textMuted, opacity: 0.4, fontSize: 11 }}>Root</span>
                 )}
               </Td>
 

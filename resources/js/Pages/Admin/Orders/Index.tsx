@@ -1,20 +1,7 @@
 import React, { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  AdminPageHeader,
-  AdminTable,
-  AdminBtn,
-  ActionBtn,
-  FilterBar,
-  Pagination,
-  StatusBadge,
-  Tr,
-  Td,
-  FlashMessage,
-  ConfirmModal,
-  Icons,
-} from "../../../Components/Admin/AdminComponents";
+import { AdminPageHeader, AdminTable, AdminBtn, ActionBtn, FilterBar, Pagination, StatusBadge, Tr, Td, FlashMessage, ConfirmModal, Icons, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 interface Order {
   gross_total(gross_total: any): unknown;
@@ -189,7 +176,7 @@ export default function OrdersIndex({
                 <div
                   style={{
                     fontSize: 11,
-                    color: "var(--color-text-muted)",
+                    color: `${C.textMuted}`,
                     marginTop: 1,
                   }}
                 >
@@ -197,7 +184,7 @@ export default function OrdersIndex({
                 </div>
                 {o.customer_phone && (
                   <div
-                    style={{ fontSize: 11, color: "var(--color-text-muted)" }}
+                    style={{ fontSize: 11, color: `${C.textMuted}` }}
                   >
                     {o.customer_phone}
                   </div>
@@ -208,7 +195,7 @@ export default function OrdersIndex({
 
               <Td>
                 <span
-                  style={{ color: "var(--color-primary)", fontWeight: 500 }}
+                  style={{ color: `${C.amber}`, fontWeight: 500 }}
                 >
                   A${Number(o.gross_total).toFixed(2)}
                 </span>
@@ -216,7 +203,7 @@ export default function OrdersIndex({
                   <div
                     style={{
                       fontSize: 10,
-                      color: "var(--color-text-muted)",
+                      color: `${C.textMuted}`,
                       marginTop: 2,
                     }}
                   >
@@ -225,7 +212,7 @@ export default function OrdersIndex({
                   </div>
                 )}
                {o.refunded_at && (
-  <div style={{ fontSize: 10, color: "var(--color-error)", marginTop: 2 }}>
+  <div style={{ fontSize: 10, color: `${C.error}`, marginTop: 2 }}>
     Refunded A${Number(o.refund_amount).toFixed(2)}
     {Number(o.voucher_discount) > 0 && (
       <> + A${Number(o.voucher_discount).toFixed(2)} restored to gift card</>
@@ -241,17 +228,17 @@ export default function OrdersIndex({
                       fontSize: 10,
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
-                      background: "var(--color-bg-alt)",
-                      border: "1px solid var(--color-border)",
+                      background: `${C.bgAlt}`,
+                      border: `1px solid ${C.border}`,
                       padding: "2px 7px",
-                      borderRadius: "var(--radius-sm)",
+                      borderRadius: "8px",
                     }}
                   >
                     {o.payment_method}
                   </span>
                 ) : o.payment_intent ? (
                   <span
-                    style={{ fontSize: 10, color: "var(--color-text-muted)" }}
+                    style={{ fontSize: 10, color: `${C.textMuted}` }}
                   >
                     Stripe
                   </span>
@@ -267,13 +254,13 @@ export default function OrdersIndex({
                   value={o.status}
                   onChange={(e) => handleStatusChange(o.id, e.target.value)}
                   style={{
-                    fontFamily: "var(--font-body)",
+                    fontFamily: `${fontBody}`,
                     fontSize: "11px",
-                    border: "1px solid var(--color-border)",
-                    background: "var(--color-surface)",
-                    color: "var(--color-text)",
+                    border: `1px solid ${C.border}`,
+                    background: `${C.surface}`,
+                    color: `${C.text}`,
                     padding: "4px 8px",
-                    borderRadius: "var(--radius-sm)",
+                    borderRadius: "8px",
                     cursor: "pointer",
                     outline: "none",
                   }}

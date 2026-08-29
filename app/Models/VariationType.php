@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VariationType extends Model
 {
     public $timestamps = false;
+
+      protected $fillable = [
+        'product_id',
+        'name',
+        'sort',
+        'type',
+    ];
+
     public function options():HasMany
     {
         return $this->hasMany(VariationTypeOption::class,'variation_type_id');

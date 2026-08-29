@@ -294,6 +294,7 @@ export default function Navbar() {
     ...(isAdmin ? [{ label: "Admin Dashboard", href: route("admin.dashboard") }] : []),
     { label: "My Tickets", href: route("tickets.index") },
     { label: "Vouchers", href: route("vouchers.index") },
+    { label: "Resale Listings", href: route("resale.mine") },
     { label: "Profile", href: route("profile.edit") },
     { label: "Orders", href: route("orders.history") },
   ];

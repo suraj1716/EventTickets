@@ -8,11 +8,11 @@
 //
 //   npm install framer-motion
 
-import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { Category, Event, Paginated } from '@/types';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { useState } from "react";
+import { Head, router } from "@inertiajs/react";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Category, Event, Paginated } from "@/types";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 
 interface ComingSoonFilters {
   search?: string;
@@ -38,14 +38,18 @@ const cardVariants = {
 };
 
 export default function ComingSoon({ events, filters, categories }: Props) {
-    console.log('ComingSoon props', events);   // TEMP — remove after c
+  console.log("ComingSoon props", events); // TEMP — remove after c
   const [local, setLocal] = useState<ComingSoonFilters>(filters);
+
+  const [watchlistEvent, setWatchlistEvent] = useState<Event | null>(null);
+  const [watchlistEmail, setWatchlistEmail] = useState("");
+  const [joiningWatchlist, setJoiningWatchlist] = useState(false);
 
   function apply(next: Partial<ComingSoonFilters>) {
     const merged = { ...local, ...next };
     setLocal(merged);
 
-    router.get(route('events.coming-soon'), merged, {
+    router.get(route("events.coming-soon"), merged, {
       preserveState: true,
       replace: true,
       preserveScroll: true,
@@ -56,6 +60,30 @@ export default function ComingSoon({ events, filters, categories }: Props) {
     apply({ category: local.category === id ? undefined : id });
   }
 
+  function handleJoinWatchlist() {
+    if (!watchlistEvent || !watchlistEmail.trim()) {
+      return;
+    }
+
+    setJoiningWatchlist(true);
+
+    router.post(
+      route("events.watchlist.store", watchlistEvent.id),
+      {
+        email: watchlistEmail,
+      },
+      {
+        preserveScroll: true,
+        onFinish: () => {
+          setJoiningWatchlist(false);
+        },
+        onSuccess: () => {
+          setWatchlistEvent(null);
+          setWatchlistEmail("");
+        },
+      },
+    );
+  }
   return (
     <AuthenticatedLayout>
       <Head title="Coming Soon">
@@ -73,7 +101,7 @@ export default function ComingSoon({ events, filters, categories }: Props) {
             aria-hidden
             className="pointer-events-none absolute -top-32 -left-24 h-80 w-80 rounded-full bg-[#8B6BFF] opacity-[0.16] blur-[100px]"
             animate={{ y: [0, 30, 0], x: [0, 20, 0] }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
           />
 
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
@@ -85,7 +113,11 @@ export default function ComingSoon({ events, filters, categories }: Props) {
             >
               <motion.span
                 animate={{ opacity: [1, 0.25, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="inline-block h-1.5 w-1.5 rounded-full bg-[#8B6BFF]"
               />
               Not confirmed yet — be first to know
@@ -101,7 +133,8 @@ export default function ComingSoon({ events, filters, categories }: Props) {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mt-5 max-w-xl text-base sm:text-lg text-[#9C97A8] leading-relaxed"
             >
-              These events aren't confirmed yet. Join the waitlist and we'll email you the moment tickets go on sale.
+              These events aren't confirmed yet. Join the waitlist and we'll
+              email you the moment tickets go on sale.
             </motion.p>
 
             {/* Search */}
@@ -125,10 +158,12 @@ export default function ComingSoon({ events, filters, categories }: Props) {
 
                 <input
                   type="text"
-                  value={local.search ?? ''}
-                  onChange={(e) => setLocal((prev) => ({ ...prev, search: e.target.value }))}
+                  value={local.search ?? ""}
+                  onChange={(e) =>
+                    setLocal((prev) => ({ ...prev, search: e.target.value }))
+                  }
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') apply({ search: local.search });
+                    if (e.key === "Enter") apply({ search: local.search });
                   }}
                   onBlur={() => apply({ search: local.search })}
                   placeholder="Search upcoming events..."
@@ -147,11 +182,11 @@ export default function ComingSoon({ events, filters, categories }: Props) {
                         key={category.id}
                         onClick={() => toggleCategory(category.id)}
                         className={[
-                          'px-3 py-1.5 rounded-full text-xs border transition-colors',
+                          "px-3 py-1.5 rounded-full text-xs border transition-colors",
                           active
-                            ? 'bg-[#8B6BFF] text-white border-[#8B6BFF] font-semibold'
-                            : 'bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#8B6BFF]/50 hover:text-white',
-                        ].join(' ')}
+                            ? "bg-[#8B6BFF] text-white border-[#8B6BFF] font-semibold"
+                            : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#8B6BFF]/50 hover:text-white",
+                        ].join(" ")}
                       >
                         {category.name}
                       </motion.button>
@@ -166,7 +201,8 @@ export default function ComingSoon({ events, filters, categories }: Props) {
         {/* Results */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775] mb-6">
-            {events.meta.total.toLocaleString()} {events.meta.total === 1 ? 'event' : 'events'} not yet on sale
+            {events.meta.total.toLocaleString()}{" "}
+            {events.meta.total === 1 ? "event" : "events"} not yet on sale
           </p>
 
           {events.data.length === 0 ? (
@@ -188,7 +224,9 @@ export default function ComingSoon({ events, filters, categories }: Props) {
                   <path d="M12 7v5l3 3" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold mt-5">Nothing coming up right now</h3>
+              <h3 className="text-lg font-bold mt-5">
+                Nothing coming up right now
+              </h3>
               <p className="text-sm text-[#9C97A8] mt-2 max-w-md mx-auto">
                 Check back soon, or browse events already on sale.
               </p>
@@ -202,7 +240,15 @@ export default function ComingSoon({ events, filters, categories }: Props) {
                 className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
               >
                 {events.data.map((event, index) => (
-                  <ComingSoonCard key={event.id} event={event} index={index} />
+                  <ComingSoonCard
+                    key={event.id}
+                    event={event}
+                    index={index}
+                    onNotify={() => {
+                      setWatchlistEvent(event);
+                      setWatchlistEmail("");
+                    }}
+                  />
                 ))}
               </motion.div>
 
@@ -220,16 +266,20 @@ export default function ComingSoon({ events, filters, categories }: Props) {
                       disabled={!link.url}
                       onClick={() =>
                         link.url &&
-                        router.get(link.url, {}, { preserveState: true, preserveScroll: true })
+                        router.get(
+                          link.url,
+                          {},
+                          { preserveState: true, preserveScroll: true },
+                        )
                       }
                       dangerouslySetInnerHTML={{ __html: link.label }}
                       className={[
                         "min-w-9 h-9 px-3 rounded-lg text-xs border transition-colors font-['IBM_Plex_Mono']",
                         link.active
-                          ? 'bg-[#8B6BFF] text-white border-[#8B6BFF] font-semibold'
-                          : 'bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#8B6BFF]/50 hover:text-white',
-                        !link.url ? 'opacity-30 cursor-not-allowed' : '',
-                      ].join(' ')}
+                          ? "bg-[#8B6BFF] text-white border-[#8B6BFF] font-semibold"
+                          : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#8B6BFF]/50 hover:text-white",
+                        !link.url ? "opacity-30 cursor-not-allowed" : "",
+                      ].join(" ")}
                     />
                   ))}
                 </motion.div>
@@ -237,36 +287,142 @@ export default function ComingSoon({ events, filters, categories }: Props) {
             </>
           )}
         </main>
+
+<AnimatePresence>
+  {watchlistEvent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={() => {
+        if (!joiningWatchlist) {
+          setWatchlistEvent(null);
+        }
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+        transition={{ duration: 0.2 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-[#26232E] bg-[#15141B] p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[#8B6BFF]">
+              Event watchlist
+            </p>
+
+            <h2 className="mt-2 text-xl font-bold text-white">
+              {watchlistEvent.name}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setWatchlistEvent(null)}
+            disabled={joiningWatchlist}
+            className="text-[#6B6775] hover:text-white text-xl"
+          >
+            ×
+          </button>
+        </div>
+
+        <p className="mt-4 text-sm leading-relaxed text-[#9C97A8]">
+          This event isn't confirmed yet. Enter your email and we'll
+          send you a confirmation link.
+        </p>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleJoinWatchlist();
+          }}
+          className="mt-5"
+        >
+          <input
+            type="email"
+            value={watchlistEmail}
+            onChange={(e) => setWatchlistEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoFocus
+            className="w-full rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-3 text-sm text-white placeholder:text-[#565262] outline-none focus:border-[#8B6BFF]/60 focus:ring-2 focus:ring-[#8B6BFF]/20"
+          />
+
+          <button
+            type="submit"
+            disabled={joiningWatchlist || !watchlistEmail.trim()}
+            className="mt-3 w-full rounded-lg bg-[#8B6BFF] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#9D81FF] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {joiningWatchlist
+              ? 'Sending confirmation…'
+              : 'Send confirmation email'}
+          </button>
+        </form>
+
+        <p className="mt-3 text-center text-[11px] text-[#565262]">
+          You must confirm your email before you are included in
+          the watcher count.
+        </p>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
       </div>
     </AuthenticatedLayout>
   );
 }
 
-function ComingSoonCard({ event, index }: { event: Event; index: number }) {
+function ComingSoonCard({
+  event,
+  index,
+  onNotify,
+}: {
+  event: Event;
+  index: number;
+  onNotify: () => void;
+}) {
   const firstLeg = event.legs?.[0];
   const categoryNames = event.categories?.slice(0, 2).map((c) => c.name) ?? [];
   const tilt = index % 2 === 0 ? -1 : 1;
 
   return (
     <motion.a
-      href={route('events.show', event.slug)}
+      href={route("events.show", event.slug)}
       variants={cardVariants}
-      whileHover={{ y: -6, rotate: tilt, boxShadow: '0 24px 48px -20px rgba(139,107,255,0.22)' }}
-      transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+      whileHover={{
+        y: -6,
+        rotate: tilt,
+        boxShadow: "0 24px 48px -20px rgba(139,107,255,0.22)",
+      }}
+      transition={{ type: "spring", stiffness: 320, damping: 22 }}
       className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] transition-colors hover:border-[#8B6BFF]/40"
     >
+
       <div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
-        {event.image_url ? (
-          <img
-            src={event.image_url}
-            alt=""
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
+       {event.media?.length > 0 ? (
+    <img
+        src={event.media[0].url}
+        alt={event.name}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
+) : event.image_url ? (
+    <img
+        src={event.image_url}
+        alt={event.name}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
+) : (
           <div className="relative h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(139,107,255,0.12),transparent_35%)]" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="font-['Anton'] text-4xl uppercase text-white/5 select-none">Soon</span>
+              <span className="font-['Anton'] text-4xl uppercase text-white/5 select-none">
+                Soon
+              </span>
             </div>
           </div>
         )}
@@ -281,7 +437,7 @@ function ComingSoonCard({ event, index }: { event: Event; index: number }) {
                 {formatEventDate(firstLeg.event_date)}
               </p>
             )}
-            {event.type === 'tour' && (
+            {event.type === "tour" && (
               <span className="rounded-full border border-[#8B6BFF]/40 bg-[#8B6BFF]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#B7A7FF]">
                 Tour
               </span>
@@ -294,12 +450,28 @@ function ComingSoonCard({ event, index }: { event: Event; index: number }) {
 
           {event.artists && event.artists.length > 0 && (
             <p className="text-sm text-[#9C97A8] mt-1.5 line-clamp-1">
-              {event.artists.map((a) => a.name).join(', ')}
+              {event.artists.map((a) => a.name).join(", ")}
             </p>
           )}
 
           <div className="flex items-center justify-between mt-auto pt-4 gap-3">
-            {firstLeg?.city && <span className="text-xs text-[#6B6775] truncate">{firstLeg.city}</span>}
+            {firstLeg?.city && (
+              <span className="text-xs text-[#6B6775] truncate">
+                {firstLeg.city}
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onNotify();
+              }}
+              className="shrink-0 rounded-lg bg-[#8B6BFF] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#9D81FF]"
+            >
+              Notify me
+            </button>
           </div>
 
           {categoryNames.length > 0 && (
@@ -325,7 +497,9 @@ function ComingSoonCard({ event, index }: { event: Event; index: number }) {
           </span>
 
           <div className="text-center">
-            <p className="font-['IBM_Plex_Mono'] text-[9px] text-[#565262] uppercase mb-0.5">Watching</p>
+            <p className="font-['IBM_Plex_Mono'] text-[9px] text-[#565262] uppercase mb-0.5">
+              Watching
+            </p>
             <p className="font-['IBM_Plex_Mono'] text-sm font-semibold text-[#8B6BFF]">
               {event.watchlist_count ?? 0}
             </p>
@@ -333,6 +507,7 @@ function ComingSoonCard({ event, index }: { event: Event; index: number }) {
         </div>
       </div>
     </motion.a>
+
   );
 }
 
@@ -340,9 +515,9 @@ function formatEventDate(date: string) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }

@@ -1,14 +1,6 @@
 import { Head, router } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
-import {
-  ActionBtn,
-  AdminPageHeader,
-  AdminTable,
-  FilterBar,
-  Pagination,
-  StatusBadge,
-  Td,
-} from "../../../Components/Admin/AdminComponents";
+import { ActionBtn, AdminPageHeader, AdminTable, FilterBar, Pagination, StatusBadge, Td, fontBody, C } from "../../../Components/Admin/AdminComponents";
 
 type User = {
   is_read: any;
@@ -98,10 +90,10 @@ export default function UsersIndex({ users, filters, roles }: Props) {
             <Td>
               <span
                 style={{
-                  fontFamily: "var(--font-body)",
-                  fontSize: "var(--text-xs)",
+                  fontFamily: `${fontBody}`,
+                  fontSize: "11px",
                   letterSpacing: "0.15em",
-                  color: "var(--color-text-muted)",
+                  color: `${C.textMuted}`,
                 }}
               >
                 {u.referral_code ?? "—"}

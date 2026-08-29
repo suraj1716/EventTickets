@@ -38,6 +38,17 @@ class Event extends Model
         static::creating(function (Event $event) {
             $event->slug ??= static::uniqueSlug($event->name);
         });
+
+        static::updated(function (Event $event) {
+            if (
+                $event->wasChanged('status') &&
+                $event->getOriginal('status') === 'proposed' &&
+                $event->status === 'published'
+            ) {
+                app(\App\Services\EventWatchlistNotifier::class)
+                    ->notify($event);
+            }
+        });
     }
 
 public function media()
@@ -81,10 +92,11 @@ public function media()
         return $this->belongsToMany(Category::class);
     }
 
-    public function watchlist(): HasMany
-    {
-        return $this->hasMany(EventWatchlist::class);
-    }
+   public function watchlist(): HasMany
+{
+    return $this->hasMany(EventWatchlist::class)
+        ->whereNotNull('verified_at');
+}
 
     public function watchlistCount(): int
     {
