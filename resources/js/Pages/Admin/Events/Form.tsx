@@ -16,6 +16,13 @@ import type {
 } from "@/types";
 import AdminLayout from "../AdminLayout";
 import { formatDatetimeLocal, formatDateInput } from '@/utils/dateFormat';
+import {
+  AdminPageHeader,
+  AdminBtn,
+  C,
+  fontBody,
+  fontMono,
+} from "@/Components/Admin/AdminComponents";
 
 interface Props {
   event?: Event;
@@ -288,53 +295,51 @@ function handlePublish() {
     <AdminLayout>
       <Head title={isEditing ? `Edit ${event!.name}` : "Create event"} />
 
-      <form onSubmit={submit} className="max-w-2xl">
-        <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">
-          {isEditing ? "Edit event" : "New event"}
-        </p>
-        <h1 className="text-2xl font-semibold text-white mb-6">
-          {isEditing ? event!.name : "Create event"}
-        </h1>
+      <AdminPageHeader
+        eyebrow={isEditing ? "Edit event" : "New event"}
+        title={isEditing ? event!.name : "Create event"}
+      />
 
+      <form onSubmit={submit} style={{ maxWidth: 640 }}>
 
-    <Field label="Part of a tour?">
-  <select
-    value={data.type}
-    onChange={(e) => handleTypeChange(e.target.value as 'standalone' | 'tour')}
-    className={inputClass}
-  >
-    <option value="standalone">Standalone event, one location</option>
-    <option value="tour">Multi-leg tour, several locations</option>
-  </select>
-</Field>
+        <Field label="Part of a tour?">
+          <select
+            value={data.type}
+            onChange={(e) => handleTypeChange(e.target.value as 'standalone' | 'tour')}
+            style={inputStyle}
+          >
+            <option value="standalone">Standalone event, one location</option>
+            <option value="tour">Multi-leg tour, several locations</option>
+          </select>
+        </Field>
 
-<Field label="Visibility">
-  <select
-    value={data.status}
-    onChange={(e) => setData('status', e.target.value as 'draft' | 'proposed')}
-    className={inputClass}
-    disabled={event?.status === 'published'}
-  >
-    <option value="draft">Draft — hidden, only visible to you</option>
-    <option value="proposed">Proposed — visible via link, waitlist signups open</option>
-    {event?.status === 'published' && (
-      <option value="published">Published — live and on sale</option>
-    )}
-  </select>
-  <p className="text-xs text-neutral-600 mt-1.5">
-    {event?.status === 'published'
-      ? "This event is live. Visibility can't be changed back from here."
-      : 'Use "Publish event" below when you\'re ready to go on sale — that overrides this setting.'}
-  </p>
-</Field>
+        <Field label="Visibility">
+          <select
+            value={data.status}
+            onChange={(e) => setData('status', e.target.value as 'draft' | 'proposed')}
+            style={inputStyle}
+            disabled={event?.status === 'published'}
+          >
+            <option value="draft">Draft — hidden, only visible to you</option>
+            <option value="proposed">Proposed — visible via link, waitlist signups open</option>
+            {event?.status === 'published' && (
+              <option value="published">Published — live and on sale</option>
+            )}
+          </select>
+          <p style={{ fontSize: 11, color: C.textFaint, marginTop: 6 }}>
+            {event?.status === 'published'
+              ? "This event is live. Visibility can't be changed back from here."
+              : 'Use "Publish event" below when you\'re ready to go on sale — that overrides this setting.'}
+          </p>
+        </Field>
 
-<Field label="Event name" error={errors.name}>
+        <Field label="Event name" error={errors.name}>
           <input
             type="text"
             value={data.name}
             onChange={(e) => setData("name", e.target.value)}
             placeholder="Kirtan night with Raka Collective"
-            className={inputClass}
+            style={inputStyle}
           />
         </Field>
 
@@ -343,132 +348,134 @@ function handlePublish() {
             value={data.description}
             onChange={(e) => setData("description", e.target.value)}
             rows={3}
-            className={inputClass}
+            style={inputStyle}
           />
         </Field>
-<Field label="Event media" error={errors.media}>
-  <div className="space-y-3">
 
-    {/* Existing media */}
-    {event?.media
-      ?.filter(
-        (media) =>
-          !(data.remove_media_ids ?? []).includes(media.id)
-      )
-      .map((media) => (
-        <div
-          key={media.id}
-          className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
-        >
-          {media.type === "video" ? (
-            <video
-              src={media.url}
-              controls
-              className="w-full max-h-64 object-contain bg-black"
-            />
-          ) : (
-            <img
-              src={media.url}
-              alt=""
-              className="w-full max-h-64 object-contain bg-black"
-            />
-          )}
+        <Field label="Event media" error={errors.media}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-          <button
-            type="button"
-            onClick={() => removeExistingMedia(media.id)}
-            className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white hover:bg-red-600 transition-colors"
-          >
-            Remove
-          </button>
-        </div>
-      ))}
+            {/* Existing media */}
+            {event?.media
+              ?.filter(
+                (media) =>
+                  !(data.remove_media_ids ?? []).includes(media.id)
+              )
+              .map((media) => (
+                <div
+                  key={media.id}
+                  style={{ position: "relative", overflow: "hidden", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgAlt }}
+                >
+                  {media.type === "video" ? (
+                    <video
+                      src={media.url}
+                      controls
+                      style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                    />
+                  ) : (
+                    <img
+                      src={media.url}
+                      alt=""
+                      style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                    />
+                  )}
 
-    {/* New uploads */}
-    {(data.media ?? []).map((file, index) => (
-      <div
-        key={`${file.name}-${index}`}
-        className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
-      >
-        {file.type.startsWith("video/") ? (
-          <video
-            src={URL.createObjectURL(file)}
-            controls
-            className="w-full max-h-64 object-contain bg-black"
-          />
-        ) : (
-          <img
-            src={URL.createObjectURL(file)}
-            alt={file.name}
-            className="w-full max-h-64 object-contain bg-black"
-          />
-        )}
+                  <button
+                    type="button"
+                    onClick={() => removeExistingMedia(media.id)}
+                    style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, background: "rgba(0,0,0,0.7)", padding: "6px 12px", fontSize: 11, color: "#fff", border: "none", cursor: "pointer" }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
 
-        <button
-          type="button"
-          onClick={() => removeNewMedia(index)}
-          className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white hover:bg-red-600 transition-colors"
-        >
-          Remove
-        </button>
+            {/* New uploads */}
+            {(data.media ?? []).map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                style={{ position: "relative", overflow: "hidden", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgAlt }}
+              >
+                {file.type.startsWith("video/") ? (
+                  <video
+                    src={URL.createObjectURL(file)}
+                    controls
+                    style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                  />
+                ) : (
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={file.name}
+                    style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                  />
+                )}
 
-        <div className="px-3 py-2 text-xs text-neutral-500">
-          {file.name}
-        </div>
-      </div>
-    ))}
+                <button
+                  type="button"
+                  onClick={() => removeNewMedia(index)}
+                  style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, background: "rgba(0,0,0,0.7)", padding: "6px 12px", fontSize: 11, color: "#fff", border: "none", cursor: "pointer" }}
+                >
+                  Remove
+                </button>
 
-    {/* Upload button */}
-    {(
-      (event?.media ?? []).filter(
-        (media) =>
-          !(data.remove_media_ids ?? []).includes(media.id)
-      ).length +
-      (data.media?.length ?? 0)
-    ) < 2 && (
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 bg-neutral-900/50 px-6 py-8 text-center hover:border-neutral-500 transition-colors">
-        <span className="text-sm text-neutral-300">
-          + Add media
-        </span>
+                <div style={{ padding: "8px 12px", fontSize: 11, color: C.textFaint }}>
+                  {file.name}
+                </div>
+              </div>
+            ))}
 
-        <span className="mt-1 text-xs text-neutral-600">
-          Images or videos · maximum 2 files
-        </span>
+            {/* Upload button */}
+            {(
+              (event?.media ?? []).filter(
+                (media) =>
+                  !(data.remove_media_ids ?? []).includes(media.id)
+              ).length +
+              (data.media?.length ?? 0)
+            ) < 2 && (
+              <label style={{ display: "flex", cursor: "pointer", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 12, border: `1px dashed ${C.borderDashed}`, background: C.bgAlt, padding: "32px 24px", textAlign: "center" }}>
+                <span style={{ fontSize: 13, color: C.text }}>
+                  + Add media
+                </span>
 
-        <input
-          type="file"
-          accept="image/*,video/*"
-          multiple
-          className="hidden"
-          onChange={handleMediaChange}
-        />
-      </label>
-    )}
+                <span style={{ marginTop: 4, fontSize: 11, color: C.textFaint }}>
+                  Images or videos · maximum 2 files
+                </span>
 
-    <p className="text-xs text-neutral-600">
-      {(
-        (event?.media ?? []).filter(
-          (media) =>
-            !(data.remove_media_ids ?? []).includes(media.id)
-        ).length +
-        (data.media?.length ?? 0)
-      )}{" "}
-      / 2 media files
-    </p>
-  </div>
-</Field>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={handleMediaChange}
+                />
+              </label>
+            )}
+
+            <p style={{ fontSize: 11, color: C.textFaint }}>
+              {(
+                (event?.media ?? []).filter(
+                  (media) =>
+                    !(data.remove_media_ids ?? []).includes(media.id)
+                ).length +
+                (data.media?.length ?? 0)
+              )}{" "}
+              / 2 media files
+            </p>
+          </div>
+        </Field>
+
         <Field label="Artists">
-          <div className="flex flex-wrap gap-2 mb-2">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
             {(data.artists ?? []).map((name) => (
               <span
                 key={name}
-                className="bg-neutral-800 text-neutral-200 text-sm px-3 py-1 rounded-full inline-flex items-center gap-2"
+                style={{ background: C.bgAlt, color: C.text, fontSize: 13, padding: "4px 12px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 8 }}
               >
                 {name}
                 <button
                   type="button"
                   onClick={() => removeArtist(name)}
-                  className="text-neutral-500 hover:text-white"
+                  style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}
                   aria-label={`Remove ${name}`}
                 >
                   ×
@@ -487,12 +494,12 @@ function handlePublish() {
               }
             }}
             placeholder="Type a name and press enter"
-            className={inputClass}
+            style={inputStyle}
           />
         </Field>
 
         <Field label="Genres">
-          <div className="flex flex-wrap gap-2">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {categories.map((cat) => {
               const active = (data.category_ids ?? []).includes(cat.id);
               return (
@@ -500,11 +507,13 @@ function handlePublish() {
                   type="button"
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
-                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                    active
-                      ? "bg-white text-black border-white"
-                      : "border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                  }`}
+                  style={{
+                    fontSize: 13, padding: "6px 14px", borderRadius: 999,
+                    border: `1px solid ${active ? C.amber : C.border}`,
+                    background: active ? C.amber : "transparent",
+                    color: active ? C.textInverse : C.textMuted,
+                    cursor: "pointer", transition: "all 150ms ease",
+                  }}
                 >
                   {cat.name}
                 </button>
@@ -513,8 +522,8 @@ function handlePublish() {
           </div>
         </Field>
 
-        <div className="flex items-center justify-between mt-8 mb-3">
-          <label className="text-sm text-neutral-400">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 32, marginBottom: 12 }}>
+          <label style={{ fontSize: 13, color: C.textMuted }}>
             {data.type === "tour" ? "Tour legs" : "Location"}
           </label>
         </div>
@@ -542,28 +551,24 @@ function handlePublish() {
           <button
             type="button"
             onClick={addLeg}
-            className="w-full flex items-center justify-center gap-2 border border-dashed border-neutral-700 rounded-xl py-3 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 transition-colors mb-6"
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              border: `1px dashed ${C.borderDashed}`, borderRadius: 12, padding: "12px 0",
+              fontSize: 13, color: C.textMuted, background: "transparent", cursor: "pointer",
+              transition: "all 150ms ease", marginBottom: 24,
+            }}
           >
             + Add location
           </button>
         )}
 
-        <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-neutral-800">
-         <button
-  type="submit"
-  disabled={processing}
-  className="px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 text-sm font-medium hover:bg-neutral-800 transition-colors disabled:opacity-50"
->
-  Save
-</button>
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={processing}
-            className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
-          >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, marginTop: 32, paddingTop: 24, borderTop: `1px dashed ${C.borderDashed}` }}>
+          <AdminBtn type="submit" variant="ghost" disabled={processing}>
+            Save
+          </AdminBtn>
+          <AdminBtn type="button" onClick={handlePublish} disabled={processing}>
             Publish event
-          </button>
+          </AdminBtn>
         </div>
       </form>
     </AdminLayout>
@@ -572,14 +577,24 @@ function handlePublish() {
 
 // ---------- Small building blocks ----------
 
-// color-scheme: dark tells the browser to render native controls
+// colorScheme: "dark" tells the browser to render native controls
 // (select dropdowns, date/datetime-local pickers, their popup
 // calendars, spinner arrows, etc.) using light text on a dark
 // background instead of defaulting to the OS light theme, which is
-// what was making these inputs unreadable — the Tailwind classes
-// below only style the input's own box, not those native sub-parts.
-const inputClass =
-  "[color-scheme:dark] w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-600";
+// what was making these inputs unreadable — the style below only
+// styles the input's own box, not those native sub-parts.
+const inputStyle: React.CSSProperties = {
+  colorScheme: "dark",
+  width: "100%",
+  background: C.bg,
+  border: `1px solid ${C.border}`,
+  borderRadius: 8,
+  padding: "9px 12px",
+  fontFamily: fontBody,
+  fontSize: 13,
+  color: C.text,
+  outline: "none",
+};
 
 function Field({
   label,
@@ -591,10 +606,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-5">
-      <label className="block text-sm text-neutral-400 mb-1.5">{label}</label>
+    <div style={{ marginBottom: 20 }}>
+      <label style={{ display: "block", fontSize: 13, color: C.textMuted, marginBottom: 6 }}>{label}</label>
       {children}
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      {error && <p style={{ fontSize: 11, color: C.error, marginTop: 4 }}>{error}</p>}
     </div>
   );
 }
@@ -631,17 +646,17 @@ function LegCard({
   console.log("LegCard", index, leg.id, leg); // TEMP — remove after checking
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-3">
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
       {isTour && (
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-neutral-400">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.textMuted }}>
             Leg {index + 1}
           </span>
-          <div className="flex items-center gap-3">
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {leg.id && (
               <a
                 href={route("admin.event-legs.seats.edit", leg.id)}
-                className="text-xs text-neutral-400 hover:text-white underline"
+                style={{ fontSize: 11, color: C.textMuted, textDecoration: "underline" }}
               >
                 Manage seats
               </a>
@@ -650,7 +665,7 @@ function LegCard({
               <button
                 type="button"
                 onClick={onRemove}
-                className="text-neutral-500 hover:text-red-400 text-xs"
+                style={{ background: "none", border: "none", color: C.textFaint, fontSize: 11, cursor: "pointer" }}
               >
                 Remove
               </button>
@@ -659,7 +674,7 @@ function LegCard({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
         <select
           value={leg.venue_id ?? ""}
           onChange={(e) => {
@@ -699,7 +714,7 @@ function LegCard({
               capacity: venue.capacity ?? 0,
             });
           }}
-          className={inputClass}
+          style={inputStyle}
         >
           <option value="">Select venue</option>
 
@@ -717,7 +732,7 @@ function LegCard({
           type="date"
           value={leg.event_date}
           onChange={(e) => onChange({ event_date: e.target.value })}
-          className={inputClass}
+          style={inputStyle}
         />
 
         <input
@@ -729,24 +744,24 @@ function LegCard({
             })
           }
           placeholder="Capacity"
-          className={inputClass}
+          style={inputStyle}
         />
       </div>
 
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-neutral-400">Ticket tiers</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: C.textMuted }}>Ticket tiers</span>
         <button
           type="button"
           onClick={onAddTier}
-          className="text-xs px-2.5 py-1 rounded-md border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors"
+          style={{ fontSize: 11, padding: "5px 10px", borderRadius: 8, border: `1px solid ${C.border}`, color: C.textMuted, background: "transparent", cursor: "pointer" }}
         >
           + Add tier
         </button>
       </div>
 
       {leg.tiers.map((tier, tierIndex) => (
-        <div key={tierIndex} className="border-t border-neutral-800 pt-3 mt-3">
-          <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_auto] gap-2 mb-2 items-center">
+        <div key={tierIndex} style={{ borderTop: `1px dashed ${C.borderDashed}`, paddingTop: 12, marginTop: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.7fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
             <input
               type="text"
               value={tier.name}
@@ -754,7 +769,7 @@ function LegCard({
                 onUpdateTier(tierIndex, { name: e.target.value })
               }
               placeholder="Tier name"
-              className={inputClass}
+              style={inputStyle}
             />
             <input
               type="number"
@@ -766,7 +781,7 @@ function LegCard({
                 })
               }
               placeholder="Price"
-              className={inputClass}
+              style={inputStyle}
             />
             <input
               type="number"
@@ -777,27 +792,27 @@ function LegCard({
                 })
               }
               placeholder="Qty"
-              className={inputClass}
+              style={inputStyle}
             />
             {leg.tiers.length > 1 && (
               <button
                 type="button"
                 onClick={() => onRemoveTier(tierIndex)}
-                className="text-neutral-500 hover:text-red-400 text-sm px-1"
+                style={{ background: "none", border: "none", color: C.textFaint, fontSize: 13, padding: "0 4px", cursor: "pointer" }}
                 aria-label="Remove tier"
               >
                 ×
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <input
               type="datetime-local"
               value={tier.starts_at}
               onChange={(e) =>
                 onUpdateTier(tierIndex, { starts_at: e.target.value })
               }
-              className={inputClass}
+              style={inputStyle}
             />
             <input
               type="datetime-local"
@@ -805,7 +820,7 @@ function LegCard({
               onChange={(e) =>
                 onUpdateTier(tierIndex, { ends_at: e.target.value })
               }
-              className={inputClass}
+              style={inputStyle}
             />
           </div>
         </div>

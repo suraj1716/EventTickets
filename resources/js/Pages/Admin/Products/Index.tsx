@@ -106,16 +106,17 @@ console.log('products',products)
       <Head title="Products — Admin" />
 
       {/* ── Header ── */}
-      <AdminPageHeader
-        eyebrow="Catalog Management"
-        title={<>All <em style={{ fontStyle: "italic", color: "var(--color-accent-light)" }}>Products</em></>}
-        meta={`${products.total} total · page ${products.current_page} of ${products.last_page}`}
-        action={
-          <AdminBtn variant="accent" as={Link} href={route("admin.products.create")}>
-            <Icons.Plus /> New Product
-          </AdminBtn>
-        }
-      />
+    <AdminPageHeader
+              eyebrow="Catalogue"
+              title="Products"
+              meta={`${products.data.length} records shown`}
+              action={
+                <AdminBtn as="a" href={route("admin.departments.create")} variant="accent">
+                  <Icons.Plus />
+                  New Product
+                </AdminBtn>
+              }
+            />
 
       {/* ── Flash ── */}
       <FlashMessage flash={pageFlash} />

@@ -1,5 +1,16 @@
 import { Head } from "@inertiajs/react";
 import AdminLayout from "./AdminLayout";
+import {
+  AdminPageHeader,
+  AdminTable,
+  Tr,
+  Td,
+  StatusBadge,
+  C,
+  fontBody,
+  fontDisplay,
+  fontMono,
+} from "@/Components/Admin/AdminComponents";
 import { Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -32,32 +43,25 @@ type Props = {
   upcomingBookings: any[];
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  draft:     "var(--color-text-light)",
-  paid:      "var(--color-primary)",
-  shipped:   "var(--color-info)",
-  delivered: "var(--color-success)",
-  cancelled: "var(--color-error)",
-};
-
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
     <div
       style={{
-        background: accent ? "var(--color-primary)" : "var(--color-surface)",
-        border: `1px solid ${accent ? "var(--color-primary)" : "var(--color-border)"}`,
-        padding: "var(--space-xl)",
+        background: accent ? C.amber : C.surface,
+        border: `1px solid ${accent ? C.amber : C.border}`,
+        padding: "24px",
       }}
     >
       <span
         style={{
           display: "block",
-          fontFamily: "var(--font-body)",
-          fontSize: "var(--text-xs)",
+          fontFamily: fontMono,
+          fontSize: "10px",
+          fontWeight: 700,
           letterSpacing: "0.15em",
           textTransform: "uppercase",
-          color: accent ? "rgba(255,255,255,0.6)" : "var(--color-text-light)",
-          marginBottom: "var(--space-sm)",
+          color: accent ? "rgba(11,11,16,0.6)" : C.textMuted,
+          marginBottom: "8px",
         }}
       >
         {label}
@@ -65,10 +69,10 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
       <span
         style={{
           display: "block",
-          fontFamily: "var(--font-display)",
+          fontFamily: fontDisplay,
           fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-          fontWeight: 300,
-          color: accent ? "#fff" : "var(--color-text)",
+          fontWeight: 400,
+          color: accent ? C.textInverse : C.text,
           lineHeight: 1,
           marginBottom: sub ? "6px" : 0,
         }}
@@ -76,31 +80,11 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
         {value}
       </span>
       {sub && (
-        <span style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", color: accent ? "rgba(255,255,255,0.5)" : "var(--color-text-light)" }}>
+        <span style={{ fontFamily: fontBody, fontSize: "12px", color: accent ? "rgba(11,11,16,0.55)" : C.textFaint }}>
           {sub}
         </span>
       )}
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      style={{
-        fontFamily: "var(--font-body)",
-        fontSize: "0.65rem",
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        color: STATUS_COLORS[status] ?? "var(--color-text-muted)",
-        background: `${STATUS_COLORS[status] ?? "var(--color-border)"}18`,
-        padding: "2px 8px",
-        borderRadius: "var(--radius-full)",
-        border: `1px solid ${STATUS_COLORS[status] ?? "var(--color-border)"}40`,
-      }}
-    >
-      {status}
-    </span>
   );
 }
 
@@ -110,11 +94,11 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
     datasets: [{
       label: "Revenue (AUD)",
       data: salesChart.data,
-      borderColor: "#2D5016",
-      backgroundColor: "rgba(45,80,22,0.08)",
+      borderColor: C.amber,
+      backgroundColor: "rgba(255,182,39,0.10)",
       borderWidth: 2,
       pointRadius: 3,
-      pointBackgroundColor: "#2D5016",
+      pointBackgroundColor: C.amber,
       fill: true,
       tension: 0.4,
     }],
@@ -124,7 +108,7 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
     labels: Object.keys(ordersByStatus),
     datasets: [{
       data: Object.values(ordersByStatus),
-      backgroundColor: ["#A09890", "#2D5016", "#2471A3", "#3A7D44", "#C0392B"],
+      backgroundColor: [C.textFaint, C.amber, C.info, C.success, C.error],
       borderWidth: 0,
     }],
   };
@@ -133,8 +117,14 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
     responsive: true,
     plugins: { legend: { display: false } },
     scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
-      y: { grid: { color: "rgba(0,0,0,0.05)" }, ticks: { font: { size: 10 } } },
+      x: {
+        grid: { display: false },
+        ticks: { color: C.textFaint, font: { size: 10 }, maxTicksLimit: 8 },
+      },
+      y: {
+        grid: { color: C.border },
+        ticks: { color: C.textFaint, font: { size: 10 } },
+      },
     },
   };
 
@@ -142,18 +132,10 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
     <AdminLayout>
       <Head title="Admin Dashboard" />
 
-      {/* Page heading */}
-      <div style={{ marginBottom: "var(--space-2xl)" }}>
-        <span style={{ display: "block", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--color-accent)", marginBottom: "var(--space-xs)" }}>
-          Overview
-        </span>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.75rem,3vw,2.25rem)", fontWeight: 300, color: "var(--color-text)", margin: 0 }}>
-          Dashboard
-        </h1>
-      </div>
+      <AdminPageHeader eyebrow="Admin · Overview" title="Dashboard" />
 
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1px", background: "var(--color-border)", border: "1px solid var(--color-border)", marginBottom: "var(--space-2xl)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1px", background: C.border, border: `1px solid ${C.border}`, marginBottom: "28px" }}>
         <StatCard label="Total Revenue" value={`A$${stats.total_revenue.toLocaleString()}`} accent />
         <StatCard label="Total Orders"   value={stats.total_orders} />
         <StatCard label="Pending Orders" value={stats.pending_orders} sub="awaiting action" />
@@ -165,77 +147,72 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
       </div>
 
       {/* Charts row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "var(--space-lg)", marginBottom: "var(--space-2xl)" }}>
-        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", padding: "var(--space-xl)" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--color-text-light)", marginBottom: "var(--space-lg)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "20px", marginBottom: "28px" }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "24px" }}>
+          <p style={{ fontFamily: fontMono, fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: C.textMuted, marginBottom: "20px" }}>
             Sales — Last 30 Days
           </p>
           <Line data={lineData} options={chartOptions} />
         </div>
 
-        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", padding: "var(--space-xl)" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--color-text-light)", marginBottom: "var(--space-lg)" }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "24px" }}>
+          <p style={{ fontFamily: fontMono, fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: C.textMuted, marginBottom: "20px" }}>
             Orders by Status
           </p>
-          <Doughnut data={doughnutData} options={{ responsive: true, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, padding: 12 } } } }} />
+          <Doughnut
+            data={doughnutData}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: "bottom",
+                  labels: { color: C.textMuted, font: { size: 11 }, padding: 12 },
+                },
+              },
+            }}
+          />
         </div>
       </div>
 
       {/* Tables row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-lg)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
 
         {/* Recent orders */}
-        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-          <div style={{ padding: "var(--space-lg) var(--space-xl)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 400, color: "var(--color-text)" }}>Recent Orders</span>
-            <a href={route("admin.orders.index")} style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-primary)", textDecoration: "none" }}>View all →</a>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px" }}>
+            <span style={{ fontFamily: fontDisplay, textTransform: "uppercase", fontSize: "1.1rem", fontWeight: 400, color: C.text }}>Recent Orders</span>
+            <a href={route("admin.orders.index")} style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: C.amber, textDecoration: "none" }}>View all →</a>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                {["#", "Customer", "Total", "Status"].map(h => (
-                  <th key={h} style={{ padding: "var(--space-sm) var(--space-lg)", textAlign: "left", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-light)", fontWeight: 500 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((o, i) => (
-                <tr key={o.id} style={{ borderBottom: i < recentOrders.length - 1 ? "1px solid var(--color-border)" : "none" }}>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>#{o.id}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text)" }}>{o.customer}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-primary)", fontWeight: 500 }}>A${o.total}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)" }}><StatusBadge status={o.status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AdminTable headers={["#", "Customer", "Total", "Status"]} empty="No recent orders">
+            {recentOrders.map((o) => (
+              <Tr key={o.id}>
+                <Td muted>#{o.id}</Td>
+                <Td>{o.customer}</Td>
+                <Td>
+                  <span style={{ color: C.amber, fontWeight: 600 }}>A${o.total}</span>
+                </Td>
+                <Td><StatusBadge status={o.status} /></Td>
+              </Tr>
+            ))}
+          </AdminTable>
         </div>
 
         {/* Upcoming bookings */}
-        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-          <div style={{ padding: "var(--space-lg) var(--space-xl)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 400, color: "var(--color-text)" }}>Upcoming Bookings</span>
-            <a href={route("admin.bookings.index")} style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-primary)", textDecoration: "none" }}>View all →</a>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px" }}>
+            <span style={{ fontFamily: fontDisplay, textTransform: "uppercase", fontSize: "1.1rem", fontWeight: 400, color: C.text }}>Upcoming Bookings</span>
+            <a href={route("admin.bookings.index")} style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: C.amber, textDecoration: "none" }}>View all →</a>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                {["Customer", "Date", "Time", "Status"].map(h => (
-                  <th key={h} style={{ padding: "var(--space-sm) var(--space-lg)", textAlign: "left", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-light)", fontWeight: 500 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {upcomingBookings.map((b, i) => (
-                <tr key={b.id} style={{ borderBottom: i < upcomingBookings.length - 1 ? "1px solid var(--color-border)" : "none" }}>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text)" }}>{b.customer}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>{b.booking_date}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>{b.time_slot}</td>
-                  <td style={{ padding: "var(--space-sm) var(--space-lg)" }}><StatusBadge status={b.order_status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AdminTable headers={["Customer", "Date", "Time", "Status"]} empty="No upcoming bookings">
+            {upcomingBookings.map((b) => (
+              <Tr key={b.id}>
+                <Td>{b.customer}</Td>
+                <Td muted>{b.booking_date}</Td>
+                <Td muted>{b.time_slot}</Td>
+                <Td><StatusBadge status={b.order_status} /></Td>
+              </Tr>
+            ))}
+          </AdminTable>
         </div>
       </div>
     </AdminLayout>

@@ -33,24 +33,14 @@ import {
   LogOut,
   type LucideIcon,
 } from "lucide-react";
+import { C as SharedC } from "@/Components/Admin/AdminComponents";
 
+// Extend the shared palette with the two tones this layout needs
+// that AdminComponents doesn't expose (surfaceWarm, textFainter).
 const C = {
-  bg: "#0B0B10",
-  bgAlt: "#1A1922",
-  sidebar: "#111017",
-  surface: "#15141B",
+  ...SharedC,
   surfaceWarm: "#201C14",
-  border: "#26232E",
-  borderDashed: "#33303C",
-  text: "#F7F5F2",
-  textInverse: "#0B0B10",
-  textMuted: "#9C97A8",
-  textFaint: "#6B6775",
   textFainter: "#565262",
-  amber: "#FFB627",
-  amberHover: "#ffc75c",
-  amberDark: "#e2a220",
-  error: "#E08585",
 };
 
 const NAV_GROUPS: {
@@ -124,7 +114,7 @@ function Badge({ count }: { count: number }) {
       style={{
         background: C.amber,
         color: C.textInverse,
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         fontSize: "9px",
         fontWeight: 700,
         letterSpacing: "0.04em",
@@ -190,11 +180,11 @@ export default function AdminLayout({
         minHeight: "100vh",
         background: C.bg,
         color: C.text,
-        fontFamily: "'Manrope', sans-serif",
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
       `}</style>
 
       <ToastContainer position="top-right" autoClose={3000} />
@@ -281,7 +271,7 @@ export default function AdminLayout({
                       border: "none",
                       cursor: "pointer",
                       color: hasActive ? C.amber : C.textFaint,
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: "10px",
                       fontWeight: 700,
                       letterSpacing: "0.16em",
@@ -335,18 +325,18 @@ export default function AdminLayout({
                           gap: "10px",
                           padding: "9px 20px",
                           paddingLeft: collapsed || !group.group ? "20px" : "30px",
-                          color: isActive ? C.amber : C.textMuted,
-                          background: isActive ? "rgba(255,182,39,0.07)" : "transparent",
-                          borderLeft: isActive ? `2px solid ${C.amber}` : "2px solid transparent",
+                          color: isActive ? C.text : C.textMuted,
+                          background: isActive ? "rgba(255,62,48,0.10)" : "transparent",
+                          borderLeft: isActive ? `2px solid ${C.hot}` : "2px solid transparent",
                           textDecoration: "none",
-                          fontFamily: "'Manrope', sans-serif",
+                          fontFamily: "'Inter', sans-serif",
                           fontSize: "13px",
                           letterSpacing: "0.02em",
                           transition: "all 0.15s ease",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <span style={{ flexShrink: 0, display: "flex" }}>
+                        <span style={{ flexShrink: 0, display: "flex", color: isActive ? C.hot : "inherit" }}>
                           <ItemIcon size={15} strokeWidth={1.8} />
                         </span>
                         {!collapsed && (
@@ -385,7 +375,7 @@ export default function AdminLayout({
               gap: "8px",
               color: C.textFaint,
               textDecoration: "none",
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: "10.5px",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
@@ -450,7 +440,7 @@ export default function AdminLayout({
                       right: -5,
                       background: C.error,
                       color: "#fff",
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: "9px",
                       fontWeight: 700,
                       width: 16,
@@ -487,7 +477,7 @@ export default function AdminLayout({
                     style={{
                       padding: "10px 16px",
                       borderBottom: `1px dashed ${C.borderDashed}`,
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: "10px",
                       fontWeight: 700,
                       letterSpacing: "0.18em",
@@ -503,7 +493,7 @@ export default function AdminLayout({
                       style={{
                         padding: "20px 16px",
                         textAlign: "center",
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'JetBrains Mono', monospace",
                         fontSize: "11.5px",
                         color: C.textFaint,
                       }}
@@ -537,7 +527,7 @@ export default function AdminLayout({
                           </div>
                           <div
                             style={{
-                              fontFamily: "'IBM Plex Mono', monospace",
+                              fontFamily: "'JetBrains Mono', monospace",
                               fontSize: "10.5px",
                               color: C.textFaint,
                               marginTop: 2,
@@ -550,7 +540,7 @@ export default function AdminLayout({
                           style={{
                             background: C.amber,
                             color: C.textInverse,
-                            fontFamily: "'IBM Plex Mono', monospace",
+                            fontFamily: "'JetBrains Mono', monospace",
                             fontSize: "10px",
                             fontWeight: 700,
                             padding: "2px 7px",
@@ -573,7 +563,7 @@ export default function AdminLayout({
                 background: "transparent",
                 border: `1px solid ${C.border}`,
                 color: C.textMuted,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
                 fontSize: "10.5px",
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",

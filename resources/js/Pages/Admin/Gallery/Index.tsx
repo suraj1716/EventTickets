@@ -10,6 +10,7 @@ import {
   StatusBadge,
   Tr,
   Td,
+  Icons,
 } from "../../../Components/Admin/AdminComponents";
 
 interface GalleryItem {
@@ -109,23 +110,20 @@ export default function GalleryIndex({ galleries, flash }: Props) {
     <AdminLayout>
       <Head title="Gallery" />
 
-      <AdminPageHeader
-        eyebrow="Admin · Media"
-        title={<>The <em style={{ fontStyle: "italic", color: "var(--color-accent)" }}>Gallery</em></>}
-        meta={`${galleries.length} collection${galleries.length !== 1 ? "s" : ""}`}
-        action={
-          <AdminBtn
-            variant="accent"
-            as="a"
-            href={route("admin.gallery.create")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 13, height: 13 }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            New Gallery
-          </AdminBtn>
-        }
-      />
+
+<AdminPageHeader
+          eyebrow="Catalogue"
+          title="Gallery"
+          meta={`${galleries.length} records shown`}
+          action={
+            <AdminBtn as="a" href={route("admin.departments.create")} variant="accent">
+              <Icons.Plus />
+              New Gallery
+            </AdminBtn>
+          }
+        />
+
+
 
       <FlashMessage flash={flash ?? {}} />
 

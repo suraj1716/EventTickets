@@ -1,7 +1,25 @@
 // resources/js/Pages/Admin/Events/WatchlistShow.tsx
+//
+// Drill-down: the actual email list for one event, plus a manual
+// "Send reminder" action. Reminder re-emails EVERYONE on the list,
+// including already-notified entries — see EventWatchlistNotifier's
+// force parameter — so this is worded as a deliberate re-send, not
+// a silent catch-up action, to avoid a vendor firing it repeatedly
+// by habit.
 
-import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from "../AdminLayout";
+import {
+  AdminPageHeader,
+  AdminTable,
+  Tr,
+  Td,
+  AdminBtn,
+  Pagination,
+  C,
+  fontMono,
+} from '@/Components/Admin/AdminComponents';
 
 import type { Event, EventWatchlistEntry, Paginated } from '@/types';
 
@@ -11,79 +29,70 @@ interface Props {
 }
 
 export default function EventWatchlistShow({ event, entries }: Props) {
+  const [sending, setSending] = useState(false);
+
   function handleNotify() {
-    if (!confirm(`Send a reminder email to all ${entries.meta.total} people on the watchlist for "${event.name}"?`)) {
+    if (!confirm(`This will re-email all ${entries.meta.total} people on this list, including anyone already notified. Continue?`)) {
       return;
     }
-    router.post(route('admin.events.watchlist.notify', event.id));
+    setSending(true);
+    router.post(route('admin.events.watchlist.notify', event.id), {}, {
+      preserveScroll: true,
+      onFinish: () => setSending(false),
+    });
   }
 
   return (
     <AdminLayout>
       <Head title={`Watchlist — ${event.name}`} />
 
-      <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Watchlist</p>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-white">{event.name}</h1>
-        <button
-          onClick={handleNotify}
-          className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors"
+      <AdminPageHeader
+        eyebrow="Admin · Watchlist"
+        title={event.name}
+        meta={`${entries.meta.total} ${entries.meta.total === 1 ? 'person' : 'people'} watching`}
+        action={
+          <AdminBtn onClick={handleNotify} disabled={sending || entries.meta.total === 0}>
+            {sending ? 'Sending…' : 'Send reminder to everyone'}
+          </AdminBtn>
+        }
+      />
+
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          href={route('admin.events.watchlist.index')}
+          style={{
+            fontFamily: fontMono, fontSize: '10.5px', letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: C.textMuted, textDecoration: 'none',
+          }}
         >
-          Notify all
-        </button>
+          ← All watchlists
+        </Link>
       </div>
 
-      <div className="border border-neutral-800 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-neutral-900 text-neutral-500 text-xs uppercase tracking-wide">
-              <th className="text-left font-medium px-4 py-3">Email</th>
-              <th className="text-left font-medium px-4 py-3">Joined</th>
-              <th className="text-left font-medium px-4 py-3">Notified</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-800">
-            {entries.data.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-10 text-center text-neutral-500">
-                  Nobody on the watchlist yet.
-                </td>
-              </tr>
-            )}
-            {entries.data.map((entry) => (
-              <tr key={entry.id} className="text-neutral-200">
-                <td className="px-4 py-3">{entry.email}</td>
-                <td className="px-4 py-3 text-neutral-400">
-                  {new Date(entry.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                </td>
-                <td className="px-4 py-3">
-                  {entry.notified ? (
-                    <span className="text-green-400 text-xs">Sent</span>
-                  ) : (
-                    <span className="text-neutral-500 text-xs">Pending</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable headers={['Email', 'Joined', 'Notified']} empty="Nobody on the watchlist yet.">
+        {entries.data.map((entry) => (
+          <Tr key={entry.id}>
+            <Td>{entry.email}</Td>
+            <Td muted>
+              {new Date(entry.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Td>
+            <Td>
+              {entry.notified ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '12px', color: C.success }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.success, display: 'inline-block' }} />
+                  {entry.notified_at
+                    ? new Date(entry.notified_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                    : 'Yes'}
+                </span>
+              ) : (
+                <span style={{ fontSize: '12px', color: C.textFaint }}>Not yet</span>
+              )}
+            </Td>
+          </Tr>
+        ))}
+      </AdminTable>
 
-      {entries.meta.last_page > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-4">
-          {entries.meta.links.map((link, i) => (
-            <button
-              key={i}
-              disabled={!link.url}
-              onClick={() => link.url && router.get(link.url, {}, { preserveState: true })}
-              dangerouslySetInnerHTML={{ __html: link.label }}
-              className={`min-w-[32px] h-8 px-2 text-xs rounded-md ${
-                link.active ? 'bg-white text-black' : 'text-neutral-400 hover:bg-neutral-800 disabled:opacity-30'
-              }`}
-            />
-          ))}
-        </div>
-      )}
+      {entries.meta.last_page > 1 && <Pagination links={entries.meta.links} />}
     </AdminLayout>
   );
 }

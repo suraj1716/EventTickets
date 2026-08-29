@@ -78,6 +78,7 @@ public function index(Request $request)
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
+             'slug'          => 'required|string|max:255|unique:categories,slug',
             'description'   => 'nullable|string',
             'parent_id'     => 'nullable|exists:categories,id',
             'department_id' => 'nullable|exists:departments,id',
@@ -129,6 +130,7 @@ public function index(Request $request)
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
+             'slug'          => 'required|string|max:255|unique:categories,slug,' . $category->id,
             'description'   => 'nullable|string',
             'parent_id'     => 'nullable|exists:categories,id',
             'department_id' => 'nullable|exists:departments,id',

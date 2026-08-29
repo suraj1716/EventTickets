@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Head, usePage } from "@inertiajs/react";
+import { Head } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
 import {
   AdminPageHeader,
   AdminBtn,
   FlashMessage,
   Icons,
+  C,
+  fontBody,
 } from "../../../Components/Admin/AdminComponents";
-import { useAdminForm, inputClass } from "../../../Components/Admin/useAdminForm";
+import {
+  useAdminForm,
+  Field,
+  AdminInput,
+  AdminTextarea,
+  AdminToggle,
+} from "../../../Components/Admin/useAdminForm";
 
 interface Department {
   image_url: string | (() => string | null) | null;
@@ -24,57 +32,23 @@ interface Props {
   flash: { success?: string; error?: string };
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontFamily: "var(--font-body)",
-  fontSize: "10px", fontWeight: 500,
-  letterSpacing: "0.18em", textTransform: "uppercase",
-  color: "var(--color-text-muted)", marginBottom: 6,
-};
-const fieldWrap: React.CSSProperties = { display: "flex", flexDirection: "column" };
-const hintStyle: React.CSSProperties = {
-  fontFamily: "var(--font-body)", fontSize: "10px",
-  color: "var(--color-text-muted)", marginTop: 4, lineHeight: 1.5,
-};
-const errorStyle: React.CSSProperties = {
-  fontFamily: "var(--font-body)", fontSize: "11px",
-  color: "#c0392b", marginTop: 4,
-};
-
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-      <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--color-border)", background: "var(--color-bg-alt)", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 3, height: 16, background: "var(--color-accent)", borderRadius: 2 }} />
-        <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--color-text-muted)", fontWeight: 500 }}>{title}</span>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, background: C.bgAlt, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 3, height: 16, background: C.amber, borderRadius: 2 }} />
+        <span style={{ fontFamily: fontBody, fontSize: "10px", letterSpacing: "0.18em", textTransform: "uppercase", color: C.textMuted, fontWeight: 500 }}>{title}</span>
       </div>
       <div style={{ padding: "20px" }}>{children}</div>
     </div>
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={() => onChange(!checked)} style={{
-      width: 44, height: 24, borderRadius: "var(--radius-full)",
-      background: checked ? "var(--color-primary)" : "var(--color-border)",
-      border: "none", cursor: "pointer", position: "relative",
-      transition: "background 200ms ease", flexShrink: 0,
-    }}>
-      <span style={{
-        position: "absolute", top: 3, left: checked ? 23 : 3,
-        width: 18, height: 18, borderRadius: "50%", background: "white",
-        transition: "left 200ms ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-      }} />
-    </button>
-  );
-}
-
 function SlugChip({ slug }: { slug: string }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "var(--color-bg-alt)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", marginTop: 6 }}>
-      <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", color: "var(--color-text-muted)" }}>/departments/</span>
-      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: slug ? "var(--color-primary)" : "var(--color-text-muted)" }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: "8px", marginTop: 6 }}>
+      <span style={{ fontFamily: fontBody, fontSize: "10px", color: C.textMuted }}>/departments/</span>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: slug ? C.amber : C.textMuted }}>
         {slug || "auto-generated"}
       </span>
     </div>
@@ -87,11 +61,11 @@ function SaveBar({ isEdit, departmentName, processing, onSubmit, cancelHref }: {
   return (
     <div style={{
       position: "sticky", bottom: 0, zIndex: 40,
-      background: "var(--color-surface)", borderTop: "1px solid var(--color-border)",
+      background: C.surface, borderTop: `1px solid ${C.border}`,
       padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
       margin: "24px -28px -32px",
     }}>
-      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--color-text-muted)", letterSpacing: "0.04em" }}>
+      <span style={{ fontFamily: fontBody, fontSize: "11px", color: C.textMuted, letterSpacing: "0.04em" }}>
         {isEdit ? `Editing: ${departmentName}` : "New department — unsaved"}
       </span>
       <div style={{ display: "flex", gap: 8 }}>
@@ -117,10 +91,9 @@ export default function DepartmentForm({ department, flash }: Props) {
     image:            null as File | null,
     _remove_image:    false,
   });
-const page = usePage();
 
   const [imagePreview, setImagePreview] = useState<string | null>(
-    department?.image_url ?	department.image_url : null
+    department?.image_url ? department.image_url as string : null
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -133,7 +106,7 @@ const page = usePage();
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
     } else {
-      setImagePreview(department?.image_url ? 	department.image_url : null);
+      setImagePreview(department?.image_url ? department.image_url as string : null);
     }
   };
 
@@ -169,13 +142,13 @@ const page = usePage();
     return fd;
   };
 
-const handleSubmit = () => {
-  if (isEdit) {
-    put(route("admin.departments.update", department!.id), { transform: buildFormData });
-  } else {
-    post(route("admin.departments.store"), { transform: buildFormData });
-  }
-};
+  const handleSubmit = () => {
+    if (isEdit) {
+      put(route("admin.departments.update", department!.id), { transform: buildFormData });
+    } else {
+      post(route("admin.departments.store"), { transform: buildFormData });
+    }
+  };
 
   return (
     <>
@@ -183,7 +156,7 @@ const handleSubmit = () => {
       <AdminLayout>
         <AdminPageHeader
           eyebrow="Catalogue"
-          title={isEdit ? <><em style={{ fontStyle: "italic" }}>{department!.name}</em></> : "New Department"}
+          title={isEdit ? <><em>{department!.name}</em></> : "New Department"}
           action={
             <AdminBtn as="a" href={route("admin.departments.index")} variant="ghost">
               <Icons.Back /> Back
@@ -199,85 +172,74 @@ const handleSubmit = () => {
 
             <Card title="Details">
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={fieldWrap}>
-                  <label style={{ ...labelStyle, color: errors.name ? "#c0392b" : "var(--color-text-muted)" }}>
-                    Department Name *
-                  </label>
-                  <input
+                <Field label="Department Name *" error={errors.name}>
+                  <AdminInput
                     type="text" value={data.name}
                     onChange={(e) => set("name", e.target.value)}
                     placeholder="e.g. Colour Services" maxLength={255}
-                    style={inputClass(errors, "name")}
+                    error={!!errors.name}
                   />
-                  {errors.name && <span style={errorStyle}>{errors.name}</span>}
-                </div>
+                </Field>
 
-                <div style={fieldWrap}>
-                  <label style={{ ...labelStyle, color: errors.slug ? "#c0392b" : "var(--color-text-muted)" }}>
-                    URL Slug
-                  </label>
-                  <input
+                <Field label="URL Slug" error={errors.slug}>
+                  <AdminInput
                     type="text" value={data.slug}
                     onChange={(e) => {
                       setSlugManual(true);
                       set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-"));
                     }}
                     placeholder="auto-generated from name" maxLength={255}
-                    style={{ ...inputClass(errors, "slug"), fontFamily: "var(--font-mono, monospace)" }}
+                    error={!!errors.slug}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
                   <SlugChip slug={data.slug} />
-                  {!slugManual && <span style={hintStyle}>Auto-generated from name. Click to customise.</span>}
-                  {errors.slug && <span style={errorStyle}>{errors.slug}</span>}
-                </div>
+                  {!slugManual && (
+                    <p style={{ fontFamily: fontBody, fontSize: "10px", color: C.textFaint, marginTop: 4, lineHeight: 1.5 }}>
+                      Auto-generated from name. Click to customise.
+                    </p>
+                  )}
+                </Field>
               </div>
             </Card>
 
             <Card title="SEO / Meta">
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={fieldWrap}>
-                  <label style={{ ...labelStyle, color: errors.meta_title ? "#c0392b" : "var(--color-text-muted)" }}>
-                    Meta Title
-                  </label>
-                  <input
+                <Field label="Meta Title" error={errors.meta_title}>
+                  <AdminInput
                     type="text" value={data.meta_title ?? ""}
                     onChange={(e) => set("meta_title", e.target.value)}
                     placeholder="Overrides page title in search results" maxLength={60}
-                    style={inputClass(errors, "meta_title")}
+                    error={!!errors.meta_title}
                   />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                    {errors.meta_title ? <span style={errorStyle}>{errors.meta_title}</span> : <span />}
-                    <span style={{ ...hintStyle, margin: 0, color: (data.meta_title?.length ?? 0) > 60 ? "orange" : "var(--color-text-muted)" }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                    <span style={{ fontFamily: fontBody, fontSize: "10px", color: (data.meta_title?.length ?? 0) > 60 ? C.amber : C.textFaint }}>
                       {data.meta_title?.length ?? 0}/60
                     </span>
                   </div>
-                </div>
+                </Field>
 
-                <div style={fieldWrap}>
-                  <label style={{ ...labelStyle, color: errors.meta_description ? "#c0392b" : "var(--color-text-muted)" }}>
-                    Meta Description
-                  </label>
-                  <textarea
+                <Field label="Meta Description" error={errors.meta_description}>
+                  <AdminTextarea
                     value={data.meta_description ?? ""}
                     onChange={(e) => set("meta_description", e.target.value)}
                     placeholder="Short description shown in search engine results…"
                     rows={3} maxLength={500}
-                    style={{ ...inputClass(errors, "meta_description"), resize: "vertical", lineHeight: 1.6 }}
+                    error={!!errors.meta_description}
                   />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                    {errors.meta_description ? <span style={errorStyle}>{errors.meta_description}</span> : <span />}
-                    <span style={{ ...hintStyle, margin: 0, color: (data.meta_description?.length ?? 0) > 160 ? "orange" : "var(--color-text-muted)" }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                    <span style={{ fontFamily: fontBody, fontSize: "10px", color: (data.meta_description?.length ?? 0) > 160 ? C.amber : C.textFaint }}>
                       {data.meta_description?.length ?? 0}/160
                     </span>
                   </div>
-                </div>
+                </Field>
 
                 {(data.meta_title || data.name) && (
-                  <div style={{ padding: "14px 16px", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)" }}>
-                    <p style={{ margin: "0 0 2px", fontFamily: "var(--font-body)", fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-muted)" }}>Search preview</p>
-                    <p style={{ margin: "4px 0 2px", fontFamily: "var(--font-body)", fontSize: "14px", color: "#1a0dab", fontWeight: 500 }}>{data.meta_title || data.name}</p>
-                    <p style={{ margin: 0, fontFamily: "var(--font-body)", fontSize: "12px", color: "#006621" }}>yoursite.com/departments/{data.slug || "slug"}</p>
+                  <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: "8px" }}>
+                    <p style={{ margin: "0 0 2px", fontFamily: fontBody, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.textFaint }}>Search preview</p>
+                    <p style={{ margin: "4px 0 2px", fontFamily: fontBody, fontSize: "14px", color: C.info, fontWeight: 500 }}>{data.meta_title || data.name}</p>
+                    <p style={{ margin: 0, fontFamily: fontBody, fontSize: "12px", color: C.success }}>yoursite.com/departments/{data.slug || "slug"}</p>
                     {data.meta_description && (
-                      <p style={{ margin: "4px 0 0", fontFamily: "var(--font-body)", fontSize: "12px", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+                      <p style={{ margin: "4px 0 0", fontFamily: fontBody, fontSize: "12px", color: C.textMuted, lineHeight: 1.5 }}>
                         {data.meta_description.slice(0, 160)}
                       </p>
                     )}
@@ -292,19 +254,19 @@ const handleSubmit = () => {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--color-text)", fontWeight: 500 }}>Active</div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--color-text-muted)", marginTop: 2 }}>Visible on the storefront</div>
+                    <div style={{ fontFamily: fontBody, fontSize: "13px", color: C.text, fontWeight: 500 }}>Active</div>
+                    <div style={{ fontFamily: fontBody, fontSize: "11px", color: C.textMuted, marginTop: 2 }}>Visible on the storefront</div>
                   </div>
-                  <Toggle checked={data.active} onChange={(v) => set("active", v)} />
+                  <AdminToggle checked={data.active} onChange={(v) => set("active", v)} />
                 </div>
-                <div style={{ padding: "10px 14px", background: "var(--color-bg-alt)", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--color-text-muted)" }}>Status</span>
+                <div style={{ padding: "10px 14px", background: C.bgAlt, borderRadius: "8px", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: fontBody, fontSize: "11px", color: C.textMuted }}>Status</span>
                   <span style={{
-                    fontFamily: "var(--font-body)", fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
-                    color: data.active ? "var(--color-success)" : "var(--color-text-muted)",
-                    background: data.active ? "rgba(58,125,68,0.08)" : "var(--color-bg)",
-                    padding: "3px 10px", borderRadius: "var(--radius-full)",
-                    border: `1px solid ${data.active ? "rgba(58,125,68,0.25)" : "var(--color-border)"}`,
+                    fontFamily: fontBody, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
+                    color: data.active ? C.success : C.textMuted,
+                    background: data.active ? `${C.success}14` : C.bg,
+                    padding: "3px 10px", borderRadius: "999px",
+                    border: `1px solid ${data.active ? `${C.success}40` : C.border}`,
                   }}>
                     {data.active ? "● Active" : "○ Inactive"}
                   </span>
@@ -314,16 +276,16 @@ const handleSubmit = () => {
 
             <Card title="Department Image">
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ width: "100%", aspectRatio: "16/9", background: "var(--color-bg-alt)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                <div style={{ width: "100%", aspectRatio: "16/9", background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: "8px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                   {imagePreview ? (
                     <>
                       <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      <button type="button" onClick={removeImage} style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, background: "rgba(12,10,8,0.7)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "var(--radius-sm)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>×</button>
+                      <button type="button" onClick={removeImage} style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>×</button>
                     </>
                   ) : (
-                    <div style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                    <div style={{ textAlign: "center", color: C.textMuted }}>
                       <div style={{ opacity: 0.3, marginBottom: 8 }}><Icons.Image /></div>
-                      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", opacity: 0.5 }}>No image uploaded</span>
+                      <span style={{ fontFamily: fontBody, fontSize: "11px", opacity: 0.5 }}>No image uploaded</span>
                     </div>
                   )}
                 </div>
@@ -332,8 +294,8 @@ const handleSubmit = () => {
                   <Icons.Upload />
                   {imagePreview ? "Replace Image" : "Upload Image"}
                 </AdminBtn>
-                {errors.image && <span style={errorStyle}>{errors.image}</span>}
-                <p style={{ fontFamily: "var(--font-body)", fontSize: "10px", color: "var(--color-text-muted)", margin: 0, lineHeight: 1.6 }}>
+                {errors.image && <span style={{ fontFamily: fontBody, fontSize: "11px", color: C.error, marginTop: 4 }}>{errors.image}</span>}
+                <p style={{ fontFamily: fontBody, fontSize: "10px", color: C.textMuted, margin: 0, lineHeight: 1.6 }}>
                   JPEG, PNG or WebP · Max 2 MB · Recommended 1200 × 675 px
                 </p>
               </div>

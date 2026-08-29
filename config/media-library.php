@@ -9,7 +9,7 @@ return [
      * one or more of the disks you've configured in config/filesystems.php.
      */
     // 'disk_name' => env('MEDIA_DISK', 'public'), //for local
-'disk_name' => env('MEDIA_DISK', 'r2'),  //for R2 CLoudflare
+'disk_name' => env('MEDIA_DISK', 'public'), //for R2 CLoudflare
     /*
      * The maximum file size of an item in bytes.
      * Adding a larger file will result in an exception.

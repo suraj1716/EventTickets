@@ -4,7 +4,7 @@ import { router } from "@inertiajs/react";
 /* ─────────────────────────────────────────────
    Box Office palette
 ───────────────────────────────────────────── */
-const C = {
+export const C = {
   bg: "#0B0B10",
   bgAlt: "#1A1922",
   sidebar: "#111017",
@@ -18,19 +18,21 @@ const C = {
   amber: "#FFB627",
   amberHover: "#ffc75c",
   amberDark: "#e2a220",
+  hot: "#FF3E30",
+  hotHover: "#ff6155",
   success: "#7CE0A8",
   info: "#7CA8E0",
   error: "#E08585",
 };
 
-const fontBody = "'Manrope', sans-serif";
-const fontDisplay = "'Anton', sans-serif";
-const fontMono = "'IBM Plex Mono', monospace";
+export const fontBody = "'Inter', sans-serif";
+export const fontDisplay = "'Anton', sans-serif";
+export const fontMono = "'JetBrains Mono', monospace";
 
 /* ─────────────────────────────────────────────
    Shared style constants
 ───────────────────────────────────────────── */
-const inputBase: React.CSSProperties = {
+export const inputBase: React.CSSProperties = {
   padding: "8px 12px",
   fontFamily: fontBody,
   fontSize: "13px",
@@ -62,6 +64,10 @@ const COLORS: Record<string, string> = {
   published: C.success,
   pending: C.amber,
   refunded: C.error,
+  proposed: C.amber,
+  valid: C.info,
+  used: C.success,
+  void: C.error,
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -850,10 +856,10 @@ export function ConfirmModal({
       >
         {/* corner accents */}
         {[
-          { top: 0, left: 0, borderTop: `1px solid ${C.amber}`, borderLeft: `1px solid ${C.amber}` },
-          { top: 0, right: 0, borderTop: `1px solid ${C.amber}`, borderRight: `1px solid ${C.amber}` },
-          { bottom: 0, left: 0, borderBottom: `1px solid ${C.amber}`, borderLeft: `1px solid ${C.amber}` },
-          { bottom: 0, right: 0, borderBottom: `1px solid ${C.amber}`, borderRight: `1px solid ${C.amber}` },
+          { top: 0, left: 0, borderTop: `1px solid ${C.hot}`, borderLeft: `1px solid ${C.hot}` },
+          { top: 0, right: 0, borderTop: `1px solid ${C.hot}`, borderRight: `1px solid ${C.hot}` },
+          { bottom: 0, left: 0, borderBottom: `1px solid ${C.hot}`, borderLeft: `1px solid ${C.hot}` },
+          { bottom: 0, right: 0, borderBottom: `1px solid ${C.hot}`, borderRight: `1px solid ${C.hot}` },
         ].map((s, i) => (
           <div
             key={i}

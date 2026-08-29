@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminLayout from '../AdminLayout';
+import { fontBody } from '@/Components/Admin/AdminComponents';
 
 interface VenueSeat {
     id: number;
@@ -254,7 +255,15 @@ export default function Seats({ venue }: Props) {
         <AdminLayout>
             <Head title={`Seating — ${venue.name}`} />
 
-            <div style={gridBackground} className="min-h-screen">
+            {/*
+              This editor keeps its own "drafting table" palette (see the
+              design-token comment above) rather than the Box Office admin
+              theme — that's deliberate, not an oversight. It does now pull
+              its base typeface from the shared AdminComponents tokens, so
+              a site-wide font change (like the reskin patch) still reaches
+              it even though the color system stays independent.
+            */}
+            <div style={{ ...gridBackground, fontFamily: fontBody }} className="min-h-screen">
                 <div className="max-w-7xl mx-auto px-4 py-8">
 
                     {/* =================================================

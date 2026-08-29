@@ -23,13 +23,16 @@ class DepartmentCategorySeeder extends Seeder
             ]
         );
 
-       $vendorOwnerId = User::where('email', config('services.vendor_owner_email'))->value('id');
+        $vendorOwnerId = User::where(
+            'email',
+            config('services.vendor_owner_email')
+        )->value('id');
 
-if (! $vendorOwnerId) {
-    $this->command->warn(
-        'DepartmentCategorySeeder: vendor owner user (' . config('services.vendor_owner_email') . ') not found — skipping created_by assignment. Run the user seeder first.'
-    );
-}
+        if (! $vendorOwnerId) {
+            $this->command?->warn(
+                'DepartmentCategorySeeder: vendor owner user not found — created_by will be null.'
+            );
+        }
 
         $categories = [
             'Hair Straightening',
@@ -44,6 +47,8 @@ if (! $vendorOwnerId) {
         ];
 
         foreach ($categories as $name) {
+            $slug = Str::slug($name);
+
             Category::updateOrCreate(
                 [
                     'name'          => $name,
@@ -51,19 +56,35 @@ if (! $vendorOwnerId) {
                     'parent_id'     => null,
                 ],
                 [
+                    'slug'       => $slug,
                     'active'     => true,
                     'image'      => $this->findLocalImage($name, true),
                     'created_by' => $vendorOwnerId,
                 ]
             );
+
+            $this->command?->info(
+                "Category '{$name}' seeded."
+            );
         }
     }
 
-    private function findLocalImage(string $name, bool $forceRefresh = false): ?string
-    {
+    private function findLocalImage(
+        string $name,
+        bool $forceRefresh = false
+    ): ?string {
         $slug = Str::slug($name);
-        $sourceDir = base_path('database/seeders/images/categories');
-        $extensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+        $sourceDir = base_path(
+            'database/seeders/images/categories'
+        );
+
+        $extensions = [
+            'jpg',
+            'jpeg',
+            'png',
+            'webp',
+        ];
 
         foreach ($extensions as $ext) {
             $sourcePath = "{$sourceDir}/{$slug}.{$ext}";
@@ -71,8 +92,14 @@ if (! $vendorOwnerId) {
             if (file_exists($sourcePath)) {
                 $destPath = "categories/{$slug}.{$ext}";
 
-                if ($forceRefresh || ! Storage::disk('public')->exists($destPath)) {
-                    Storage::disk('public')->put($destPath, file_get_contents($sourcePath));
+                if (
+                    $forceRefresh ||
+                    ! Storage::disk('public')->exists($destPath)
+                ) {
+                    Storage::disk('public')->put(
+                        $destPath,
+                        file_get_contents($sourcePath)
+                    );
                 }
 
                 return $destPath;

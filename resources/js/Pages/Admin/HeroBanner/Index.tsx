@@ -3,6 +3,8 @@ import { router } from "@inertiajs/react";
 import { Head } from "@inertiajs/react";
 import {
   AdminTable,
+  Tr,
+  Td,
   AdminPageHeader,
   FilterBar,
   Pagination,
@@ -11,10 +13,18 @@ import {
   AdminBtn,
   Icons,
   ConfirmModal,
+  C,
+  fontBody,
+  fontDisplay,
 } from "@/Components/Admin/AdminComponents";
 import toast from "react-hot-toast";
 import AdminLayout from "../AdminLayout";
-import { useAdminForm, inputClass } from "@/Components/Admin/useAdminForm";
+import {
+  useAdminForm,
+  Field,
+  AdminInput,
+  AdminCheckbox,
+} from "@/Components/Admin/useAdminForm";
 
 type HeroBanner = {
   id: number;
@@ -37,70 +47,6 @@ interface Props {
   };
 }
 
-function Td({
-  children,
-  muted = false,
-}: {
-  children: React.ReactNode;
-  muted?: boolean;
-}) {
-  return (
-    <td
-      style={{
-        padding: "0.85rem 1rem",
-        fontFamily: "var(--font-body)",
-        fontSize: "var(--text-sm)",
-        color: muted ? "var(--color-text-muted)" : "var(--color-text)",
-        borderBottom: "1px solid var(--color-border)",
-      }}
-    >
-      {children}
-    </td>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ marginBottom: "var(--space-md)" }}>
-      {label && (
-        <label
-          style={{
-            display: "block",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--color-text-muted)",
-            marginBottom: 4,
-          }}
-        >
-          {label}
-        </label>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function ErrorText({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      style={{
-        color: "var(--color-error)",
-        fontSize: "var(--text-xs)",
-        marginTop: 4,
-      }}
-    >
-      {children}
-    </p>
-  );
-}
-
 function BannerModal({
   banner,
   onClose,
@@ -112,37 +58,37 @@ function BannerModal({
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  const { data, set, errors, processing, post, put } = useAdminForm({
+    title: banner?.title ?? "",
+    subtitle: banner?.subtitle ?? "",
+    button_text: banner?.button_text ?? "",
+    button_link: banner?.button_link ?? "",
+    is_active: banner?.is_active ?? true,
+    image: null as File | null,
+  });
+
   const handleImageChange = (file: File | null) => {
     set("image", file);
     setImagePreview(file ? URL.createObjectURL(file) : null);
   };
 
-const { data, set, errors, processing, post, put } = useAdminForm({
-  title: banner?.title ?? "",
-  subtitle: banner?.subtitle ?? "",
-  button_text: banner?.button_text ?? "",
-  button_link: banner?.button_link ?? "",
-  is_active: banner?.is_active ?? true,
-  image: null as File | null,
-});
-
-const handleSubmit = () => {
-  if (isEdit) {
-    put(route("admin.hero-banner.update", banner!.id), {
-      onSuccess: () => {
-        toast.success("Banner updated");
-        onClose();
-      },
-    });
-  } else {
-    post(route("admin.hero-banner.store"), {
-      onSuccess: () => {
-        toast.success("Banner created");
-        onClose();
-      },
-    });
-  }
-};
+  const handleSubmit = () => {
+    if (isEdit) {
+      put(route("admin.hero-banner.update", banner!.id), {
+        onSuccess: () => {
+          toast.success("Banner updated");
+          onClose();
+        },
+      });
+    } else {
+      post(route("admin.hero-banner.store"), {
+        onSuccess: () => {
+          toast.success("Banner created");
+          onClose();
+        },
+      });
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -157,7 +103,7 @@ const handleSubmit = () => {
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(12,10,8,0.72)",
+        background: "rgba(0,0,0,0.72)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -167,9 +113,9 @@ const handleSubmit = () => {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-md)",
+          background: C.surface,
+          border: `1px solid ${C.border}`,
+          borderRadius: "12px",
           padding: "28px 32px",
           width: "480px",
           maxWidth: "90vw",
@@ -179,65 +125,60 @@ const handleSubmit = () => {
       >
         <h3
           style={{
-            fontFamily: "var(--font-display)",
+            fontFamily: fontDisplay,
             fontSize: "1.2rem",
             fontWeight: 300,
-            color: "var(--color-text)",
+            color: C.text,
             margin: "0 0 20px",
           }}
         >
           {isEdit ? "Edit Hero Banner" : "New Hero Banner"}
         </h3>
 
-        <Field label="Title">
-          <input
+        <Field label="Title" error={errors.title}>
+          <AdminInput
             type="text"
             value={data.title}
             onChange={(e) => set("title", e.target.value)}
-            style={inputClass(errors, "title")}
+            error={!!errors.title}
           />
-          {errors.title && <ErrorText>{errors.title}</ErrorText>}
         </Field>
 
-        <Field label="Subtitle">
-          <input
+        <Field label="Subtitle" error={errors.subtitle}>
+          <AdminInput
             type="text"
             value={data.subtitle ?? ""}
             onChange={(e) => set("subtitle", e.target.value)}
-            style={inputClass(errors, "subtitle")}
+            error={!!errors.subtitle}
           />
-          {errors.subtitle && <ErrorText>{errors.subtitle}</ErrorText>}
         </Field>
 
-        <Field label="Button Text">
-          <input
+        <Field label="Button Text" error={errors.button_text}>
+          <AdminInput
             type="text"
             value={data.button_text ?? ""}
             onChange={(e) => set("button_text", e.target.value)}
-            style={inputClass(errors, "button_text")}
+            error={!!errors.button_text}
           />
-          {errors.button_text && <ErrorText>{errors.button_text}</ErrorText>}
         </Field>
 
-        <Field label="Button Link">
-          <input
+        <Field label="Button Link" error={errors.button_link}>
+          <AdminInput
             type="text"
             value={data.button_link ?? ""}
             onChange={(e) => set("button_link", e.target.value)}
             placeholder="/shop or https://…"
-            style={inputClass(errors, "button_link")}
+            error={!!errors.button_link}
           />
-          {errors.button_link && <ErrorText>{errors.button_link}</ErrorText>}
         </Field>
 
-        <Field label="Image">
+        <Field label="Image" error={errors.image}>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-            style={inputClass(errors, "image")}
+            style={{ fontFamily: fontBody, fontSize: 13, color: C.text }}
           />
-          {errors.image && <ErrorText>{errors.image}</ErrorText>}
 
           {(imagePreview || banner?.image_url) && (
             <img
@@ -248,33 +189,24 @@ const handleSubmit = () => {
                 height: 60,
                 objectFit: "cover",
                 marginTop: 8,
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-border)",
+                borderRadius: "8px",
+                border: `1px solid ${C.border}`,
               }}
             />
           )}
         </Field>
 
         {isEdit && (
-          <Field label="">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: "var(--text-sm)",
-                color: "var(--color-text)",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={data.is_active}
-                onChange={(e) => set("is_active", e.target.checked)}
-              />
+          <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <AdminCheckbox
+              checked={data.is_active}
+              onChange={(e) => set("is_active", e.target.checked)}
+              id="hero-banner-active"
+            />
+            <label htmlFor="hero-banner-active" style={{ fontFamily: fontBody, fontSize: 13, color: C.text, cursor: "pointer" }}>
               Active (visible on site)
             </label>
-          </Field>
+          </div>
         )}
 
         <div
@@ -282,7 +214,7 @@ const handleSubmit = () => {
             display: "flex",
             gap: 10,
             justifyContent: "flex-end",
-            marginTop: "var(--space-lg)",
+            marginTop: 24,
           }}
         >
           <AdminBtn variant="ghost" onClick={onClose}>
@@ -390,7 +322,7 @@ export default function HeroBannerIndex({ banners, filters }: Props) {
         headers={["Image", "Title", "Subtitle", "Button", "Status", "Actions"]}
       >
         {banners.data.map((b) => (
-          <tr key={b.id}>
+          <Tr key={b.id}>
             <Td>
               {b.image_url ? (
                 <img
@@ -400,11 +332,11 @@ export default function HeroBannerIndex({ banners, filters }: Props) {
                     width: 72,
                     height: 40,
                     objectFit: "cover",
-                    borderRadius: "var(--radius-sm)",
+                    borderRadius: "8px",
                   }}
                 />
               ) : (
-                <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                <span style={{ color: C.textFaint }}>—</span>
               )}
             </Td>
             <Td>
@@ -445,7 +377,7 @@ export default function HeroBannerIndex({ banners, filters }: Props) {
                 </ActionBtn>
               </div>
             </Td>
-          </tr>
+          </Tr>
         ))}
       </AdminTable>
 

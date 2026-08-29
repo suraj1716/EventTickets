@@ -6,8 +6,17 @@ import {
   AdminBtn,
   FlashMessage,
   Icons,
+  C,
+  fontBody,
 } from "../../../Components/Admin/AdminComponents";
-import { useAdminForm, inputClass } from "../../../Components/Admin/useAdminForm";
+import {
+  useAdminForm,
+  Field,
+  AdminInput,
+  AdminTextarea,
+  AdminSelect,
+  AdminToggle,
+} from "../../../Components/Admin/useAdminForm";
 
 /* ── Types ── */
 interface Department { id: number; name: string; }
@@ -52,62 +61,16 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");        // trim leading/trailing hyphens
 }
 
-/* ── Styles ── */
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontFamily: "var(--font-body)",
-  fontSize: "10px", fontWeight: 500,
-  letterSpacing: "0.18em", textTransform: "uppercase",
-  color: "var(--color-text-muted)", marginBottom: 6,
-};
-const errorStyle: React.CSSProperties = {
-  fontFamily: "var(--font-body)", fontSize: "11px",
-  color: "var(--color-error)", marginTop: 4,
-};
-const fieldWrap: React.CSSProperties = { display: "flex", flexDirection: "column" };
-
 /* ── Card ── */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      background: "var(--color-surface)", border: "1px solid var(--color-border)",
-      borderRadius: "var(--radius-md)", overflow: "hidden",
-    }}>
-      <div style={{
-        padding: "12px 20px", borderBottom: "1px solid var(--color-border)",
-        background: "var(--color-bg-alt)", display: "flex", alignItems: "center", gap: 10,
-      }}>
-        <div style={{ width: 3, height: 16, background: "var(--color-accent)", borderRadius: 2 }} />
-        <span style={{
-          fontFamily: "var(--font-body)", fontSize: "10px",
-          letterSpacing: "0.18em", textTransform: "uppercase",
-          color: "var(--color-text-muted)", fontWeight: 500,
-        }}>{title}</span>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, background: C.bgAlt, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 3, height: 16, background: C.amber, borderRadius: 2 }} />
+        <span style={{ fontFamily: fontBody, fontSize: "10px", letterSpacing: "0.18em", textTransform: "uppercase", color: C.textMuted, fontWeight: 500 }}>{title}</span>
       </div>
       <div style={{ padding: "20px" }}>{children}</div>
     </div>
-  );
-}
-
-/* ── Toggle ── */
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      style={{
-        width: 44, height: 24, borderRadius: "var(--radius-full)",
-        background: checked ? "var(--color-primary)" : "var(--color-border)",
-        border: "none", cursor: "pointer", position: "relative",
-        transition: "background 200ms ease", flexShrink: 0,
-      }}
-    >
-      <span style={{
-        position: "absolute", top: 3, left: checked ? 23 : 3,
-        width: 18, height: 18, borderRadius: "50%", background: "white",
-        transition: "left 200ms ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-      }} />
-    </button>
   );
 }
 
@@ -134,7 +97,7 @@ export default function CategoryForm({ category, departments, parentCategories, 
   const [slugTouched, setSlugTouched] = useState(isEdit && !!category?.slug);
 
   const [imagePreview, setImagePreview] = useState<string | null>(
-    category?.image_url ? category.image_url : null
+    category?.image_url ? category.image_url as string : null
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -164,7 +127,7 @@ export default function CategoryForm({ category, departments, parentCategories, 
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
     } else {
-      setImagePreview(category?.image_url ? 	category.image_url : null);
+      setImagePreview(category?.image_url ? category.image_url as string : null);
     }
   };
 
@@ -204,15 +167,15 @@ export default function CategoryForm({ category, departments, parentCategories, 
   const SaveBar = () => (
     <div style={{
       position: "sticky", bottom: 0, zIndex: 40,
-      background: "var(--color-surface)",
-      borderTop: "1px solid var(--color-border)",
+      background: C.surface,
+      borderTop: `1px solid ${C.border}`,
       padding: "12px 20px",
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
       margin: "24px -28px -32px", // bleed to match AdminLayout padding
     }}>
       <span style={{
-        fontFamily: "var(--font-body)", fontSize: "11px",
-        color: "var(--color-text-muted)", letterSpacing: "0.04em",
+        fontFamily: fontBody, fontSize: "11px",
+        color: C.textMuted, letterSpacing: "0.04em",
       }}>
         {isEdit ? `Editing: ${category!.name}` : "New category — unsaved"}
       </span>
@@ -244,7 +207,7 @@ export default function CategoryForm({ category, departments, parentCategories, 
         <AdminPageHeader
           eyebrow="Catalogue"
           title={isEdit
-            ? <>Edit <em style={{ fontStyle: "italic" }}>{category!.name}</em></>
+            ? <>Edit <em>{category!.name}</em></>
             : "New Category"
           }
           action={
@@ -270,105 +233,68 @@ export default function CategoryForm({ category, departments, parentCategories, 
 
             <Card title="Details">
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={fieldWrap}>
-                  <label style={{
-                    ...labelStyle,
-                    color: errors.name ? "#c0392b" : "var(--color-text-muted)",
-                  }}>
-                    Category Name *
-                  </label>
-                  <input
+                <Field label="Category Name *" error={errors.name}>
+                  <AdminInput
                     type="text"
                     value={data.name}
                     onChange={handleNameChange}
                     placeholder="e.g. Hair Colour"
-                    style={inputClass(errors, "name")}
+                    error={!!errors.name}
                   />
-                  {errors.name && <span style={errorStyle}>{errors.name}</span>}
-                </div>
+                </Field>
 
-                <div style={fieldWrap}>
-                  <label style={{
-                    ...labelStyle,
-                    color: errors.slug ? "#c0392b" : "var(--color-text-muted)",
-                  }}>
-                    Slug
-                  </label>
-                  <input
+                <Field label="Slug" error={errors.slug}>
+                  <AdminInput
                     type="text"
                     value={data.slug}
                     onChange={handleSlugChange}
                     placeholder="e.g. hair-colour"
-                    style={{ ...inputClass(errors, "slug"), fontFamily: "monospace" }}
+                    error={!!errors.slug}
+                    style={{ fontFamily: "monospace" }}
                   />
-                  {errors.slug && <span style={errorStyle}>{errors.slug}</span>}
-                  <span style={{
-                    fontFamily: "var(--font-body)", fontSize: "10px",
-                    color: "var(--color-text-muted)", marginTop: 4,
-                  }}>
+                  <p style={{ fontFamily: fontBody, fontSize: "10px", color: C.textFaint, marginTop: 4 }}>
                     Auto-generated from name — edit to customise
-                  </span>
-                </div>
+                  </p>
+                </Field>
 
-                <div style={fieldWrap}>
-                  <label style={{
-                    ...labelStyle,
-                    color: errors.description ? "#c0392b" : "var(--color-text-muted)",
-                  }}>
-                    Description
-                  </label>
-                  <textarea
+                <Field label="Description" error={errors.description}>
+                  <AdminTextarea
                     value={data.description}
                     onChange={(e) => set("description", e.target.value)}
                     placeholder="Optional short description…"
                     rows={3}
-                    style={{ ...inputClass(errors, "description"), resize: "vertical", lineHeight: 1.6 }}
+                    error={!!errors.description}
                   />
-                  {errors.description && <span style={errorStyle}>{errors.description}</span>}
-                </div>
+                </Field>
               </div>
             </Card>
 
             <Card title="Taxonomy">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div style={fieldWrap}>
-                  <label style={{
-                    ...labelStyle,
-                    color: errors.department_id ? "#c0392b" : "var(--color-text-muted)",
-                  }}>
-                    Department
-                  </label>
-                  <select
+                <Field label="Department" error={errors.department_id}>
+                  <AdminSelect
                     value={data.department_id}
                     onChange={(e) => set("department_id", e.target.value)}
-                    style={inputClass(errors, "department_id")}
+                    error={!!errors.department_id}
                   >
                     <option value="">— None —</option>
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
-                  </select>
-                  {errors.department_id && <span style={errorStyle}>{errors.department_id}</span>}
-                </div>
-                <div style={fieldWrap}>
-                  <label style={{
-                    ...labelStyle,
-                    color: errors.parent_id ? "#c0392b" : "var(--color-text-muted)",
-                  }}>
-                    Parent Category
-                  </label>
-                  <select
+                  </AdminSelect>
+                </Field>
+                <Field label="Parent Category" error={errors.parent_id}>
+                  <AdminSelect
                     value={data.parent_id}
                     onChange={(e) => set("parent_id", e.target.value)}
-                    style={inputClass(errors, "parent_id")}
+                    error={!!errors.parent_id}
                   >
                     <option value="">— Root (no parent) —</option>
                     {parentOptions.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
-                  </select>
-                  {errors.parent_id && <span style={errorStyle}>{errors.parent_id}</span>}
-                </div>
+                  </AdminSelect>
+                </Field>
               </div>
             </Card>
 
@@ -381,32 +307,32 @@ export default function CategoryForm({ category, departments, parentCategories, 
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--color-text)", fontWeight: 500 }}>
+                    <div style={{ fontFamily: fontBody, fontSize: "13px", color: C.text, fontWeight: 500 }}>
                       Active
                     </div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--color-text-muted)", marginTop: 2 }}>
+                    <div style={{ fontFamily: fontBody, fontSize: "11px", color: C.textMuted, marginTop: 2 }}>
                       Visible in catalogue
                     </div>
                   </div>
-                  <Toggle checked={data.active} onChange={(v) => set("active", v)} />
+                  <AdminToggle checked={data.active} onChange={(v) => set("active", v)} />
                 </div>
                 <div style={{
                   padding: "10px 14px",
-                  background: "var(--color-bg-alt)",
-                  borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--color-border)",
+                  background: C.bgAlt,
+                  borderRadius: "8px",
+                  border: `1px solid ${C.border}`,
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                 }}>
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                  <span style={{ fontFamily: fontBody, fontSize: "11px", color: C.textMuted }}>
                     Status
                   </span>
                   <span style={{
-                    fontFamily: "var(--font-body)", fontSize: "10px",
+                    fontFamily: fontBody, fontSize: "10px",
                     letterSpacing: "0.1em", textTransform: "uppercase",
-                    color: data.active ? "var(--color-success)" : "var(--color-text-muted)",
-                    background: data.active ? "rgba(58,125,68,0.08)" : "var(--color-bg)",
-                    padding: "3px 10px", borderRadius: "var(--radius-full)",
-                    border: `1px solid ${data.active ? "rgba(58,125,68,0.25)" : "var(--color-border)"}`,
+                    color: data.active ? C.success : C.textMuted,
+                    background: data.active ? `${C.success}14` : C.bg,
+                    padding: "3px 10px", borderRadius: "999px",
+                    border: `1px solid ${data.active ? `${C.success}40` : C.border}`,
                   }}>
                     {data.active ? "● Active" : "○ Inactive"}
                   </span>
@@ -418,8 +344,8 @@ export default function CategoryForm({ category, departments, parentCategories, 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{
                   width: "100%", aspectRatio: "16/9",
-                  background: "var(--color-bg-alt)", border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-sm)", overflow: "hidden",
+                  background: C.bgAlt, border: `1px solid ${C.border}`,
+                  borderRadius: "8px", overflow: "hidden",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   position: "relative",
                 }}>
@@ -429,17 +355,17 @@ export default function CategoryForm({ category, departments, parentCategories, 
                         style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       <button type="button" onClick={removeImage} style={{
                         position: "absolute", top: 8, right: 8,
-                        width: 28, height: 28, background: "rgba(12,10,8,0.7)",
+                        width: 28, height: 28, background: "rgba(0,0,0,0.7)",
                         border: "1px solid rgba(255,255,255,0.15)",
-                        borderRadius: "var(--radius-sm)", color: "white",
+                        borderRadius: "8px", color: "white",
                         cursor: "pointer", display: "flex", alignItems: "center",
                         justifyContent: "center", fontSize: 14,
                       }}>×</button>
                     </>
                   ) : (
-                    <div style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                    <div style={{ textAlign: "center", color: C.textMuted }}>
                       <div style={{ opacity: 0.3, marginBottom: 8 }}><Icons.Image /></div>
-                      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", opacity: 0.5 }}>
+                      <span style={{ fontFamily: fontBody, fontSize: "11px", opacity: 0.5 }}>
                         No image uploaded
                       </span>
                     </div>
@@ -451,10 +377,10 @@ export default function CategoryForm({ category, departments, parentCategories, 
                   <Icons.Upload />
                   {imagePreview ? "Replace Image" : "Upload Image"}
                 </AdminBtn>
-                {errors.image && <span style={errorStyle}>{errors.image}</span>}
+                {errors.image && <span style={{ fontFamily: fontBody, fontSize: "11px", color: C.error, marginTop: 4 }}>{errors.image}</span>}
                 <p style={{
-                  fontFamily: "var(--font-body)", fontSize: "10px",
-                  color: "var(--color-text-muted)", margin: 0, lineHeight: 1.6,
+                  fontFamily: fontBody, fontSize: "10px",
+                  color: C.textMuted, margin: 0, lineHeight: 1.6,
                 }}>
                   JPEG, PNG or WebP · Max 2 MB · Recommended 800 × 450 px
                 </p>

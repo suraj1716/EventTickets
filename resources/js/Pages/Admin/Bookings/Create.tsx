@@ -1,5 +1,11 @@
 import { Head, Link, useForm } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
+import {
+  AdminPageHeader,
+  C,
+  fontBody,
+  fontMono,
+} from "@/Components/Admin/AdminComponents";
 
 type User  = { id: number; name: string; email: string };
 type Order = { id: number; label: string };
@@ -26,54 +32,54 @@ export default function BookingCreate({ users, orders }: Props) {
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "0.75rem 1rem",
-    fontFamily: "var(--font-body)", fontSize: "var(--text-sm)",
-    color: "var(--color-text)", background: "var(--color-bg)",
-    border: "1px solid var(--color-border)", outline: "none",
+    width: "100%", padding: "9px 12px",
+    fontFamily: fontBody, fontSize: "13px",
+    color: C.text, background: C.bg,
+    border: `1px solid ${C.border}`, borderRadius: "8px", outline: "none",
   };
   const labelStyle: React.CSSProperties = {
-    display: "block", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)",
-    fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase",
-    color: "var(--color-text-muted)", marginBottom: "var(--space-xs)",
+    display: "block", fontFamily: fontMono, fontSize: "10px",
+    fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+    color: C.textMuted, marginBottom: "8px",
   };
   const errStyle: React.CSSProperties = {
-    color: "var(--color-error)", fontSize: "var(--text-xs)",
-    marginTop: 4, fontFamily: "var(--font-body)",
+    color: C.error, fontSize: "12px",
+    marginTop: 4, fontFamily: fontBody,
   };
   const sectionStyle: React.CSSProperties = {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    marginBottom: "var(--space-lg)",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: "12px",
+    marginBottom: "20px",
   };
   const sectionHead: React.CSSProperties = {
-    padding: "var(--space-md) var(--space-xl)",
-    borderBottom: "1px solid var(--color-border)",
-    fontFamily: "var(--font-body)", fontSize: "var(--text-xs)",
+    padding: "14px 20px",
+    borderBottom: `1px dashed ${C.borderDashed}`,
+    fontFamily: fontMono, fontSize: "10px",
     letterSpacing: "0.15em", textTransform: "uppercase",
-    color: "var(--color-text-light)", fontWeight: 500,
+    color: C.textMuted, fontWeight: 700,
   };
 
   return (
     <AdminLayout>
       <Head title="Create Booking" />
 
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-lg)", marginBottom: "var(--space-2xl)" }}>
-        <Link href={route("admin.bookings.index")} style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-light)", textDecoration: "none" }}>
+      <AdminPageHeader eyebrow="Admin · Bookings" title="Create Booking" />
+
+      <div style={{ marginBottom: 16 }}>
+        <Link href={route("admin.bookings.index")} style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.textMuted, textDecoration: "none" }}>
           ← Bookings
         </Link>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.75rem,3vw,2.25rem)", fontWeight: 300, color: "var(--color-text)", margin: 0 }}>
-          Create Booking
-        </h1>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "var(--space-lg)", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "20px", alignItems: "start" }}>
           <div>
             <div style={sectionStyle}>
               <div style={sectionHead}>Booking Details</div>
-              <div style={{ padding: "var(--space-xl)", display: "flex", flexDirection: "column", gap: "var(--space-lg)" }}>
+              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "18px" }}>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-lg)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                   <div>
                     <label style={labelStyle}>Date</label>
                     <input type="date" value={data.booking_date} onChange={e => setData("booking_date", e.target.value)} style={inputStyle} />
@@ -107,7 +113,7 @@ export default function BookingCreate({ users, orders }: Props) {
           <div>
             <div style={sectionStyle}>
               <div style={sectionHead}>Customer & Order</div>
-              <div style={{ padding: "var(--space-xl)", display: "flex", flexDirection: "column", gap: "var(--space-lg)" }}>
+              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "18px" }}>
                 <div>
                   <label style={labelStyle}>Customer</label>
                   <select value={data.user_id} onChange={e => setData("user_id", e.target.value)} style={inputStyle}>
@@ -127,17 +133,17 @@ export default function BookingCreate({ users, orders }: Props) {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+            <div style={{ display: "flex", gap: "10px" }}>
               <Link
                 href={route("admin.bookings.index")}
-                style={{ flex: 1, padding: "0.75rem", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", color: "var(--color-text-muted)", border: "1px solid var(--color-border)", cursor: "pointer", textAlign: "center", textDecoration: "none", display: "block" }}
+                style={{ flex: 1, padding: "9px", fontFamily: fontMono, fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", color: C.textFaint, border: `1px solid ${C.border}`, borderRadius: "8px", cursor: "pointer", textAlign: "center", textDecoration: "none", display: "block" }}
               >
                 Cancel
               </Link>
               <button
                 type="submit"
                 disabled={processing}
-                style={{ flex: 2, padding: "0.75rem", fontFamily: "var(--font-body)", fontSize: "var(--text-xs)", letterSpacing: "0.1em", textTransform: "uppercase", background: "var(--color-primary)", color: "#fff", border: "none", cursor: "pointer" }}
+                style={{ flex: 2, padding: "9px", fontFamily: fontMono, fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: C.amber, color: C.textInverse, border: `1px solid ${C.amber}`, borderRadius: "8px", cursor: processing ? "not-allowed" : "pointer", opacity: processing ? 0.6 : 1 }}
               >
                 {processing ? "Creating…" : "Create Booking"}
               </button>

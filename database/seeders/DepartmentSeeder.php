@@ -2,12 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB ;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-
-
 
 class DepartmentSeeder extends Seeder
 {
@@ -16,47 +13,29 @@ class DepartmentSeeder extends Seeder
      */
     public function run(): void
     {
-        $departments=[
-            [
-            'name'=>'Electronics',
-            'slug'=>'electronics',
-            'active'=>true,
-            'created_at'=>now(),
-            'updated_at'=>now()
-        ],
-        [
-            'name'=>'Fashion',
-            'slug'=>'fashion',
-            'active'=>true,
-            'created_at'=>now(),
-            'updated_at'=>now()
-        ],
-        [
-            'name'=>'Home, Garden & Tools',
-            'slug'=>Str::slug('Home, Garden & Tools'),
-            'active'=>true,
-            'created_at'=>now(),
-            'updated_at'=>now()
-        ],
-        [
-            'name'=>'Books & Audible',
-            'slug'=>Str::slug('Books & Audible'),
-            'active'=>true,
-            'created_at'=>now(),
-            'updated_at'=>now()
-        ],
-        [
-            'name'=>'Health & beauty',
-            'slug'=>Str::slug('Health & beauty'),
-
-            'active'=>true,
-            'created_at'=>now(),
-            'updated_at'=>now()
-        ],
-
+        $departments = [
+            'Electronics',
+            'Fashion',
+            'Home, Garden & Tools',
+            'Books & Audible',
+            'Health & beauty',
         ];
 
-        DB::table('departments')->insert($departments);
+        foreach ($departments as $name) {
+            $slug = Str::slug($name);
 
+            DB::table('departments')->updateOrInsert(
+                ['slug' => $slug],
+                [
+                    'name' => $name,
+                    'active' => true,
+                    'updated_at' => now(),
+                ]
+            );
+
+            $this->command?->info(
+                "Department '{$name}' seeded."
+            );
+        }
     }
 }

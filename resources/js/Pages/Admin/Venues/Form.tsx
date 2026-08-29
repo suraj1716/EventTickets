@@ -7,10 +7,13 @@ import {
     AdminBtn,
     FlashMessage,
     Icons,
+    C,
+    fontBody,
 } from "../../../Components/Admin/AdminComponents";
 import {
     useAdminForm,
     inputClass,
+    AdminToggle,
 } from "../../../Components/Admin/useAdminForm";
 
 interface Venue {
@@ -43,12 +46,12 @@ interface Props {
 
 const labelStyle: React.CSSProperties = {
     display: "block",
-    fontFamily: "var(--font-body)",
+    fontFamily: fontBody,
     fontSize: "10px",
     fontWeight: 500,
     letterSpacing: "0.18em",
     textTransform: "uppercase",
-    color: "var(--color-text-muted)",
+    color: C.textMuted,
     marginBottom: 6,
 };
 
@@ -58,17 +61,17 @@ const fieldWrap: React.CSSProperties = {
 };
 
 const hintStyle: React.CSSProperties = {
-    fontFamily: "var(--font-body)",
+    fontFamily: fontBody,
     fontSize: "10px",
-    color: "var(--color-text-muted)",
+    color: C.textMuted,
     marginTop: 4,
     lineHeight: 1.5,
 };
 
 const errorStyle: React.CSSProperties = {
-    fontFamily: "var(--font-body)",
+    fontFamily: fontBody,
     fontSize: "11px",
-    color: "#c0392b",
+    color: C.error,
     marginTop: 4,
 };
 
@@ -82,17 +85,17 @@ function Card({
     return (
         <div
             style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-md)",
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderRadius: "12px",
                 overflow: "hidden",
             }}
         >
             <div
                 style={{
                     padding: "12px 20px",
-                    borderBottom: "1px solid var(--color-border)",
-                    background: "var(--color-bg-alt)",
+                    borderBottom: `1px solid ${C.border}`,
+                    background: C.bgAlt,
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
@@ -102,18 +105,18 @@ function Card({
                     style={{
                         width: 3,
                         height: 16,
-                        background: "var(--color-accent)",
+                        background: C.amber,
                         borderRadius: 2,
                     }}
                 />
 
                 <span
                     style={{
-                        fontFamily: "var(--font-body)",
+                        fontFamily: fontBody,
                         fontSize: "10px",
                         letterSpacing: "0.18em",
                         textTransform: "uppercase",
-                        color: "var(--color-text-muted)",
+                        color: C.textMuted,
                         fontWeight: 500,
                     }}
                 >
@@ -123,48 +126,6 @@ function Card({
 
             <div style={{ padding: "20px" }}>{children}</div>
         </div>
-    );
-}
-
-function Toggle({
-    checked,
-    onChange,
-}: {
-    checked: boolean;
-    onChange: (v: boolean) => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={() => onChange(!checked)}
-            style={{
-                width: 44,
-                height: 24,
-                borderRadius: "var(--radius-full)",
-                background: checked
-                    ? "var(--color-primary)"
-                    : "var(--color-border)",
-                border: "none",
-                cursor: "pointer",
-                position: "relative",
-                transition: "background 200ms ease",
-                flexShrink: 0,
-            }}
-        >
-            <span
-                style={{
-                    position: "absolute",
-                    top: 3,
-                    left: checked ? 23 : 3,
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    background: "white",
-                    transition: "left 200ms ease",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                }}
-            />
-        </button>
     );
 }
 
@@ -187,8 +148,8 @@ function SaveBar({
                 position: "sticky",
                 bottom: 0,
                 zIndex: 40,
-                background: "var(--color-surface)",
-                borderTop: "1px solid var(--color-border)",
+                background: C.surface,
+                borderTop: `1px solid ${C.border}`,
                 padding: "12px 20px",
                 display: "flex",
                 alignItems: "center",
@@ -199,9 +160,9 @@ function SaveBar({
         >
             <span
                 style={{
-                    fontFamily: "var(--font-body)",
+                    fontFamily: fontBody,
                     fontSize: "11px",
-                    color: "var(--color-text-muted)",
+                    color: C.textMuted,
                     letterSpacing: "0.04em",
                 }}
             >
@@ -459,8 +420,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                         style={{
                                             ...labelStyle,
                                             color: errors.name
-                                                ? "#c0392b"
-                                                : "var(--color-text-muted)",
+                                                ? C.error
+                                                : C.textMuted,
                                         }}
                                     >
                                         Venue Name *
@@ -497,8 +458,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                         style={{
                                             ...labelStyle,
                                             color: errors.address
-                                                ? "#c0392b"
-                                                : "var(--color-text-muted)",
+                                                ? C.error
+                                                : C.textMuted,
                                         }}
                                     >
                                         Address
@@ -543,8 +504,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             style={{
                                                 ...labelStyle,
                                                 color: errors.city
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                             }}
                                         >
                                             City
@@ -580,8 +541,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             style={{
                                                 ...labelStyle,
                                                 color: errors.state
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                             }}
                                         >
                                             State
@@ -617,8 +578,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             style={{
                                                 ...labelStyle,
                                                 color: errors.postcode
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                             }}
                                         >
                                             Postcode
@@ -655,8 +616,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                         style={{
                                             ...labelStyle,
                                             color: errors.country
-                                                ? "#c0392b"
-                                                : "var(--color-text-muted)",
+                                                ? C.error
+                                                : C.textMuted,
                                         }}
                                     >
                                         Country
@@ -701,9 +662,9 @@ export default function VenueForm({ venue, flash }: Props) {
                                 <div
                                     style={{
                                         fontFamily:
-                                            "var(--font-body)",
+                                            fontBody,
                                         fontSize: "11px",
-                                        color: "var(--color-text-muted)",
+                                        color: C.textMuted,
                                         lineHeight: 1.6,
                                     }}
                                 >
@@ -726,8 +687,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                                 ...labelStyle,
                                                 color:
                                                     errors.latitude
-                                                        ? "#c0392b"
-                                                        : "var(--color-text-muted)",
+                                                        ? C.error
+                                                        : C.textMuted,
                                             }}
                                         >
                                             Latitude
@@ -765,8 +726,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                                 ...labelStyle,
                                                 color:
                                                     errors.longitude
-                                                        ? "#c0392b"
-                                                        : "var(--color-text-muted)",
+                                                        ? C.error
+                                                        : C.textMuted,
                                             }}
                                         >
                                             Longitude
@@ -817,8 +778,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             ...labelStyle,
                                             color:
                                                 errors.seating_type
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                         }}
                                     >
                                         Seating Type *
@@ -866,8 +827,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             ...labelStyle,
                                             color:
                                                 errors.capacity
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                         }}
                                     >
                                         Capacity
@@ -917,8 +878,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             ...labelStyle,
                                             color:
                                                 errors.contact_name
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                         }}
                                     >
                                         Contact Name
@@ -956,8 +917,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             ...labelStyle,
                                             color:
                                                 errors.contact_phone
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                         }}
                                     >
                                         Contact Phone
@@ -1001,8 +962,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                             ...labelStyle,
                                             color:
                                                 errors.contact_email
-                                                    ? "#c0392b"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.error
+                                                    : C.textMuted,
                                         }}
                                     >
                                         Contact Email
@@ -1043,8 +1004,8 @@ export default function VenueForm({ venue, flash }: Props) {
                                     style={{
                                         ...labelStyle,
                                         color: errors.notes
-                                            ? "#c0392b"
-                                            : "var(--color-text-muted)",
+                                            ? C.error
+                                            : C.textMuted,
                                     }}
                                 >
                                     Notes
@@ -1111,10 +1072,10 @@ export default function VenueForm({ venue, flash }: Props) {
                                         <div
                                             style={{
                                                 fontFamily:
-                                                    "var(--font-body)",
+                                                    fontBody,
                                                 fontSize: "13px",
                                                 color:
-                                                    "var(--color-text)",
+                                                    C.text,
                                                 fontWeight: 500,
                                             }}
                                         >
@@ -1124,10 +1085,10 @@ export default function VenueForm({ venue, flash }: Props) {
                                         <div
                                             style={{
                                                 fontFamily:
-                                                    "var(--font-body)",
+                                                    fontBody,
                                                 fontSize: "11px",
                                                 color:
-                                                    "var(--color-text-muted)",
+                                                    C.textMuted,
                                                 marginTop: 2,
                                             }}
                                         >
@@ -1136,7 +1097,7 @@ export default function VenueForm({ venue, flash }: Props) {
                                         </div>
                                     </div>
 
-                                    <Toggle
+                                    <AdminToggle
                                         checked={
                                             data.is_active
                                         }
@@ -1154,10 +1115,10 @@ export default function VenueForm({ venue, flash }: Props) {
                                         padding:
                                             "10px 14px",
                                         background:
-                                            "var(--color-bg-alt)",
+                                            C.bgAlt,
                                         borderRadius:
-                                            "var(--radius-sm)",
-                                        border: "1px solid var(--color-border)",
+                                            "8px",
+                                        border: `1px solid ${C.border}`,
                                         display: "flex",
                                         alignItems:
                                             "center",
@@ -1168,10 +1129,10 @@ export default function VenueForm({ venue, flash }: Props) {
                                     <span
                                         style={{
                                             fontFamily:
-                                                "var(--font-body)",
+                                                fontBody,
                                             fontSize: "11px",
                                             color:
-                                                "var(--color-text-muted)",
+                                                C.textMuted,
                                         }}
                                     >
                                         Status
@@ -1180,7 +1141,7 @@ export default function VenueForm({ venue, flash }: Props) {
                                     <span
                                         style={{
                                             fontFamily:
-                                                "var(--font-body)",
+                                                fontBody,
                                             fontSize: "10px",
                                             letterSpacing:
                                                 "0.1em",
@@ -1188,20 +1149,20 @@ export default function VenueForm({ venue, flash }: Props) {
                                                 "uppercase",
                                             color:
                                                 data.is_active
-                                                    ? "var(--color-success)"
-                                                    : "var(--color-text-muted)",
+                                                    ? C.success
+                                                    : C.textMuted,
                                             background:
                                                 data.is_active
-                                                    ? "rgba(58,125,68,0.08)"
-                                                    : "var(--color-bg)",
+                                                    ? `${C.success}14`
+                                                    : C.bg,
                                             padding:
                                                 "3px 10px",
                                             borderRadius:
-                                                "var(--radius-full)",
+                                                "999px",
                                             border: `1px solid ${
                                                 data.is_active
-                                                    ? "rgba(58,125,68,0.25)"
-                                                    : "var(--color-border)"
+                                                    ? `${C.success}40`
+                                                    : C.border
                                             }`,
                                         }}
                                     >
@@ -1236,11 +1197,11 @@ export default function VenueForm({ venue, flash }: Props) {
                                         aspectRatio:
                                             "16/9",
                                         background:
-                                            "var(--color-bg-alt)",
+                                            C.bgAlt,
                                         border:
-                                            "1px solid var(--color-border)",
+                                            `1px solid ${C.border}`,
                                         borderRadius:
-                                            "var(--radius-sm)",
+                                            "8px",
                                         overflow:
                                             "hidden",
                                         display: "flex",
@@ -1284,7 +1245,7 @@ export default function VenueForm({ venue, flash }: Props) {
                                                     border:
                                                         "1px solid rgba(255,255,255,0.15)",
                                                     borderRadius:
-                                                        "var(--radius-sm)",
+                                                        "8px",
                                                     color: "white",
                                                     cursor:
                                                         "pointer",
@@ -1306,7 +1267,7 @@ export default function VenueForm({ venue, flash }: Props) {
                                                 textAlign:
                                                     "center",
                                                 color:
-                                                    "var(--color-text-muted)",
+                                                    C.textMuted,
                                             }}
                                         >
                                             <div
@@ -1321,7 +1282,7 @@ export default function VenueForm({ venue, flash }: Props) {
                                             <span
                                                 style={{
                                                     fontFamily:
-                                                        "var(--font-body)",
+                                                        fontBody,
                                                     fontSize:
                                                         "11px",
                                                     opacity: 0.5,
@@ -1370,10 +1331,10 @@ export default function VenueForm({ venue, flash }: Props) {
                                 <p
                                     style={{
                                         fontFamily:
-                                            "var(--font-body)",
+                                            fontBody,
                                         fontSize: "10px",
                                         color:
-                                            "var(--color-text-muted)",
+                                            C.textMuted,
                                         margin: 0,
                                         lineHeight: 1.6,
                                     }}

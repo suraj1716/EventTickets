@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AdminLayout from '../AdminLayout';
+import {
+  AdminPageHeader,
+  AdminBtn,
+  C,
+  fontBody,
+  fontMono,
+} from '@/Components/Admin/AdminComponents';
 
 interface VenueSeat {
   id: number;
@@ -58,6 +65,25 @@ interface Props {
   seats: EventSeat[];
 }
 
+const inputStyle: React.CSSProperties = {
+  padding: '7px 12px',
+  fontFamily: fontBody,
+  fontSize: '13px',
+  color: C.text,
+  background: C.bg,
+  border: `1px solid ${C.border}`,
+  borderRadius: '8px',
+  outline: 'none',
+};
+
+const panelStyle: React.CSSProperties = {
+  background: C.surface,
+  border: `1px solid ${C.border}`,
+  borderRadius: '12px',
+  padding: '20px',
+  marginBottom: '20px',
+};
+
 export default function Seats({ eventLeg, venue, seats }: Props) {
   // section_id -> ticket_tier_id ('' means "no price yet")
   const [sectionAssignments, setSectionAssignments] = useState<Record<number, string>>({});
@@ -114,35 +140,30 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
     <AdminLayout>
       <Head title={`Seats — ${eventLeg.venue_name}`} />
 
-      <div className="max-w-6xl">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Event seating</p>
-          <h1 className="text-2xl font-semibold text-white mt-1">
-            Seat map — {eventLeg.venue_name}
-          </h1>
-          <p className="text-sm text-neutral-500 mt-2">
-            The physical seats come from the venue. Prices are set per section, for this
-            event only — the same room can sell for different prices at a different event.
-          </p>
-        </div>
+      <div style={{ maxWidth: 1100 }}>
+        <AdminPageHeader
+          eyebrow="Event seating"
+          title={`Seat map — ${eventLeg.venue_name}`}
+          meta="The physical seats come from the venue. Prices are set per section, for this event only — the same room can sell for different prices at a different event."
+        />
 
         {/* Venue information */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6">
-          <div className="flex items-center justify-between">
+        <div style={panelStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <p className="text-xs text-neutral-500">Venue</p>
-              <h2 className="text-lg font-medium text-white mt-1">
+              <p style={{ fontFamily: fontMono, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: C.textFaint }}>Venue</p>
+              <h2 style={{ fontFamily: fontBody, fontSize: '1.05rem', fontWeight: 500, color: C.text, marginTop: 4 }}>
                 {venue?.name ?? eventLeg.venue_name}
               </h2>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-neutral-500">Venue seats</p>
-              <p className="text-lg font-semibold text-white">{totalVenueSeats}</p>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontFamily: fontMono, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: C.textFaint }}>Venue seats</p>
+              <p style={{ fontSize: '1.1rem', fontWeight: 700, color: C.text }}>{totalVenueSeats}</p>
             </div>
           </div>
 
           {!venue && (
-            <div className="mt-4 p-3 rounded-lg bg-red-950/30 border border-red-900 text-sm text-red-400">
+            <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: '8px', background: 'rgba(224,133,133,0.08)', border: `1px solid ${C.error}40`, fontSize: '13px', color: C.error }}>
               No venue is assigned to this event leg. Select a venue before configuring seats.
             </div>
           )}
@@ -150,28 +171,31 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
 
         {/* Per-section pricing + import */}
         {venue && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-medium text-white mb-1">Price each section</h2>
-            <p className="text-sm text-neutral-500 mb-4">
+          <div style={panelStyle}>
+            <h2 style={{ fontSize: '13px', fontWeight: 600, color: C.text, marginBottom: 4 }}>Price each section</h2>
+            <p style={{ fontSize: '13px', color: C.textMuted, marginBottom: 16 }}>
               Pick which ticket tier sells each section. A section left as "No price yet"
               still shows up on the seat map but stays unsellable until you assign one.
             </p>
 
             {eventLeg.ticket_tiers.length === 0 ? (
-              <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-900 text-sm text-amber-400 mb-4">
+              <div style={{ padding: '12px 14px', borderRadius: '8px', background: 'rgba(255,182,39,0.08)', border: `1px solid ${C.amber}40`, fontSize: '13px', color: C.amber, marginBottom: 16 }}>
                 This event has no ticket tiers yet — add at least one before assigning
                 section pricing.
               </div>
             ) : (
-              <div className="space-y-2 mb-5">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {venue.sections.map((section) => (
                   <div
                     key={section.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2.5"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+                      borderRadius: '8px', border: `1px solid ${C.border}`, background: C.bg, padding: '10px 12px',
+                    }}
                   >
                     <div>
-                      <p className="text-sm text-white">{section.name}</p>
-                      <p className="text-xs text-neutral-600">
+                      <p style={{ fontSize: '13px', color: C.text }}>{section.name}</p>
+                      <p style={{ fontSize: '11px', color: C.textFaint }}>
                         {section.seats.length} seats
                         {section.code ? ` · ${section.code}` : ''}
                       </p>
@@ -180,7 +204,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                     <select
                       value={sectionAssignments[section.id] ?? ''}
                       onChange={(e) => setAssignment(section.id, e.target.value)}
-                      className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200"
+                      style={inputStyle}
                     >
                       <option value="">No price yet</option>
                       {eventLeg.ticket_tiers.map((tier) => (
@@ -194,41 +218,37 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-6 pt-4 border-t border-neutral-800">
-              <p className="text-sm text-neutral-500">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, paddingTop: 16, borderTop: `1px dashed ${C.borderDashed}` }}>
+              <p style={{ fontSize: '13px', color: C.textMuted }}>
                 Copies the venue's sections and seats into this event with the pricing
                 above.
               </p>
-              <button
-                type="button"
-                onClick={importVenueSeats}
-                className="shrink-0 px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200"
-              >
+              <AdminBtn onClick={importVenueSeats}>
                 {seats.length > 0 ? 'Re-import venue seats' : 'Import venue seats'}
-              </button>
+              </AdminBtn>
             </div>
           </div>
         )}
 
         {/* Event seat map */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-800 flex items-center justify-between">
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: `1px dashed ${C.borderDashed}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h2 className="text-sm font-medium text-white">Event seat map</h2>
-              <p className="text-xs text-neutral-500 mt-1">{seats.length} seats configured</p>
+              <h2 style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>Event seat map</h2>
+              <p style={{ fontSize: '11px', color: C.textFaint, marginTop: 4 }}>{seats.length} seats configured</p>
             </div>
           </div>
 
           {seats.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-3xl mb-3">💺</div>
-              <h3 className="text-white font-medium">No event seats</h3>
-              <p className="text-sm text-neutral-500 mt-1">
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 12 }}>💺</div>
+              <h3 style={{ color: C.text, fontWeight: 500 }}>No event seats</h3>
+              <p style={{ fontSize: '13px', color: C.textMuted, marginTop: 4 }}>
                 Import the seating map from the venue.
               </p>
             </div>
           ) : (
-            <div className="p-5">
+            <div style={{ padding: 20 }}>
               {venue?.sections.map((section) => {
                 const sectionSeats = seats.filter((eventSeat) => {
                   const venueSeat = section.seats.find(
@@ -242,25 +262,25 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                 const unpricedCount = sectionSeats.filter((s) => !s.ticket_tier_id).length;
 
                 return (
-                  <div key={section.id} className="mb-8 last:mb-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-sm font-medium text-white">{section.name}</h3>
+                  <div key={section.id} style={{ marginBottom: 32 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                      <h3 style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{section.name}</h3>
                       {section.code && (
-                        <span className="text-xs text-neutral-600">{section.code}</span>
+                        <span style={{ fontSize: '11px', color: C.textFaint }}>{section.code}</span>
                       )}
-                      <span className="text-xs text-neutral-600">
+                      <span style={{ fontSize: '11px', color: C.textFaint }}>
                         {sectionSeats.length} seats
                       </span>
                     </div>
 
-                    <p className="text-xs mb-3">
+                    <p style={{ fontSize: '11px', marginBottom: 12 }}>
                       {unpricedCount > 0 ? (
-                        <span className="text-amber-500">
+                        <span style={{ color: C.amber }}>
                           {unpricedCount} seat{unpricedCount === 1 ? '' : 's'} unpriced —
                           not sellable yet
                         </span>
                       ) : (
-                        <span className="text-neutral-600">
+                        <span style={{ color: C.textFaint }}>
                           {sectionSeats[0]?.ticket_tier?.name} · $
                           {sectionSeats[0]?.ticket_tier
                             ? parseFloat(sectionSeats[0].ticket_tier.price).toFixed(2)
@@ -269,42 +289,26 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                       )}
                     </p>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {sectionSeats.map((seat) => {
                         const unavailable = seat.status !== 'available';
                         const unpriced = !seat.ticket_tier_id;
 
                         return (
-                          <div key={seat.id} className="group relative">
-                            <div
-                              className={`px-3 py-2 rounded-lg border text-xs ${
-                                unavailable
-                                  ? 'bg-neutral-950 border-neutral-800 text-neutral-600'
-                                  : unpriced
-                                    ? 'bg-neutral-950 border-amber-900/60 text-amber-500'
-                                    : 'bg-neutral-800 border-neutral-700 text-neutral-300'
-                              }`}
-                              title={
-                                unavailable
-                                  ? `${seat.status} — cannot be removed`
-                                  : unpriced
-                                    ? 'No ticket tier assigned yet'
-                                    : seat.ticket_tier?.name
-                              }
-                            >
-                              {seat.label}
-                            </div>
-
-                            {!unavailable && (
-                              <button
-                                type="button"
-                                onClick={() => deleteSeat(seat.id)}
-                                className="absolute -top-2 -right-2 hidden group-hover:block w-5 h-5 rounded-full bg-red-500 text-white text-xs"
-                              >
-                                ×
-                              </button>
-                            )}
-                          </div>
+                          <SeatChip
+                            key={seat.id}
+                            label={seat.label}
+                            unavailable={unavailable}
+                            unpriced={unpriced}
+                            title={
+                              unavailable
+                                ? `${seat.status} — cannot be removed`
+                                : unpriced
+                                  ? 'No ticket tier assigned yet'
+                                  : seat.ticket_tier?.name
+                            }
+                            onDelete={() => deleteSeat(seat.id)}
+                          />
                         );
                       })}
                     </div>
@@ -316,5 +320,56 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+function SeatChip({
+  label,
+  unavailable,
+  unpriced,
+  title,
+  onDelete,
+}: {
+  label: string;
+  unavailable: boolean;
+  unpriced: boolean;
+  title?: string;
+  onDelete: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const style: React.CSSProperties = unavailable
+    ? { background: C.bg, border: `1px solid ${C.border}`, color: C.textFaint }
+    : unpriced
+      ? { background: C.bg, border: `1px solid ${C.amber}60`, color: C.amber }
+      : { background: C.bgAlt, border: `1px solid ${C.border}`, color: C.textMuted };
+
+  return (
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        title={title}
+        style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '12px', ...style }}
+      >
+        {label}
+      </div>
+
+      {!unavailable && hovered && (
+        <button
+          type="button"
+          onClick={onDelete}
+          style={{
+            position: 'absolute', top: -8, right: -8, width: 20, height: 20,
+            borderRadius: '50%', background: C.error, color: C.textInverse,
+            fontSize: '12px', lineHeight: '20px', border: 'none', cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
   );
 }

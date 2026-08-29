@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAdminForm, inputClass } from "@/Components/Admin/useAdminForm";
-import { AdminBtn, AdminPageHeader, Icons } from "@/Components/Admin/AdminComponents";
+import { AdminBtn, AdminPageHeader, Icons, C, fontBody, fontDisplay } from "@/Components/Admin/AdminComponents";
 
 /* ── Types ── */
 interface MediaItem { id: number; url: string; thumb: string; name: string; size: string; }
@@ -157,29 +157,29 @@ export default function Form({
   /* ── Shared styles ── */
   const inp: React.CSSProperties = {
     width: "100%", padding: "9px 12px",
-    fontFamily: "var(--font-body)", fontSize: "13px",
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-sm)", color: "var(--color-text)",
+    fontFamily: fontBody, fontSize: "13px",
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    borderRadius: "8px", color: C.text,
     outline: "none",
   };
   const lbl: React.CSSProperties = {
-    display: "block", fontFamily: "var(--font-body)",
+    display: "block", fontFamily: fontBody,
     fontSize: "10px", fontWeight: 500, letterSpacing: "0.15em",
-    textTransform: "uppercase", color: "var(--color-text-muted)",
+    textTransform: "uppercase", color: C.textMuted,
     marginBottom: "6px",
   };
-  const err: React.CSSProperties = { fontSize: "11px", color: "var(--color-error)", marginTop: "4px" };
+  const err: React.CSSProperties = { fontSize: "11px", color: C.error, marginTop: "4px" };
 
   return (
     <AdminLayout>
       <Head title={isEdit ? `Edit: ${product!.title}` : "New Product"} />
 
       <style>{`
-        .apf-page { font-family: var(--font-body); }
+        .apf-page { font-family: ${fontBody}; }
 
         .apf-header {
-          background: var(--color-bg-dark);
+          background: ${C.bg};
           padding: 28px 28px;
           display: flex; align-items: center; justify-content: space-between;
           flex-wrap: wrap; gap: 12px;
@@ -187,54 +187,54 @@ export default function Form({
         }
         .apf-header-back {
           display: flex; align-items: center; gap: 8px;
-          font-family: var(--font-body); font-size: 11px;
+          font-family: ${fontBody}; font-size: 11px;
           letter-spacing: 0.1em; text-transform: uppercase;
           color: rgba(255,255,255,0.45); text-decoration: none;
-          transition: color var(--transition-fast);
+          transition: color 150ms ease;
         }
         .apf-header-back:hover { color: white; }
         .apf-header-title {
-          font-family: var(--font-display); font-size: 1.75rem;
+          font-family: ${fontDisplay}; font-size: 1.75rem;
           font-weight: 300; color: white;
         }
-        .apf-header-title em { font-style: italic; color: var(--color-accent-light); }
+        .apf-header-title em { font-style: italic; color: ${C.amber}; }
 
         .apf-tabs {
           display: flex;
-          background: var(--color-surface);
-          border-bottom: 1px solid var(--color-border);
+          background: ${C.surface};
+          border-bottom: 1px solid ${C.border};
           margin: 0 -28px 28px;
           padding: 0 28px;
           overflow-x: auto; gap: 0;
         }
         .apf-tab {
           padding: 14px 18px;
-          font-family: var(--font-body); font-size: 11px; font-weight: 400;
+          font-family: ${fontBody}; font-size: 11px; font-weight: 400;
           letter-spacing: 0.1em; text-transform: uppercase;
-          color: var(--color-text-muted); cursor: pointer;
+          color: ${C.textMuted}; cursor: pointer;
           border-bottom: 2px solid transparent;
-          transition: all var(--transition-fast); white-space: nowrap;
+          transition: all 150ms ease; white-space: nowrap;
           background: none; border-top: none; border-left: none; border-right: none;
         }
-        .apf-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-        .apf-tab:hover:not(.active) { color: var(--color-text); }
+        .apf-tab.active { color: ${C.amber}; border-bottom-color: ${C.amber}; }
+        .apf-tab:hover:not(.active) { color: ${C.text}; }
         .apf-tab:disabled { opacity: 0.35; cursor: not-allowed; }
 
         .apf-card {
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
+          background: ${C.surface};
+          border: 1px solid ${C.border};
+          border-radius: 12px;
           overflow: hidden; margin-bottom: 20px;
         }
         .apf-card-header {
           padding: 14px 20px;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-bg-alt);
+          border-bottom: 1px solid ${C.border};
+          background: ${C.bgAlt};
           display: flex; align-items: center; justify-content: space-between;
         }
         .apf-card-title {
-          font-family: var(--font-display); font-size: var(--text-xl);
-          font-weight: 400; color: var(--color-text);
+          font-family: ${fontDisplay}; font-size: 1.25rem;
+          font-weight: 400; color: ${C.text};
         }
         .apf-card-body { padding: 20px; }
 
@@ -246,90 +246,90 @@ export default function Form({
           gap: 12px; margin-bottom: 16px;
         }
         .apf-img-item {
-          position: relative; border-radius: var(--radius-sm);
+          position: relative; border-radius: 8px;
           overflow: hidden; aspect-ratio: 1;
-          border: 1px solid var(--color-border); background: var(--color-bg-alt);
+          border: 1px solid ${C.border}; background: ${C.bgAlt};
         }
         .apf-img-item img { width: 100%; height: 100%; object-fit: cover; }
         .apf-img-delete {
           position: absolute; top: 4px; right: 4px;
           width: 22px; height: 22px; border-radius: 50%;
-          background: rgba(192,57,43,0.85); color: white;
+          background: ${C.error}D9; color: white;
           border: none; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          opacity: 0; transition: opacity var(--transition-fast);
+          opacity: 0; transition: opacity 150ms ease;
         }
         .apf-img-item:hover .apf-img-delete { opacity: 1; }
         .apf-img-meta {
-          font-family: var(--font-body); font-size: 10px;
-          color: var(--color-text-light); padding: 4px 6px;
-          background: var(--color-surface); border-top: 1px solid var(--color-border);
+          font-family: ${fontBody}; font-size: 10px;
+          color: ${C.textFaint}; padding: 4px 6px;
+          background: ${C.surface}; border-top: 1px solid ${C.border};
         }
         .apf-upload-zone {
-          border: 2px dashed var(--color-border); border-radius: var(--radius-md);
+          border: 2px dashed ${C.border}; border-radius: 12px;
           padding: 32px; text-align: center; cursor: pointer;
-          transition: all var(--transition-fast);
+          transition: all 150ms ease;
         }
-        .apf-upload-zone:hover { border-color: var(--color-primary); background: rgba(45,80,22,0.03); }
+        .apf-upload-zone:hover { border-color: ${C.amber}; background: ${C.amber}0A; }
 
         .apf-vtype {
-          border: 1px solid var(--color-border); border-radius: var(--radius-md);
+          border: 1px solid ${C.border}; border-radius: 12px;
           overflow: hidden; margin-bottom: 12px;
         }
         .apf-vtype-header {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 12px 16px; background: var(--color-bg-alt);
-          border-bottom: 1px solid var(--color-border); cursor: pointer;
+          padding: 12px 16px; background: ${C.bgAlt};
+          border-bottom: 1px solid ${C.border}; cursor: pointer;
         }
         .apf-vtype-body { padding: 16px; }
 
         .apf-opt-row {
           display: grid; grid-template-columns: 1fr 120px 32px;
           gap: 10px; align-items: center;
-          padding: 8px 0; border-bottom: 1px solid var(--color-border);
+          padding: 8px 0; border-bottom: 1px solid ${C.border};
         }
         .apf-opt-row:last-child { border-bottom: none; }
 
         .apf-var-row {
           display: grid; grid-template-columns: 1fr 120px 120px 32px;
           gap: 10px; align-items: center;
-          padding: 10px 0; border-bottom: 1px solid var(--color-border);
+          padding: 10px 0; border-bottom: 1px solid ${C.border};
         }
         .apf-var-row:last-child { border-bottom: none; }
 
         .apf-btn-row {
           display: flex; align-items: center; justify-content: flex-end;
           gap: 10px; padding-top: 20px;
-          border-top: 1px solid var(--color-border); margin-top: 20px;
+          border-top: 1px solid ${C.border}; margin-top: 20px;
         }
 
         .apf-btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 9px 18px;
-          font-family: var(--font-body); font-size: 11px; font-weight: 500;
+          font-family: ${fontBody}; font-size: 11px; font-weight: 500;
           letter-spacing: 0.1em; text-transform: uppercase;
-          border-radius: var(--radius-sm); cursor: pointer;
-          transition: all var(--transition-fast); border: 1px solid transparent;
+          border-radius: 8px; cursor: pointer;
+          transition: all 150ms ease; border: 1px solid transparent;
         }
-        .apf-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-        .apf-btn.primary:hover { background: var(--color-primary-light); }
+        .apf-btn.primary { background: ${C.amber}; color: white; border-color: ${C.amber}; }
+        .apf-btn.primary:hover { background: ${C.amberHover}; }
         .apf-btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
-        .apf-btn.accent { background: var(--color-accent); color: var(--color-bg-dark); border-color: var(--color-accent); }
-        .apf-btn.accent:hover { background: var(--color-accent-dark); }
-        .apf-btn.ghost { background: transparent; color: var(--color-text-muted); border-color: var(--color-border); }
-        .apf-btn.ghost:hover { background: var(--color-bg-alt); }
-        .apf-btn.danger { background: transparent; color: var(--color-error); border-color: var(--color-error); }
-        .apf-btn.danger:hover { background: rgba(192,57,43,0.06); }
+        .apf-btn.accent { background: ${C.amber}; color: ${C.bg}; border-color: ${C.amber}; }
+        .apf-btn.accent:hover { background: ${C.amberDark}; }
+        .apf-btn.ghost { background: transparent; color: ${C.textMuted}; border-color: ${C.border}; }
+        .apf-btn.ghost:hover { background: ${C.bgAlt}; }
+        .apf-btn.danger { background: transparent; color: ${C.error}; border-color: ${C.error}; }
+        .apf-btn.danger:hover { background: ${C.error}0F; }
         .apf-btn.sm { padding: 6px 12px; font-size: 10px; }
         .apf-btn.icon-only { padding: 6px; width: 30px; height: 30px; justify-content: center; }
 
-        .apf-flash { padding: 10px 16px; font-size: 13px; border-radius: var(--radius-sm); border: 1px solid; margin-bottom: 16px; }
-        .apf-flash.success { background: rgba(58,125,68,0.08); color: var(--color-success); border-color: rgba(58,125,68,0.2); }
+        .apf-flash { padding: 10px 16px; font-size: 13px; border-radius: 8px; border: 1px solid; margin-bottom: 16px; }
+        .apf-flash.success { background: ${C.success}14; color: ${C.success}; border-color: ${C.success}33; }
 
         .apf-note {
-          font-family: var(--font-body); font-size: 12px; color: var(--color-text-muted);
-          padding: 12px 16px; background: var(--color-bg-alt);
-          border-radius: var(--radius-sm); border-left: 3px solid var(--color-accent);
+          font-family: ${fontBody}; font-size: 12px; color: ${C.textMuted};
+          padding: 12px 16px; background: ${C.bgAlt};
+          border-radius: 8px; border-left: 3px solid ${C.amber};
         }
 
         @media (max-width: 640px) {
@@ -348,7 +348,7 @@ export default function Form({
                   eyebrow="Catalogue"
                   title={isEdit
                     ? <>Edit <em style={{ fontStyle: "italic" }}>{product!.title}</em></>
-                    : "New Category"
+                    : "New Product"
                   }
                   action={
                     <AdminBtn as="a" href={route("admin.products.index")} variant="ghost">
@@ -388,7 +388,7 @@ export default function Form({
                   <div className="apf-grid-2" style={{ marginBottom: 16 }}>
 
                     <div className="apf-span-2">
-                      <label style={{ ...lbl, color: errors.title ? "#c0392b" : "var(--color-text-muted)" }}>Title *</label>
+                      <label style={{ ...lbl, color: errors.title ? C.error : C.textMuted }}>Title *</label>
                       <input style={inputClass(errors, "title")} value={data.title}
                         onChange={(e) => set("title", e.target.value)}
                         placeholder="Product name" />
@@ -396,7 +396,7 @@ export default function Form({
                     </div>
 
                     <div className="apf-span-2">
-                      <label style={{ ...lbl, color: errors.slug ? "#c0392b" : "var(--color-text-muted)" }}>Slug *</label>
+                      <label style={{ ...lbl, color: errors.slug ? C.error : C.textMuted }}>Slug *</label>
                       <input style={inputClass(errors, "slug")} value={data.slug}
                         onChange={(e) => {
                           setSlugManual(true);
@@ -407,12 +407,12 @@ export default function Form({
                           );
                         }}
                         placeholder="url-friendly-name" />
-                      {!slugManual && <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>Auto-generated from title. Edit to customise.</p>}
+                      {!slugManual && <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Auto-generated from title. Edit to customise.</p>}
                       {errors.slug && <p style={err}>{errors.slug}</p>}
                     </div>
 
                     <div className="apf-span-2">
-                      <label style={{ ...lbl, color: errors.description ? "#c0392b" : "var(--color-text-muted)" }}>Description *</label>
+                      <label style={{ ...lbl, color: errors.description ? C.error : C.textMuted }}>Description *</label>
                       <textarea style={{ ...inputClass(errors, "description"), minHeight: 110, resize: "vertical" }}
                         value={data.description}
                         onChange={(e) => set("description", e.target.value)}
@@ -421,21 +421,21 @@ export default function Form({
                     </div>
 
                     <div>
-                      <label style={{ ...lbl, color: errors.price ? "#c0392b" : "var(--color-text-muted)" }}>Price (AUD) *</label>
+                      <label style={{ ...lbl, color: errors.price ? C.error : C.textMuted }}>Price (AUD) *</label>
                       <input style={inputClass(errors, "price")} type="number" step="0.01" min="0"
                         value={data.price} onChange={(e) => set("price", e.target.value)} />
                       {errors.price && <p style={err}>{errors.price}</p>}
                     </div>
 
                     <div>
-                      <label style={{ ...lbl, color: errors.quantity ? "#c0392b" : "var(--color-text-muted)" }}>Quantity *</label>
+                      <label style={{ ...lbl, color: errors.quantity ? C.error : C.textMuted }}>Quantity *</label>
                       <input style={inputClass(errors, "quantity")} type="number" min="0"
                         value={data.quantity} onChange={(e) => set("quantity", e.target.value)} />
                       {errors.quantity && <p style={err}>{errors.quantity}</p>}
                     </div>
 
                     <div>
-                      <label style={{ ...lbl, color: errors.department_id ? "#c0392b" : "var(--color-text-muted)" }}>Department *</label>
+                      <label style={{ ...lbl, color: errors.department_id ? C.error : C.textMuted }}>Department *</label>
                       <select style={inputClass(errors, "department_id")} value={data.department_id}
                         onChange={(e) => { set("department_id", e.target.value); set("category_id", ""); }}>
                         <option value="">Select department</option>
@@ -445,7 +445,7 @@ export default function Form({
                     </div>
 
                     <div>
-                      <label style={{ ...lbl, color: errors.category_id ? "#c0392b" : "var(--color-text-muted)" }}>Category *</label>
+                      <label style={{ ...lbl, color: errors.category_id ? C.error : C.textMuted }}>Category *</label>
                       <select style={inputClass(errors, "category_id")} value={data.category_id}
                         onChange={(e) => set("category_id", e.target.value)}
                         disabled={!data.department_id}>
@@ -489,7 +489,7 @@ export default function Form({
             <div className="apf-card">
               <div className="apf-card-header">
                 <span className="apf-card-title">Product Images</span>
-                <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                <span style={{ fontSize: 12, color: C.textMuted }}>
                   {images.length} image{images.length !== 1 ? "s" : ""}
                 </span>
               </div>
@@ -510,11 +510,11 @@ export default function Form({
                 <label className="apf-upload-zone">
                   <input type="file" multiple accept="image/*" style={{ display: "none" }}
                     onChange={(e) => handleImageUpload(e.target.files)} />
-                  <Upload size={26} style={{ color: "var(--color-text-light)", marginBottom: 8 }} />
-                  <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-text-muted)" }}>
+                  <Upload size={26} style={{ color: C.textFaint, marginBottom: 8 }} />
+                  <p style={{ fontFamily: fontBody, fontSize: 13, color: C.textMuted }}>
                     {uploadingImages ? "Uploading…" : "Click or drag images here"}
                   </p>
-                  <p style={{ fontSize: 11, color: "var(--color-text-light)", marginTop: 4 }}>
+                  <p style={{ fontSize: 11, color: C.textFaint, marginTop: 4 }}>
                     PNG, JPG, WEBP · max 4MB each
                   </p>
                 </label>
@@ -532,9 +532,9 @@ export default function Form({
               {vtypes.map((vt, vi) => (
                 <div className="apf-vtype" key={vi}>
                   <div className="apf-vtype-header" onClick={() => updateVType(vi, "_open", !vt._open)}>
-                    <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 400, color: "var(--color-text)" }}>
+                    <span style={{ fontFamily: fontDisplay, fontSize: 15, fontWeight: 400, color: C.text }}>
                       {vt.name || `Variation Type ${vi + 1}`}
-                      <span style={{ fontSize: 11, color: "var(--color-text-light)", marginLeft: 8 }}>
+                      <span style={{ fontSize: 11, color: C.textFaint, marginLeft: 8 }}>
                         ({vt.options.length} options)
                       </span>
                     </span>
@@ -619,8 +619,8 @@ export default function Form({
               {vars.length === 0 ? (
                 <div style={{
                   textAlign: "center", padding: "40px 20px",
-                  fontFamily: "var(--font-display)", fontSize: "var(--text-xl)",
-                  fontWeight: 300, color: "var(--color-text-muted)",
+                  fontFamily: fontDisplay, fontSize: "1.25rem",
+                  fontWeight: 300, color: C.textMuted,
                 }}>
                   No variations yet — generate combinations or add manually.
                 </div>
@@ -643,10 +643,10 @@ export default function Form({
                           {v.variation_type_option_ids.map((oid) => (
                             <span key={oid} style={{
                               display: "inline-flex", padding: "2px 8px",
-                              background: "var(--color-bg-alt)",
-                              border: "1px solid var(--color-border)",
-                              borderRadius: "var(--radius-full)",
-                              fontSize: 11, color: "var(--color-text-muted)",
+                              background: C.bgAlt,
+                              border: "1px solid ${C.border}",
+                              borderRadius: "999px",
+                              fontSize: 11, color: C.textMuted,
                             }}>
                               {getOptionName(oid)}
                             </span>
