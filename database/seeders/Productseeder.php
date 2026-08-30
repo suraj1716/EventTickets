@@ -94,12 +94,13 @@ class ProductSeeder extends Seeder
 
         foreach ($products as $data) {
             try {
-                $this->seedProduct(
-                    $data,
-                    $dept,
-                    $eventCategory,
-                    $vendorUserId
-                );
+               $this->seedProduct(
+    $data,
+    $event,
+    $dept,
+    $eventCategory,
+    $vendorUserId
+);
             } catch (Throwable $e) {
                 $this->command->warn(
                     "Failed to seed '{$data['title']}': {$e->getMessage()} — continuing with the rest."
@@ -108,30 +109,32 @@ class ProductSeeder extends Seeder
         }
     }
 
-    private function seedProduct(
-        array $data,
-        Department $dept,
-        $eventCategory,
-        int $vendorUserId
-    ): void {
+  private function seedProduct(
+    array $data,
+    Event $event,
+    Department $dept,
+    $eventCategory,
+    int $vendorUserId
+): void {
         $slug = Str::slug($data['title']);
 
-        $product = Product::firstOrCreate(
-            ['slug' => $slug],
-            [
-                'title' => $data['title'],
-                'description' => $data['title'] . ' — official event merchandise.',
-                'price' => $data['price'],
-                'category_id' => $eventCategory->id,
-                'department_id' => $dept->id,
-                'status' => 'published',
-                'highlight' => $data['highlight'],
-                'product_type' => 'product',
-                'require_additional_file' => false,
-                'created_by' => $vendorUserId,
-                'updated_by' => $vendorUserId,
-            ]
-        );
+        $product = Product::updateOrCreate(
+    ['slug' => $slug],
+    [
+        'title' => $data['title'],
+        'description' => $data['title'] . ' — official event merchandise.',
+        'price' => $data['price'],
+        'category_id' => $eventCategory->id,
+        'event_id' => $event->id,
+        'department_id' => $dept->id,
+        'status' => 'published',
+        'highlight' => $data['highlight'],
+        'product_type' => 'product',
+        'require_additional_file' => false,
+        'created_by' => $vendorUserId,
+        'updated_by' => $vendorUserId,
+    ]
+);
 
         if ($product->wasRecentlyCreated || $product->getMedia('images')->isEmpty()) {
             $imagePath = $this->findLocalImage($data['title'], forceRefresh: true);

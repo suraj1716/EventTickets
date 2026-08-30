@@ -137,7 +137,7 @@ export default function AuthenticatedLayout({
         target="_blank"
         rel="noopener noreferrer"
         className={`
-    fixed z-[9000] flex items-center gap-2
+    fixed z-[900] flex items-center gap-2
     bottom-24 right-6 sm:bottom-24 lg:bottom-28
     bg-[var(--color-accent-light)] text-green-950 px-4 py-2 rounded-full shadow-lg
     hover:bg-[var(--color-accent-dark)] transition-all
@@ -158,7 +158,7 @@ export default function AuthenticatedLayout({
         onClick={scrollToTop}
         aria-label="Go to top"
         className={`
-    fixed z-[9000]
+    fixed z-[900]
     bottom-6 right-6 sm:bottom-8 lg:bottom-10
     bg-[var(--color-accent-light)] text-green-950 p-3 rounded-full shadow-lg
     hover:bg-[var(--color-accent-dark)] transition

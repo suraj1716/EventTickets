@@ -115,4 +115,8 @@ public function media()
             'published_at' => now(),
         ]);
     }
+    public function products(): HasMany
+{
+    return $this->hasMany(Product::class);
+}
 }

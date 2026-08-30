@@ -132,22 +132,50 @@ class CartService
             ]);
         }
     }
+public function setEventMerchCartItems(int $eventId, array $lines): void
+{
+    if (! Auth::check()) {
+        abort(401, 'You must be logged in to buy merchandise.');
+    }
 
+    $eventProductIds = Product::where('event_id', $eventId)->pluck('id');
+
+    // Wipe any stale product selections for this event before adding
+    // the current ones — same buy-now replace semantics as tickets,
+    // so abandoned attempts don't silently stack.
+    CartItem::where('user_id', Auth::id())
+        ->where('item_type', 'product')
+        ->whereIn('product_id', $eventProductIds)
+        ->delete();
+
+    foreach ($lines as $line) {
+        $product = Product::findOrFail($line['product_id']);
+
+        abort_unless(
+            $product->event_id === $eventId,
+            422,
+            'Product does not belong to this event.'
+        );
+
+        $this->addItemToCart($product, $line['quantity'], $line['option_ids'] ?? []);
+    }
+}
     // ── EXISTING PRODUCT METHODS (unchanged) ─────────────────────
 
     public function addItemToCart(Product $product, int $quantity = 1, $optionIds = null, bool $designer = false)
     {
-        $optionIds = $this->normalizeOptionIds($optionIds ?? request()->input('option_ids'));
-        if (empty($optionIds)) {
-            $optionIds = $product->getFirstOptionsMap();
-        }
+       $optionIds = $this->normalizeOptionIds($optionIds ?? request()->input('option_ids'));
+    if (empty($optionIds)) {
+        $optionIds = $product->getFirstOptionsMap();
+    }
+    ksort($optionIds);
 
-        ksort($optionIds);
+    // Was: trusted request()->input('price') if present. That let a
+    // client submit any price for any product/variant. Compute it
+    // server-side from the product's own variation pricing instead.
+    $price = $product->getPriceForOptions($optionIds);
 
-        $submittedPrice = request()->input('price');
-        $price = (is_numeric($submittedPrice) && $submittedPrice > 0) ? $submittedPrice : $product->price;
-
-        $designer = request()->boolean('designer', false);
+    $designer = request()->boolean('designer', false);
 
         $attachmentPath = null;
         $attachmentFileName = null;

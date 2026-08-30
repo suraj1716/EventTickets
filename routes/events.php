@@ -89,7 +89,8 @@ Route::get('/events/watchlist/verify/{token}', [EventWatchlistController::class,
 Route::middleware('auth')->post('/checkout', [TicketCheckoutController::class, 'store'])
     ->name('checkout.store');
 
-
+Route::middleware('auth')->post('/events/{event}/cart', [TicketCheckoutController::class, 'addToCart'])
+    ->name('events.cart.add');
 
 /*
 |--------------------------------------------------------------------------

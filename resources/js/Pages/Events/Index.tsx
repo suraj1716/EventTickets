@@ -10,10 +10,10 @@
 // Fonts used (loaded via <Head> below): Anton (marquee display),
 // Manrope (UI body), IBM Plex Mono (ticket/price details).
 
-import { useMemo, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import GuestLayout from '@/Layouts/GuestLayout';
+import { useMemo, useState } from "react";
+import { Head, Link, router } from "@inertiajs/react";
+import { motion, AnimatePresence } from "framer-motion";
+import GuestLayout from "@/Layouts/GuestLayout";
 import type {
   Category,
   Event,
@@ -21,8 +21,8 @@ import type {
   EventType,
   Paginated,
   SortOption,
-} from '@/types';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+} from "@/types";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 
 interface Props {
   events: Paginated<Event>;
@@ -53,16 +53,12 @@ const cardVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
 };
 
-export default function EventsIndex({
-  events,
-  filters,
-  categories,
-}: Props) {
-    console.log('events:', events);
-  console.log('first event:', events?.data?.[0]);
-  console.log('first event media:', events?.data?.[0]?.media);
+export default function EventsIndex({ events, filters, categories }: Props) {
+  console.log("events:", events);
+  console.log("first event:", events?.data?.[0]);
+  console.log("first event media:", events?.data?.[0]?.media);
   const [local, setLocal] = useState<EventSearchFilters>(filters);
-console.log('events',events)
+  console.log("events", events);
   function apply(next: Partial<EventSearchFilters>) {
     const merged = {
       ...local,
@@ -71,7 +67,7 @@ console.log('events',events)
 
     setLocal(merged);
 
-    router.get(route('events.index'), merged, {
+    router.get(route("events.index"), merged, {
       preserveState: true,
       replace: true,
       preserveScroll: true,
@@ -91,13 +87,13 @@ console.log('events',events)
   function clearFilters() {
     setLocal({});
     router.get(
-      route('events.index'),
+      route("events.index"),
       {},
       {
         preserveState: true,
         replace: true,
         preserveScroll: true,
-      }
+      },
     );
   }
 
@@ -106,10 +102,10 @@ console.log('events',events)
       return value.length > 0;
     }
 
-    return value !== undefined && value !== null && value !== '';
+    return value !== undefined && value !== null && value !== "";
   });
 
-  const heroWords = ['Find', 'your', 'next', 'night', 'out.'];
+  const heroWords = ["Find", "your", "next", "night", "out."];
 
   return (
     <AuthenticatedLayout>
@@ -123,8 +119,8 @@ console.log('events',events)
 
       <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
         {/* Hero — marquee */}
-                <section className="relative overflow-hidden border-b border-[#26232E] min-h-[800px] sm:min-h-[600px] lg:min-h-[550px] flex items-center">
-                   <video
+        <section className="relative overflow-hidden border-b border-[#26232E] min-h-[800px] sm:min-h-[600px] lg:min-h-[550px] flex items-center">
+          <video
             autoPlay
             muted
             loop
@@ -145,7 +141,11 @@ console.log('events',events)
             >
               <motion.span
                 animate={{ opacity: [1, 0.25, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="inline-block h-1.5 w-1.5 rounded-full bg-[#FFB627]"
               />
               Box office — open now
@@ -158,7 +158,7 @@ console.log('events',events)
                   initial={{ opacity: 0, y: 44 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.65, delay: 0.08 * i, ease: EASE }}
-                  className={i === heroWords.length - 1 ? 'text-[#FFB627]' : ''}
+                  className={i === heroWords.length - 1 ? "text-[#FFB627]" : ""}
                 >
                   {word}
                 </motion.span>
@@ -196,7 +196,7 @@ console.log('events',events)
 
                   <input
                     type="text"
-                    value={local.search ?? ''}
+                    value={local.search ?? ""}
                     onChange={(e) =>
                       setLocal((prev) => ({
                         ...prev,
@@ -204,7 +204,7 @@ console.log('events',events)
                       }))
                     }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         apply({ search: local.search });
                       }
                     }}
@@ -266,7 +266,7 @@ console.log('events',events)
                 <FilterSection title="Location">
                   <input
                     type="text"
-                    value={local.city ?? ''}
+                    value={local.city ?? ""}
                     onChange={(e) =>
                       setLocal((prev) => ({
                         ...prev,
@@ -274,7 +274,7 @@ console.log('events',events)
                       }))
                     }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         apply({ city: local.city });
                       }
                     }}
@@ -288,9 +288,9 @@ console.log('events',events)
                 <FilterSection title="Genre">
                   <div className="flex flex-wrap gap-2">
                     {categories.map((category) => {
-                      const active = (
-                        local.category_ids ?? []
-                      ).includes(category.id);
+                      const active = (local.category_ids ?? []).includes(
+                        category.id,
+                      );
 
                       return (
                         <motion.button
@@ -299,11 +299,11 @@ console.log('events',events)
                           key={category.id}
                           onClick={() => toggleCategory(category.id)}
                           className={[
-                            'px-3 py-1.5 rounded-full text-xs border transition-colors',
+                            "px-3 py-1.5 rounded-full text-xs border transition-colors",
                             active
-                              ? 'bg-[#FFB627] text-[#0B0B10] border-[#FFB627] font-semibold'
-                              : 'bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#FFB627]/50 hover:text-white',
-                          ].join(' ')}
+                              ? "bg-[#FFB627] text-[#0B0B10] border-[#FFB627] font-semibold"
+                              : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#FFB627]/50 hover:text-white",
+                          ].join(" ")}
                         >
                           {category.name}
                         </motion.button>
@@ -316,7 +316,7 @@ console.log('events',events)
                 <FilterSection title="Artist">
                   <input
                     type="text"
-                    value={local.artist ?? ''}
+                    value={local.artist ?? ""}
                     onChange={(e) =>
                       setLocal((prev) => ({
                         ...prev,
@@ -324,7 +324,7 @@ console.log('events',events)
                       }))
                     }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         apply({ artist: local.artist });
                       }
                     }}
@@ -339,7 +339,7 @@ console.log('events',events)
                   <div className="space-y-2">
                     <input
                       type="date"
-                      value={local.date_from ?? ''}
+                      value={local.date_from ?? ""}
                       onChange={(e) =>
                         apply({
                           date_from: e.target.value || undefined,
@@ -350,7 +350,7 @@ console.log('events',events)
 
                     <input
                       type="date"
-                      value={local.date_to ?? ''}
+                      value={local.date_to ?? ""}
                       onChange={(e) =>
                         apply({
                           date_to: e.target.value || undefined,
@@ -367,7 +367,7 @@ console.log('events',events)
                     <input
                       type="number"
                       min="0"
-                      value={local.price_min ?? ''}
+                      value={local.price_min ?? ""}
                       onChange={(e) =>
                         setLocal((prev) => ({
                           ...prev,
@@ -388,7 +388,7 @@ console.log('events',events)
                     <input
                       type="number"
                       min="0"
-                      value={local.price_max ?? ''}
+                      value={local.price_max ?? ""}
                       onChange={(e) =>
                         setLocal((prev) => ({
                           ...prev,
@@ -411,7 +411,7 @@ console.log('events',events)
                 {/* Type */}
                 <FilterSection title="Event type">
                   <select
-                    value={local.type ?? ''}
+                    value={local.type ?? ""}
                     onChange={(e) =>
                       apply({
                         type: (e.target.value || undefined) as
@@ -440,22 +440,18 @@ console.log('events',events)
               >
                 <div>
                   <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775]">
-                    {events.meta.total.toLocaleString()}{' '}
-                    {events.meta.total === 1 ? 'event' : 'events'}
+                    {events.meta.total.toLocaleString()}{" "}
+                    {events.meta.total === 1 ? "event" : "events"}
                   </p>
 
-                  <h2 className="text-xl font-bold mt-1">
-                    Upcoming events
-                  </h2>
+                  <h2 className="text-xl font-bold mt-1">Upcoming events</h2>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <label className="text-xs text-[#6B6775]">
-                    Sort by
-                  </label>
+                  <label className="text-xs text-[#6B6775]">Sort by</label>
 
                   <select
-                    value={local.sort ?? 'date'}
+                    value={local.sort ?? "date"}
                     onChange={(e) =>
                       apply({
                         sort: e.target.value as SortOption,
@@ -465,9 +461,7 @@ console.log('events',events)
                   >
                     <option value="date">Soonest</option>
                     <option value="trending">Trending</option>
-                    <option value="price_low">
-                      Price: low to high
-                    </option>
+                    <option value="price_low">Price: low to high</option>
                   </select>
                 </div>
               </motion.div>
@@ -475,10 +469,7 @@ console.log('events',events)
               {/* Active filters */}
               <AnimatePresence mode="popLayout">
                 {hasFilters && (
-                  <motion.div
-                    layout
-                    className="flex flex-wrap gap-2 mb-5"
-                  >
+                  <motion.div layout className="flex flex-wrap gap-2 mb-5">
                     <AnimatePresence mode="popLayout">
                       {local.city && (
                         <FilterTag
@@ -499,11 +490,7 @@ console.log('events',events)
                       {local.type && (
                         <FilterTag
                           key="type"
-                          label={
-                            local.type === 'tour'
-                              ? 'Tour'
-                              : 'Standalone'
-                          }
+                          label={local.type === "tour" ? "Tour" : "Standalone"}
                           onRemove={() => apply({ type: undefined })}
                         />
                       )}
@@ -511,24 +498,16 @@ console.log('events',events)
                       {local.date_from && (
                         <FilterTag
                           key="date_from"
-                          label={`From ${formatFilterDate(
-                            local.date_from
-                          )}`}
-                          onRemove={() =>
-                            apply({ date_from: undefined })
-                          }
+                          label={`From ${formatFilterDate(local.date_from)}`}
+                          onRemove={() => apply({ date_from: undefined })}
                         />
                       )}
 
                       {local.date_to && (
                         <FilterTag
                           key="date_to"
-                          label={`Until ${formatFilterDate(
-                            local.date_to
-                          )}`}
-                          onRemove={() =>
-                            apply({ date_to: undefined })
-                          }
+                          label={`Until ${formatFilterDate(local.date_to)}`}
+                          onRemove={() => apply({ date_to: undefined })}
                         />
                       )}
                     </AnimatePresence>
@@ -557,13 +536,11 @@ console.log('events',events)
                     </svg>
                   </div>
 
-                  <h3 className="text-lg font-bold mt-5">
-                    No events found
-                  </h3>
+                  <h3 className="text-lg font-bold mt-5">No events found</h3>
 
                   <p className="text-sm text-[#9C97A8] mt-2 max-w-md mx-auto">
-                    Try changing your filters or searching for a
-                    different event, artist or location.
+                    Try changing your filters or searching for a different
+                    event, artist or location.
                   </p>
 
                   {hasFilters && (
@@ -588,11 +565,7 @@ console.log('events',events)
                     className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
                   >
                     {events.data.map((event, index) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        index={index}
-                      />
+                      <EventCard key={event.id} event={event} index={index} />
                     ))}
                   </motion.div>
 
@@ -619,21 +592,19 @@ console.log('events',events)
                               {
                                 preserveState: true,
                                 preserveScroll: true,
-                              }
+                              },
                             )
                           }
                           dangerouslySetInnerHTML={{
                             __html: link.label,
                           }}
                           className={[
-                            'min-w-9 h-9 px-3 rounded-lg text-xs border transition-colors font-[\'IBM_Plex_Mono\']',
+                            "min-w-9 h-9 px-3 rounded-lg text-xs border transition-colors font-['IBM_Plex_Mono']",
                             link.active
-                              ? 'bg-[#FFB627] text-[#0B0B10] border-[#FFB627] font-semibold'
-                              : 'bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#FFB627]/50 hover:text-white',
-                            !link.url
-                              ? 'opacity-30 cursor-not-allowed'
-                              : '',
-                          ].join(' ')}
+                              ? "bg-[#FFB627] text-[#0B0B10] border-[#FFB627] font-semibold"
+                              : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#FFB627]/50 hover:text-white",
+                            !link.url ? "opacity-30 cursor-not-allowed" : "",
+                          ].join(" ")}
                         />
                       ))}
                     </motion.div>
@@ -699,10 +670,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
   const cheapestTier = useMemo(() => {
     return event.legs
       ?.flatMap((leg) => leg.ticket_tiers ?? [])
-      .sort(
-        (a, b) =>
-          parseFloat(a.price) - parseFloat(b.price)
-      )[0];
+      .sort((a, b) => parseFloat(a.price) - parseFloat(b.price))[0];
   }, [event.legs]);
 
   const categoryNames =
@@ -714,35 +682,35 @@ function EventCard({ event, index }: { event: Event; index: number }) {
     <motion.div
       variants={cardVariants}
       whileHover={{ y: -6, rotate: tilt }}
-      transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+      transition={{ type: "spring", stiffness: 320, damping: 22 }}
       className="group"
     >
       <MotionLink
-        href={route('events.show', event.slug)}
+        href={route("events.show", event.slug)}
         className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] transition-colors group-hover:border-[#FFB627]/40"
         style={{
-          boxShadow: '0 0 0 rgba(0,0,0,0)',
+          boxShadow: "0 0 0 rgba(0,0,0,0)",
         }}
         whileHover={{
-          boxShadow: '0 24px 48px -20px rgba(255,182,39,0.22)',
+          boxShadow: "0 24px 48px -20px rgba(255,182,39,0.22)",
         }}
       >
         {/* Poster image */}
-      {/* Poster image */}
-<div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
-  {event.media?.length > 0 ? (
-    <img
-      src={event.media[0].url}
-      alt={event.name}
-      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-    />
-  ) : event.image_url ? (
-    <img
-      src={event.image_url}
-      alt={event.name}
-      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-    />
-  ) : (
+        {/* Poster image */}
+        <div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
+          {event.media?.length > 0 ? (
+            <img
+              src={event.media[0].url}
+              alt={event.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : event.image_url ? (
+            <img
+              src={event.image_url}
+              alt={event.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
             <div className="relative h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,182,39,0.10),transparent_35%),radial-gradient(circle_at_80%_80%,rgba(139,107,255,0.10),transparent_30%)]" />
               <div className="absolute inset-0 flex items-center justify-center">
@@ -767,7 +735,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
                 </p>
               )}
 
-              {event.type === 'tour' && (
+              {event.type === "tour" && (
                 <span className="rounded-full border border-[#8B6BFF]/40 bg-[#8B6BFF]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#B7A7FF]">
                   Tour
                 </span>
@@ -780,7 +748,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
 
             {event.artists && event.artists.length > 0 && (
               <p className="text-sm text-[#9C97A8] mt-1.5 line-clamp-1">
-                {event.artists.map((artist) => artist.name).join(', ')}
+                {event.artists.map((artist) => artist.name).join(", ")}
               </p>
             )}
 
@@ -827,7 +795,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
               <p className="font-['IBM_Plex_Mono'] text-sm font-semibold text-[#FFB627]">
                 {cheapestTier
                   ? `$${parseFloat(cheapestTier.price).toFixed(0)}`
-                  : '—'}
+                  : "—"}
               </p>
             </div>
           </div>
@@ -849,10 +817,10 @@ function formatEventDate(date: string) {
   }
 
   return parsed.toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
@@ -864,8 +832,8 @@ function formatFilterDate(date: string) {
   }
 
   return parsed.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
+    day: "numeric",
+    month: "short",
   });
 }
 

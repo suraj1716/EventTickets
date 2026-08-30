@@ -191,7 +191,11 @@ class CartController extends Controller
         $allCartItems = $request->boolean('ticket_checkout')
             ? $cartService->getTicketCartItemsGrouped()
             : $cartService->getCartItemsGrouped();
-
+Log::info('CHECKOUT DEBUG', [
+    'vendor_id_requested' => $vendorId,
+    'vendor_id_type' => gettype($vendorId),
+    'available_keys' => array_keys($allCartItems),
+]);
         $checkoutCartItems = $vendorId
             ? [$allCartItems[$vendorId]]
             : $allCartItems;
@@ -203,6 +207,41 @@ class CartController extends Controller
 
         // Only own the transaction when the caller does not already
         // have one (e.g. Laravel's RefreshDatabase test transaction).
+        // ── Void any abandoned draft order(s) for this same
+        //    user+vendor before creating a new one. Without this,
+        //    every retry (back, reselect, confirm again) left the
+        //    previous draft order and its Stripe session alive
+        //    forever. ──
+        $staleOrdersQuery = Order::where("user_id", $user->id)
+            ->where("status", OrderStatusEnum::Draft->value);
+
+        if ($vendorId) {
+            $staleOrdersQuery->where("vendor_user_id", $vendorId);
+        }
+
+        $staleOrders = $staleOrdersQuery->get();
+
+        if ($staleOrders->isNotEmpty()) {
+            \Stripe\Stripe::setApiKey(config("services.stripe.secret"));
+
+            foreach ($staleOrders as $staleOrder) {
+                if ($staleOrder->stripe_session_id) {
+                    try {
+                        \Stripe\Checkout\Session::retrieve($staleOrder->stripe_session_id)->expire();
+                    } catch (\Exception $e) {
+                        Log::warning("Failed to expire stale Stripe session", [
+                            "order_id" => $staleOrder->id,
+                            "error" => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                $staleOrder->orderItems()->delete();
+                $staleOrder->delete();
+            }
+        }
+
+
         $ownsTransaction = DB::transactionLevel() === 0;
 
         if ($ownsTransaction) {

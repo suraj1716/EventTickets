@@ -22,6 +22,11 @@ class Product extends Model implements HasMedia
 {
     use HasFactory;
     use InteractsWithMedia;
+
+    protected $fillable = [
+    // ...
+    'event_id',
+];
     protected $casts = [
         'deleted_combinations' => 'array',
         'price' => 'float',
@@ -40,7 +45,10 @@ class Product extends Model implements HasMedia
         });
     }
 
-
+public function event(): BelongsTo
+{
+    return $this->belongsTo(Event::class, 'event_id');
+}
 
     public function ScopeForVendor(Builder $query): Builder
     {
