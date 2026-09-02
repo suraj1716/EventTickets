@@ -20,6 +20,16 @@ router.on("error", (event) => {
   }
 });
 
+// Force a fresh Inertia partial reload when a page is restored from
+// the browser's back-forward cache (e.g. pressing Back after leaving
+// for Stripe Checkout). Without this, the page resumes frozen JS
+// state instead of re-fetching current server data.
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    router.reload();
+  }
+});
+
 // ── TEMP DEBUG: disabled so raw Laravel error responses (Whoops/Ignition,
 // or the default Laravel error page) render instead of being swallowed by
 // a toast. Restore the preventDefault() block once /admindashboard is fixed.

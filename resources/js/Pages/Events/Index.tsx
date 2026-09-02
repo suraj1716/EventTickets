@@ -54,11 +54,8 @@ const cardVariants = {
 };
 
 export default function EventsIndex({ events, filters, categories }: Props) {
-  console.log("events:", events);
-  console.log("first event:", events?.data?.[0]);
-  console.log("first event media:", events?.data?.[0]?.media);
+
   const [local, setLocal] = useState<EventSearchFilters>(filters);
-  console.log("events", events);
   function apply(next: Partial<EventSearchFilters>) {
     const merged = {
       ...local,

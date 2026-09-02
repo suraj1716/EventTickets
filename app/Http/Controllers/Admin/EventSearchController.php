@@ -221,45 +221,55 @@ class EventSearchController extends Controller
             404
         );
 
-      $event->load([
-    'categories',
-    'artists',
-    'legs.ticketTiers',
-    'legs.seats',
-    'media',
-    'products.media',
-    'products.variationTypes.options',   // NEW
-    'products.variations',               // NEW — needed by getPriceForOptions()
-])->loadCount('watchlist');
+        $event->load([
+            'categories',
+            'artists',
+            'legs.ticketTiers',
+            'legs.seats',
+            'media',
+            'products.media',
+            'products.variationTypes.options',   // NEW
+            'products.variations',               // NEW — needed by getPriceForOptions()
+        ])->loadCount('watchlist');
 
-        $relatedEvents = Event::query()
-            ->where('id', '!=', $event->id)
-            ->where('status', 'published')
-            ->with(['legs.ticketTiers'])
-            ->latest()
-            ->take(6)
-            ->get();
-     $products = Product::query()
-    ->where('event_id', $event->id)
+ $relatedEvents = Event::query()
+    ->where('id', '!=', $event->id)
     ->where('status', 'published')
-    ->with(['variationTypes.options'])   // NEW
+    ->with([
+        'legs.ticketTiers',
+        'media',
+    ])
+    ->latest()
+    ->take(6)
     ->get()
-    ->map(fn($product) => [
-        'id' => $product->id,
-        'title' => $product->title,
-        'slug' => $product->slug,
-        'description' => $product->description,
-        'price' => $product->price,
-        'image_url' => $product->getFirstMediaUrl('images') ?: null,
-        'variation_types' => $product->variationTypes->map(fn($type) => [
-            'id' => $type->id,
-            'name' => $type->name,
-            'options' => $type->options->map(fn($opt) => [
-                'id' => $opt->id,
-                'name' => $opt->name,
-            ]),
-        ]),
+    ->map(fn ($relatedEvent) => [
+        'id' => $relatedEvent->id,
+        'name' => $relatedEvent->name,
+        'slug' => $relatedEvent->slug,
+        'image_url' => $relatedEvent->media->first()?->url,
+        'legs' => $relatedEvent->legs,
     ]);
+        $products = Product::query()
+            ->where('event_id', $event->id)
+            ->where('status', 'published')
+            ->with(['variationTypes.options'])   // NEW
+            ->get()
+            ->map(fn($product) => [
+                'id' => $product->id,
+                'title' => $product->title,
+                'slug' => $product->slug,
+                'description' => $product->description,
+                'price' => $product->price,
+                'image_url' => $product->getFirstMediaUrl('images') ?: null,
+                'variation_types' => $product->variationTypes->map(fn($type) => [
+                    'id' => $type->id,
+                    'name' => $type->name,
+                    'options' => $type->options->map(fn($opt) => [
+                        'id' => $opt->id,
+                        'name' => $opt->name,
+                    ]),
+                ]),
+            ]);
         return Inertia::render('Events/Show', [
             'event' => $event,
             'relatedEvents' => $relatedEvents,

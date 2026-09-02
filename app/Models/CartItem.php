@@ -7,29 +7,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CartItem extends Model
 {
-
-protected $appends = ['item_type'];
-   protected $fillable = [
-    'user_id',
-    'item_type',
-    'product_id',
-    'gift_card_template_id',
-    'ticket_tier_id',
-    'quantity',
-    'price',
-    'attachment_path',
-    'attachment_name',
-    'variation_type_option_ids',
-    'designer',
-    'gifted_to_email',
-    'seat_ids',
-
-];
+    protected $fillable = [
+        'user_id',
+        'item_type',
+        'product_id',
+        'gift_card_template_id',
+        'ticket_tier_id',
+        'quantity',
+        'price',
+        'attachment_path',
+        'attachment_name',
+        'variation_type_option_ids',
+        'designer',
+        'gifted_to_email',
+        'seat_ids',
+    ];
 
     protected $casts = [
         'variation_type_option_ids' => 'array',
-        'designer'                  => 'boolean',
-           'seat_ids' => 'array',
+        'designer' => 'boolean',
+        'seat_ids' => 'array',
     ];
 
     // ── Relationships ──────────────────────────────────────────────
@@ -39,16 +36,6 @@ protected $appends = ['item_type'];
         return $this->belongsTo(User::class);
     }
 
-
-public function getImageUrlAttribute(): ?string
-{
-    if ($this->gift_card_template_id) {
-        return $this->giftCardProduct?->image_url;
-    }
-
-    return $this->product?->image_url ?? null;
-}
-
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id');
@@ -56,15 +43,37 @@ public function getImageUrlAttribute(): ?string
 
     public function giftCardProduct(): BelongsTo
     {
-        return $this->belongsTo(GiftCardTemplate::class, 'gift_card_template_id');
+        return $this->belongsTo(
+            GiftCardTemplate::class,
+            'gift_card_template_id'
+        );
     }
-public function ticketTier(): BelongsTo
-{
-    return $this->belongsTo(\App\Models\TicketTier::class);
-}
+
+    public function ticketTier(): BelongsTo
+    {
+        return $this->belongsTo(
+            TicketTier::class,
+            'ticket_tier_id'
+        );
+    }
+
     public function variationTypeOption()
     {
-        return $this->belongsToMany(VariationTypeOption::class, 'cart_item_variation_option');
+        return $this->belongsToMany(
+            VariationTypeOption::class,
+            'cart_item_variation_option'
+        );
+    }
+
+    // ── Accessors ──────────────────────────────────────────────────
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if ($this->gift_card_template_id) {
+            return $this->giftCardProduct?->image_url;
+        }
+
+        return $this->product?->image_url;
     }
 
     // ── Helpers ────────────────────────────────────────────────────

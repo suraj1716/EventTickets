@@ -1,7 +1,7 @@
 // resources/js/Pages/Events/Show.tsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, Link, router, usePage } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import type { Event, EventLeg, TicketTier } from "@/types";
@@ -136,24 +136,44 @@ export default function EventShow({
   const legs = event.legs ?? [];
 
   const isTour = event.type === "tour" && legs.length > 1;
+const CART_STORAGE_KEY = `event-cart-${event.id}`;
 
+function loadStoredCart() {
+  try {
+    const raw = sessionStorage.getItem(CART_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+const storedCart = loadStoredCart();
   /*
   |--------------------------------------------------------------------------
   | State
   |--------------------------------------------------------------------------
   */
 
-  const [activeLegId, setActiveLegId] = useState<number | undefined>(
-    legs[0]?.id,
-  );
+const [activeLegId, setActiveLegId] = useState<number | undefined>(
+  storedCart?.activeLegId ?? legs[0]?.id,
+);
 
-  const [selection, setSelection] = useState<Selection>({});
-  const [showSummary, setShowSummary] = useState(false);
-  const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
+const { existingTicketSelection, existingProductSelection } = usePage().props as unknown as {
+  existingTicketSelection: Record<number, number>;
+  existingProductSelection: Record<number, number>;
+};
 
-  const [productSelection, setProductSelection] = useState<ProductSelection>(
-    {},
-  );
+const [selection, setSelection] = useState<Record<number, number>>(
+  storedCart?.selection ?? existingTicketSelection ?? {},
+);
+const [productSelection, setProductSelection] = useState<Record<number, number>>(
+  storedCart?.productSelection ?? existingProductSelection ?? {},
+);
+const [showSummary, setShowSummary] = useState(false);
+const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>(
+  storedCart?.selectedSeatIds ?? [],
+);
+
 
   const [joiningWatchlist, setJoiningWatchlist] = useState(false);
 
@@ -221,18 +241,11 @@ export default function EventShow({
   |--------------------------------------------------------------------------
   */
 
-  function selectLeg(legId: number) {
-    setActiveLegId(legId);
-
-    /*
-    | Ticket selections are specific to the
-    | currently selected event date.
-    */
-
-    setSelection({});
-
-    setSelectedSeatIds({});
-  }
+function selectLeg(legId: number) {
+  setActiveLegId(legId);
+  setSelection({});
+  setSelectedSeatIds([]); // was: setSelectedSeatIds({})
+}
 
   /*
   |--------------------------------------------------------------------------
@@ -345,6 +358,22 @@ export default function EventShow({
     return map;
   }, [activeLeg]);
 
+useEffect(() => {
+  try {
+    sessionStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({ activeLegId, selection, productSelection, selectedSeatIds }),
+    );
+  } catch {
+    // sessionStorage unavailable (private mode, etc.) — fail silently
+  }
+}, [activeLegId, selection, productSelection, selectedSeatIds]);
+
+
+  // CHECKPOINT 0b — confirm seatLookup contents at render time
+useEffect(() => {
+  console.log('CHECKPOINT 0b - seatLookup size', seatLookup.size, 'sample:', Array.from(seatLookup.entries()).slice(0, 5));
+}, [seatLookup]);
   /*
   |--------------------------------------------------------------------------
   | Ticket tier lookup
@@ -372,17 +401,30 @@ function confirmAndPay() {
   if (isSubmitting) return;
   setIsSubmitting(true);
 
+  // CHECKPOINT 0a — raw state at click time
+  console.log('CHECKPOINT 0a - RAW STATE', {
+    selectedSeatIds,
+    selection,
+    productSelection,
+  });
+console.log('relateved evt',relatedEvents)
   const { ticketLines, productLines } = buildLines();
 
-  console.log('SENDING', JSON.stringify({ ticketLines, productLines }, null, 2));
+  // CHECKPOINT 1 — derived payload (already existed)
+  console.log('CHECKPOINT 1 - SENDING', JSON.stringify({ ticketLines, productLines }, null, 2));
 
-  router.post(
-    route("events.cart.add", event.id),
-    { event_id: event.id, ticket_lines: ticketLines, product_lines: productLines },
-    {
-      onFinish: () => setIsSubmitting(false),
+ router.post(
+  route("events.cart.add", event.id),
+  { event_id: event.id, ticket_lines: ticketLines, product_lines: productLines },
+  {
+    onFinish: () => setIsSubmitting(false),
+    onSuccess: () => {
+      try {
+        sessionStorage.removeItem(CART_STORAGE_KEY);
+      } catch {}
     },
-  );
+  },
+);
 }
 
   const { ticketTotal, merchTotal, total, ticketCount, merchCount } =
@@ -1373,47 +1415,70 @@ function confirmAndPay() {
             </motion.section>
           )}
 
-          {/* =========================================================
-              RELATED EVENTS
-          ========================================================= */}
+      {/* =========================================================
+    RELATED EVENTS
+========================================================= */}
 
-          {relatedEvents.length > 0 && (
-            <motion.section
-              initial={{
-                opacity: 0,
-                y: 12,
-              }}
-              whileInView={{
-                opacity: 1,
-                y: 0,
-              }}
-              viewport={{
-                once: true,
-                margin: "-60px",
-              }}
-              transition={{
-                duration: 0.5,
-                ease: EASE,
-              }}
-              className="mt-16 pt-10 border-t border-[#26232E]"
-            >
-              <h2 className="text-xl font-bold mb-5">You might also like</h2>
+{relatedEvents.length > 0 && (
+  <motion.section
+    initial={{ opacity: 0, y: 12 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-60px" }}
+    transition={{ duration: 0.5, ease: EASE }}
+    className="mt-20"
+  >
+    {/* Header */}
+    <div className="mb-7 flex items-end justify-between gap-4">
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+          Discover more
+        </p>
 
-              <motion.div
-                variants={railVariants}
-                initial="hidden"
-                whileInView="show"
-                viewport={{
-                  once: true,
-                }}
-                className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0"
-              >
-                {relatedEvents.map((related) => (
-                  <RelatedEventCard key={related.id} event={related} />
-                ))}
-              </motion.div>
-            </motion.section>
-          )}
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          You might also like
+        </h2>
+      </div>
+
+      <div className="hidden items-center gap-2 sm:flex">
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          aria-label="Previous events"
+        >
+          ←
+        </button>
+
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          aria-label="Next events"
+        >
+          →
+        </button>
+      </div>
+    </div>
+
+    {/* Slider */}
+    <motion.div
+      variants={railVariants}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true }}
+      className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
+      style={{
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
+      }}
+    >
+      {relatedEvents.map((related) => (
+        <RelatedEventCard
+          key={related.id}
+          event={related}
+        />
+      ))}
+    </motion.div>
+  </motion.section>
+)}
         </div>
       </div>
 
@@ -1961,70 +2026,127 @@ function WatchlistPanel({
 |--------------------------------------------------------------------------
 */
 
-function RelatedEventCard({ event }: { event: Event }) {
+function RelatedEventCard({ event }: { event: RelatedEvent }) {
   const firstLeg = event.legs?.[0];
 
-  const cheapestTier = useMemo(() => {
-    return event.legs
-      ?.flatMap((leg) => leg.ticket_tiers ?? [])
-      .sort((a, b) => parseFloat(a.price) - parseFloat(b.price))[0];
-  }, [event.legs]);
+  const date = firstLeg?.start_at
+    ? new Date(firstLeg.start_at).toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "short",
+      })
+    : null;
+
+  const venue = firstLeg?.venue?.name ?? null;
 
   return (
-    <motion.div
-      variants={railCardVariants}
-      whileHover={{
-        y: -4,
-      }}
-      className="w-64 shrink-0"
+    <Link
+      href={route("events.show", {
+        event: event.slug,
+      })}
+      className="
+        group
+        relative
+        block
+        h-[390px]
+        w-[300px]
+        min-w-[300px]
+        overflow-hidden
+        rounded-[28px]
+        border
+        border-white/10
+        bg-[#141319]
+        shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+        transition-all
+        duration-300
+        hover:-translate-y-1
+        hover:border-white/20
+        hover:shadow-[0_28px_80px_rgba(0,0,0,0.4)]
+        sm:h-[410px]
+        sm:w-[320px]
+        sm:min-w-[320px]
+      "
     >
-      <Link
-        href={route("events.show", event.slug)}
-        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] hover:border-[#FFB627]/40 transition-colors"
-      >
-        <div className="relative h-32 w-full overflow-hidden border-b border-dashed border-[#33303C]">
-          {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt=""
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]" />
-          )}
+      {/* Image */}
+      <div className="absolute inset-0 overflow-hidden">
+        {event.image_url ? (
+          <img
+            src={event.image_url}
+            alt={event.name}
+            className="
+              h-full
+              w-full
+              object-cover
+              transition-transform
+              duration-700
+              ease-out
+              group-hover:scale-110
+            "
+          />
+        ) : (
+          <div
+            className="
+              h-full
+              w-full
+              bg-[radial-gradient(circle_at_top_right,#35313F,transparent_45%),linear-gradient(135deg,#201D27,#0B0B10)]
+            "
+          />
+        )}
 
-          <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#0B0B10] z-10" />
-        </div>
+        {/* Image overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/5" />
 
-        <div className="p-4 flex-1 flex flex-col">
-          {firstLeg && (
-            <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide text-[#FFB627] mb-1.5">
-              {new Date(firstLeg.event_date).toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "short",
-              })}
-            </p>
-          )}
+        {/* Extra subtle hover glow */}
+        <div className="absolute inset-0 bg-white/0 transition duration-500 group-hover:bg-white/[0.03]" />
+      </div>
 
-          <p className="text-sm font-bold text-white line-clamp-2 group-hover:text-[#FFB627] transition-colors">
-            {event.name}
-          </p>
+      {/* Top badges */}
+      <div className="absolute left-5 right-5 top-5 flex items-center justify-between">
+        {event.type ? (
+          <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-md">
+            {event.type}
+          </span>
+        ) : (
+          <span />
+        )}
 
-          <div className="flex items-center justify-between mt-auto pt-3">
-            {firstLeg?.city && (
-              <span className="text-xs text-[#6B6775] truncate">
-                {firstLeg.city}
-              </span>
-            )}
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/80 backdrop-blur-md transition group-hover:bg-white group-hover:text-black">
+          ↗
+        </span>
+      </div>
 
-            <span className="font-['IBM_Plex_Mono'] text-xs font-semibold text-[#FFB627] shrink-0">
-              {cheapestTier
-                ? `$${parseFloat(cheapestTier.price).toFixed(0)}`
-                : "—"}
+      {/* Bottom content */}
+      <div className="absolute inset-x-0 bottom-0 p-5">
+        <div className="mb-3 flex flex-wrap gap-2">
+          {date && (
+            <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-black">
+              {date}
             </span>
-          </div>
+          )}
         </div>
-      </Link>
-    </motion.div>
+
+        <h3 className="line-clamp-2 text-xl font-bold leading-tight text-white sm:text-2xl">
+          {event.name}
+        </h3>
+
+        {venue && (
+          <div className="mt-2 flex items-center gap-2 text-sm text-white/60">
+            <span className="text-white/40">⌖</span>
+            <span className="truncate">{venue}</span>
+          </div>
+        )}
+
+        {/* Bottom action */}
+        <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-white/80 transition group-hover:text-white">
+          Explore event
+          <span className="transition-transform duration-300 group-hover:translate-x-1">
+            →
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
+
+
+
+

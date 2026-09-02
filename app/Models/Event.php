@@ -119,4 +119,5 @@ public function media()
 {
     return $this->hasMany(Product::class);
 }
+
 }

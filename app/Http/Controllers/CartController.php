@@ -188,14 +188,23 @@ class CartController extends Controller
 
         $hasBooking = !is_null($latestBooking);
 
-        $allCartItems = $request->boolean('ticket_checkout')
-            ? $cartService->getTicketCartItemsGrouped()
-            : $cartService->getCartItemsGrouped();
-Log::info('CHECKOUT DEBUG', [
-    'vendor_id_requested' => $vendorId,
-    'vendor_id_type' => gettype($vendorId),
-    'available_keys' => array_keys($allCartItems),
-]);
+       $cartItemIds = $request->input('cart_item_ids');
+
+$allCartItems = $cartItemIds
+    ? $cartService->getCartItemsGrouped($cartItemIds)
+    : ($request->boolean('ticket_checkout')
+        ? $cartService->getTicketCartItemsGrouped()
+        : $cartService->getCartItemsGrouped());
+        // CHECKPOINT 5 — what checkout() reads back
+        Log::info('CHECKPOINT 5 - CHECKOUT READ', [
+            'vendor_id_requested' => $vendorId,
+            'available_keys' => array_keys($allCartItems),
+            'full_items' => $allCartItems,
+        ]);
+        if ($vendorId && ! array_key_exists($vendorId, $allCartItems)) {
+            return back()->withErrors(['error' => 'Your cart is empty.']);
+        }
+
         $checkoutCartItems = $vendorId
             ? [$allCartItems[$vendorId]]
             : $allCartItems;
@@ -258,8 +267,8 @@ Log::info('CHECKOUT DEBUG', [
                 if (!$voucher || !$voucher->isUsable()) {
                     if ($ownsTransaction) {
                         if ($ownsTransaction) {
-                DB::rollBack();
-            }
+                            DB::rollBack();
+                        }
                     }
                     return back()->withErrors(['error' => 'Voucher is no longer valid.']);
                 }
@@ -409,10 +418,10 @@ Log::info('CHECKOUT DEBUG', [
                             }
                         } catch (\Exception $e) {
                             if ($ownsTransaction) {
-                        if ($ownsTransaction) {
-                DB::rollBack();
-            }
-                    }
+                                if ($ownsTransaction) {
+                                    DB::rollBack();
+                                }
+                            }
                             return redirect()->back()->with('error', 'Google Calendar sync failed: ' . $e->getMessage());
                         }
                     }
@@ -599,6 +608,18 @@ Log::info('CHECKOUT DEBUG', [
             }
 
             // ── Otherwise, charge the remainder through Stripe ──
+
+            // CHECKPOINT 6 — what's about to be sent to Stripe
+            Log::info('CHECKPOINT 6 - STRIPE LINE ITEMS', [
+                'line_items' => $lineItems,
+                'orders' => collect($orders)->map(fn($o) => [
+                    'order_id' => $o->id,
+                    'items' => $o->orderItems->map(fn($i) => [
+                        'tier' => $i->ticket_tier_id,
+                        'seats' => $i->seat_ids,
+                    ])->toArray(),
+                ])->toArray(),
+            ]);
             $session = $stripeCheckoutService->createSession([
                 'customer_email' => $user->email,
                 'line_items' => $lineItems,
@@ -606,7 +627,11 @@ Log::info('CHECKOUT DEBUG', [
                 'success_url' => route('stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('stripe.failure'),
             ]);
-
+            // CHECKPOINT 6b — confirm Stripe accepted it and what session id we got
+            Log::info('CHECKPOINT 6b - STRIPE SESSION CREATED', [
+                'session_id' => $session->id,
+                'session_url' => $session->url,
+            ]);
             foreach ($orders as $order) {
                 $order->stripe_session_id = $session->id;
                 $order->save();

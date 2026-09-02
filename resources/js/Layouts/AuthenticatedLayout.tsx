@@ -33,6 +33,16 @@ export default function AuthenticatedLayout({
   const [visible, setVisible] = useState(false);
   const { openLogin } = useAuthModal();
 
+useEffect(() => {
+  const handlePageShow = (event: PageTransitionEvent) => {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  };
+  window.addEventListener('pageshow', handlePageShow);
+  return () => window.removeEventListener('pageshow', handlePageShow);
+}, []);
+
   useEffect(() => {
     const timeout = setTimeout(() => setVisible(true), 1000); // delay show
     return () => clearTimeout(timeout);

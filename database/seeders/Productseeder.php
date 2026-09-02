@@ -9,6 +9,7 @@ use App\Models\VariationType;
 use App\Models\VariationTypeOption;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
@@ -94,13 +95,13 @@ class ProductSeeder extends Seeder
 
         foreach ($products as $data) {
             try {
-               $this->seedProduct(
-    $data,
-    $event,
-    $dept,
-    $eventCategory,
-    $vendorUserId
-);
+                $this->seedProduct(
+                    $data,
+                    $event,
+                    $dept,
+                    $eventCategory,
+                    $vendorUserId
+                );
             } catch (Throwable $e) {
                 $this->command->warn(
                     "Failed to seed '{$data['title']}': {$e->getMessage()} — continuing with the rest."
@@ -109,46 +110,59 @@ class ProductSeeder extends Seeder
         }
     }
 
-  private function seedProduct(
-    array $data,
-    Event $event,
-    Department $dept,
-    $eventCategory,
-    int $vendorUserId
-): void {
+    private function seedProduct(
+        array $data,
+        Event $event,
+        Department $dept,
+        $eventCategory,
+        int $vendorUserId
+    ): void {
         $slug = Str::slug($data['title']);
 
         $product = Product::updateOrCreate(
-    ['slug' => $slug],
-    [
-        'title' => $data['title'],
-        'description' => $data['title'] . ' — official event merchandise.',
-        'price' => $data['price'],
-        'category_id' => $eventCategory->id,
-        'event_id' => $event->id,
-        'department_id' => $dept->id,
-        'status' => 'published',
-        'highlight' => $data['highlight'],
-        'product_type' => 'product',
-        'require_additional_file' => false,
-        'created_by' => $vendorUserId,
-        'updated_by' => $vendorUserId,
-    ]
-);
+            ['slug' => $slug],
+            [
+                'title' => $data['title'],
+                'description' => $data['title'] . ' — official event merchandise.',
+                'price' => $data['price'],
+                'category_id' => $eventCategory->id,
+                'event_id' => $event->id,
+                'department_id' => $dept->id,
+                'status' => 'published',
+                'highlight' => $data['highlight'],
+                'product_type' => 'product',
+                'require_additional_file' => false,
+                'created_by' => $vendorUserId,
+                'updated_by' => $vendorUserId,
+            ]
+        );
+       if ($product->wasRecentlyCreated || $product->getMedia('images')->isEmpty()) {
+    $imagePath = $this->resolveImage($data['title']);
 
-        if ($product->wasRecentlyCreated || $product->getMedia('images')->isEmpty()) {
-            $imagePath = $this->findLocalImage($data['title'], forceRefresh: true);
+    if ($imagePath && is_file($imagePath)) {
+        try {
+            $product->clearMediaCollection('images');
 
-            if ($imagePath) {
-                $product->clearMediaCollection('images');
+            $product
+                ->addMedia($imagePath)
+                ->preservingOriginal()
+                ->toMediaCollection('images');
 
-                $fullPath = Storage::disk('public')->path($imagePath);
+            $this->command->info(
+                "Image added for '{$data['title']}'"
+            );
 
-                $product->addMedia($fullPath)
-                    ->preservingOriginal()
-                    ->toMediaCollection('images');
-            }
+        } catch (Throwable $e) {
+            $this->command->warn(
+                "addMedia failed for '{$data['title']}': {$e->getMessage()}"
+            );
         }
+    } else {
+        $this->command->warn(
+            "No image available for '{$data['title']}'"
+        );
+    }
+}
 
         if ($product->variationTypes()->exists()) {
             return;
@@ -208,34 +222,104 @@ class ProductSeeder extends Seeder
         }
     }
 
-    private function findLocalImage(
-        string $title,
-        bool $forceRefresh = false
-    ): ?string {
-        $slug = Str::slug($title);
-        $sourceDir = base_path('database/seeders/images/products');
-        $extensions = ['jpg', 'jpeg', 'png', 'webp'];
+    /**
+     * Resolve a product image: prefer a locally supplied image, otherwise
+     * fetch a random one from Picsum and cache it to the public disk.
+     */
+  private function resolveImage(string $title): ?string
+{
+    $local = $this->findLocalImage($title);
 
-        foreach ($extensions as $ext) {
-            $sourcePath = "{$sourceDir}/{$slug}.{$ext}";
+    if ($local) {
+        return $local;
+    }
 
-            if (file_exists($sourcePath)) {
-                $destPath = "products/{$slug}.{$ext}";
+    return $this->fetchRandomImage($title);
+}
 
-                if (
-                    $forceRefresh ||
-                    ! Storage::disk('public')->exists($destPath)
-                ) {
-                    Storage::disk('public')->put(
-                        $destPath,
-                        file_get_contents($sourcePath)
-                    );
-                }
+private function findLocalImage(string $title): ?string
+{
+    $slug = Str::slug($title);
+    $sourceDir = base_path('database/seeders/images/products');
 
-                return $destPath;
-            }
+    foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+        $path = "{$sourceDir}/{$slug}.{$ext}";
+
+        if (is_file($path)) {
+            return $path;
         }
+    }
+
+    return null;
+}
+
+private function fetchRandomImage(string $title): ?string
+{
+    $slug = Str::slug($title);
+
+    $sourceDir = base_path('database/seeders/images/products');
+
+    if (! is_dir($sourceDir)) {
+        mkdir($sourceDir, 0755, true);
+    }
+
+    $destPath = "{$sourceDir}/{$slug}.jpg";
+
+    if (is_file($destPath)) {
+        return $destPath;
+    }
+
+    $imageUrls = [
+        'snapback-cap' => 'https://cdn.pixabay.com/photo/2025/05/28/17/14/hats-9627845_1280.jpg',
+        'event-poster' => 'https://cdn.pixabay.com/photo/2017/10/29/07/35/poster-2899083_1280.jpg',
+        'tote-bag'    => 'https://cdn.pixabay.com/photo/2022/04/01/08/58/tote-bag-7104386_1280.jpg',
+        'enamel-mug'  => 'https://cdn.pixabay.com/photo/2016/05/18/04/02/coffee-1399804_1280.jpg',
+    ];
+
+    $url = $imageUrls[$slug] ?? null;
+
+    if (! $url) {
+        $this->command->warn("No image URL for '{$title}'.");
+        return null;
+    }
+
+    try {
+        $this->command->info("Downloading image for '{$title}'...");
+
+        $response = Http::timeout(30)
+            ->retry(2, 1000)
+            ->get($url);
+
+        if (! $response->successful()) {
+            $this->command->warn(
+                "Download failed for '{$title}' - HTTP {$response->status()}"
+            );
+
+            return null;
+        }
+
+        file_put_contents($destPath, $response->body());
+
+        if (! is_file($destPath)) {
+            $this->command->warn(
+                "Image was not created: {$destPath}"
+            );
+
+            return null;
+        }
+
+        $this->command->info(
+            "Image saved: {$destPath}"
+        );
+
+        return $destPath;
+
+    } catch (Throwable $e) {
+        $this->command->warn(
+            "Image download failed for '{$title}': {$e->getMessage()}"
+        );
 
         return null;
     }
+}
 }
