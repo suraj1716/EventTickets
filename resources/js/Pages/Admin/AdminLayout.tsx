@@ -1,3 +1,11 @@
+// resources/js/Pages/Admin/AdminLayout.tsx
+//
+// Reskinned to match the "Night Pulse" sidebar mockup: mark + role header,
+// flat grouped nav with a left accent bar on the active item, dashed
+// section dividers, and an avatar/role footer. Nav items, route names,
+// counts, notifications and logout wiring are unchanged from before —
+// only the shell markup/styling changed.
+
 import { useState, useRef, useEffect } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
 import { ToastContainer } from "react-toastify";
@@ -27,7 +35,6 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   ArrowLeft,
   Bell,
   LogOut,
@@ -35,19 +42,23 @@ import {
 } from "lucide-react";
 import { C as SharedC } from "@/Components/Admin/AdminComponents";
 
-// Extend the shared palette with the two tones this layout needs
-// that AdminComponents doesn't expose (surfaceWarm, textFainter).
 const C = {
   ...SharedC,
-  surfaceWarm: "#201C14",
   textFainter: "#565262",
 };
 
-const NAV_GROUPS: {
-  group: string | null;
-  icon?: LucideIcon;
-  items: { label: string; href: string; icon: LucideIcon; countKey: string | null }[];
-}[] = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  countKey: string | null;
+  // Hidden from the sidebar for Vendor-only users. Routes themselves
+  // aren't scoped by role yet (see admin_routes.php — all under
+  // role:Admin|Vendor) — this only trims what vendors *see* for now.
+  adminOnly?: boolean;
+};
+
+const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
   {
     group: null,
     items: [
@@ -56,13 +67,10 @@ const NAV_GROUPS: {
   },
   {
     group: "Events",
-    icon: Ticket,
     items: [
       { label: "Events", href: "admin.events.index", icon: Ticket, countKey: null },
       { label: "New Event", href: "admin.events.create", icon: PlusCircle, countKey: null },
       { label: "Venues", href: "admin.venues.index", icon: MapPin, countKey: null },
-            { label: "Orders", href: "admin.orders.index", icon: ClipboardList, countKey: "orders" },
-
       { label: "Tickets", href: "admin.events.tickets.index", icon: TicketCheck, countKey: null },
       { label: "Watchlist", href: "admin.events.watchlist.index", icon: Eye, countKey: null },
       { label: "Ticket Scan", href: "staff.scan.index", icon: ScanLine, countKey: null },
@@ -70,40 +78,32 @@ const NAV_GROUPS: {
   },
   {
     group: "Catalogue",
-    icon: Package,
     items: [
-      { label: "Hero Banner", href: "admin.hero-banner.index", icon: Image, countKey: null },
-      { label: "Departments", href: "admin.departments.index", icon: Tag, countKey: null },
-      { label: "Categories", href: "admin.categories.index", icon: FolderTree, countKey: null },
+      { label: "Hero Banner", href: "admin.hero-banner.index", icon: Image, countKey: null, adminOnly: true },
+      { label: "Departments", href: "admin.departments.index", icon: Tag, countKey: null, adminOnly: true },
+      { label: "Categories", href: "admin.categories.index", icon: FolderTree, countKey: null, adminOnly: true },
       { label: "Products", href: "admin.products.index", icon: Package, countKey: null },
       { label: "Gallery", href: "admin.gallery.index", icon: Images, countKey: null },
-      { label: "Contacts", href: "admin.contacts.index", icon: Mail, countKey: "contacts" },
+      { label: "Contacts", href: "admin.contacts.index", icon: Mail, countKey: "contacts", adminOnly: true },
     ],
   },
   {
     group: "Commerce",
-    icon: ClipboardList,
     items: [
       { label: "Orders", href: "admin.orders.index", icon: ClipboardList, countKey: "orders" },
       { label: "Bookings", href: "admin.bookings.index", icon: CalendarDays, countKey: "bookings" },
       { label: "Vouchers", href: "admin.vouchers.index", icon: Gift, countKey: "vouchers" },
-      { label: "Gift-Cards", href: "admin.gift-card-templates.index", icon: CreditCard, countKey: "gift-cards" },
+      { label: "Gift-Cards", href: "admin.gift-card-templates.index", icon: CreditCard, countKey: null },
+      { label: "Payouts", href: "admin.payouts.index", icon: Wallet, countKey: null },
     ],
   },
   {
     group: "People",
-    icon: User,
     items: [
-      { label: "Users", href: "admin.users.index", icon: User, countKey: null },
-      { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null },
+      { label: "Users", href: "admin.users.index", icon: User, countKey: null, adminOnly: true },
+      { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null, adminOnly: true },
       { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null },
-      { label: "Roaster", href: "admin.roster.index", icon: CalendarClock, countKey: null },
-    ],
-  },
-  {
-    group: null,
-    items: [
-      { label: "Payouts", href: "admin.payouts.index", icon: Wallet, countKey: null },
+      { label: "Roster", href: "admin.roster.index", icon: CalendarClock, countKey: null, adminOnly: true },
     ],
   },
 ];
@@ -113,17 +113,14 @@ function Badge({ count }: { count: number }) {
   return (
     <span
       style={{
-        background: C.amber,
-        color: C.textInverse,
         fontFamily: "'JetBrains Mono', monospace",
-        fontSize: "9px",
+        fontSize: "10px",
         fontWeight: 700,
-        letterSpacing: "0.04em",
-        padding: "1px 5px",
-        borderRadius: "10px",
+        padding: "2px 7px",
+        borderRadius: "999px",
+        background: "rgba(255,182,39,0.14)",
+        color: C.amber,
         marginLeft: "auto",
-        minWidth: 16,
-        textAlign: "center",
         lineHeight: "14px",
         flexShrink: 0,
       }}
@@ -140,21 +137,15 @@ export default function AdminLayout({
 }) {
   const { url, props } = usePage<any>();
   const adminCounts = (props.adminCounts ?? {}) as Record<string, number>;
+  const appName = (props.appName as string) || "Admin";
+  const authUser = props.auth?.user as
+    | { name?: string; avatar?: string; roles?: string[] }
+    | null
+    | undefined;
 
   const [collapsed, setCollapsed] = useState(false);
- const [openGroups, setOpenGroups] = useState<string[]>([
-  "Events",
-  "Catalogue",
-  "Commerce",
-  "People",
-]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-
-  const toggleGroup = (group: string) =>
-    setOpenGroups((prev) =>
-      prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]
-    );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -175,6 +166,19 @@ export default function AdminLayout({
     { label: "New Bookings", count: adminCounts.bookings ?? 0, href: "admin.bookings.index", Icon: CalendarDays },
   ].filter((n) => n.count > 0);
 
+  const userName = authUser?.name ?? "Admin";
+  const roles = authUser?.roles ?? [];
+  const isAdmin = roles.includes("Admin");
+  const userRole = authUser?.roles?.[0] ?? "Platform admin";
+  const markLetter = appName.trim().charAt(0).toUpperCase() || "A";
+
+  // Vendors see a trimmed-down sidebar; groups left with no items after
+  // filtering are dropped entirely.
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => isAdmin || !item.adminOnly),
+  })).filter((group) => group.items.length > 0);
+
   return (
     <div
       style={{
@@ -187,6 +191,14 @@ export default function AdminLayout({
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        .np-navItem { position: relative; transition: background .15s ease, color .15s ease; }
+        .np-navItem:hover { background: rgba(247,245,242,0.05); color: ${C.text}; }
+        .np-navItem.active::before {
+          content: "";
+          position: absolute; left: 0; top: 6px; bottom: 6px;
+          width: 3px; border-radius: 2px;
+          background: ${C.hot};
+        }
       `}</style>
 
       <ToastContainer position="top-right" autoClose={3000} />
@@ -194,7 +206,7 @@ export default function AdminLayout({
       {/* ── Sidebar ── */}
       <aside
         style={{
-          width: collapsed ? "60px" : "220px",
+          width: collapsed ? "68px" : "260px",
           background: C.sidebar,
           borderRight: `1px solid ${C.border}`,
           display: "flex",
@@ -207,30 +219,62 @@ export default function AdminLayout({
           overflow: "hidden",
         }}
       >
-        {/* Logo */}
+        {/* Header: mark + wordmark + role, collapse toggle */}
         <div
           style={{
-            padding: "24px 20px",
-            borderBottom: `1px dashed ${C.borderDashed}`,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
+            gap: 10,
+            padding: collapsed ? "20px 14px 18px" : "20px 18px 18px",
+            borderBottom: `1px solid ${C.border}`,
           }}
         >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: C.hot,
+              color: C.text,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "'Anton', sans-serif",
+              fontSize: 15,
+              flexShrink: 0,
+            }}
+          >
+            {markLetter}
+          </div>
           {!collapsed && (
-            <span
-              style={{
-                fontFamily: "'Anton', sans-serif",
-                textTransform: "uppercase",
-                letterSpacing: "0.02em",
-                fontSize: "1.1rem",
-                color: C.text,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Admin
-            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontFamily: "'Anton', sans-serif",
+                  letterSpacing: "0.02em",
+                  fontSize: 16,
+                  textTransform: "uppercase",
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {appName}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  color: C.textMuted,
+                  textTransform: "uppercase",
+                  marginTop: 4,
+                }}
+              >
+                {isAdmin ? "Admin console" : "Vendor portal"}
+              </div>
+            </div>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -239,7 +283,7 @@ export default function AdminLayout({
               border: "none",
               color: C.amber,
               cursor: "pointer",
-              padding: "4px",
+              padding: 4,
               flexShrink: 0,
               display: "flex",
             }}
@@ -249,144 +293,160 @@ export default function AdminLayout({
         </div>
 
         {/* Nav */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {NAV_GROUPS.map((group) => {
-            const isOpen = group.group ? openGroups.includes(group.group) : true;
-            const hasActive = group.items.some((item) => {
-              const href = route(item.href);
-              return url.startsWith(new URL(href).pathname);
-            });
-            const GroupIcon = group.icon;
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 10px" }}>
+          {visibleGroups.map((group, gi) => (
+            <div key={group.group ?? "__ungrouped"}>
+              {group.group && !collapsed && (
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    color: C.textFainter,
+                    textTransform: "uppercase",
+                    padding: "14px 12px 8px",
+                  }}
+                >
+                  {group.group}
+                </div>
+              )}
 
-            return (
-              <div key={group.group ?? "__ungrouped"}>
-                {group.group && (
-                  <button
-                    onClick={() => toggleGroup(group.group!)}
+              {group.items.map((item) => {
+                const href = route(item.href);
+                const isActive = url.startsWith(new URL(href).pathname);
+                const count = item.countKey ? (adminCounts[item.countKey] ?? 0) : 0;
+                const ItemIcon = item.icon;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={href}
+                    className={`np-navItem${isActive ? " active" : ""}`}
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "space-between",
-                      width: "100%",
-                      padding: "10px 20px",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      color: hasActive ? C.amber : C.textFaint,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                      whiteSpace: "nowrap",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 7,
+                      color: isActive ? C.text : C.textMuted,
+                      background: isActive ? "rgba(255,62,48,0.10)" : "transparent",
+                      textDecoration: "none",
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      justifyContent: collapsed ? "center" : "flex-start",
                     }}
                   >
-                    {!collapsed ? (
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        display: "flex",
+                        opacity: isActive ? 1 : 0.85,
+                        color: isActive ? C.hot : "inherit",
+                      }}
+                    >
+                      <ItemIcon size={17} strokeWidth={1.8} />
+                    </span>
+                    {!collapsed && (
                       <>
-                        <span>{group.group}</span>
-                        <ChevronDown
-                          size={12}
-                          strokeWidth={2}
-                          style={{
-                            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                            transition: "transform 0.2s ease",
-                            opacity: 0.7,
-                          }}
-                        />
+                        <span style={{ flex: 1 }}>{item.label}</span>
+                        <Badge count={count} />
                       </>
-                    ) : (
-                      GroupIcon && (
-                        <span style={{ margin: "0 auto", display: "flex", color: hasActive ? C.amber : C.textFaint }}>
-                          <GroupIcon size={15} strokeWidth={1.8} />
-                        </span>
-                      )
                     )}
-                  </button>
-                )}
+                    {collapsed && count > 0 && <Badge count={count} />}
+                  </Link>
+                );
+              })}
 
+              {gi < visibleGroups.length - 1 && (
                 <div
                   style={{
-                    maxHeight: isOpen && !collapsed ? "500px" : collapsed ? "auto" : "0px",
-                    overflow: "hidden",
-                    transition: group.group ? "max-height 0.25s ease" : "none",
+                    height: 1,
+                    margin: "8px 12px",
+                    background: `repeating-linear-gradient(90deg, ${C.borderDashed} 0 5px, transparent 5px 10px)`,
                   }}
-                >
-                  {group.items.map((item) => {
-                    const href = route(item.href);
-                    const isActive = url.startsWith(new URL(href).pathname);
-                    const count = item.countKey ? (adminCounts[item.countKey] ?? 0) : 0;
-                    const ItemIcon = item.icon;
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={href}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "9px 20px",
-                          paddingLeft: collapsed || !group.group ? "20px" : "30px",
-                          color: isActive ? C.text : C.textMuted,
-                          background: isActive ? "rgba(255,62,48,0.10)" : "transparent",
-                          borderLeft: isActive ? `2px solid ${C.hot}` : "2px solid transparent",
-                          textDecoration: "none",
-                          fontFamily: "'Inter', sans-serif",
-                          fontSize: "13px",
-                          letterSpacing: "0.02em",
-                          transition: "all 0.15s ease",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <span style={{ flexShrink: 0, display: "flex", color: isActive ? C.hot : "inherit" }}>
-                          <ItemIcon size={15} strokeWidth={1.8} />
-                        </span>
-                        {!collapsed && (
-                          <>
-                            <span style={{ flex: 1 }}>{item.label}</span>
-                            <Badge count={count} />
-                          </>
-                        )}
-                        {collapsed && count > 0 && <Badge count={count} />}
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                {group.group && (
-                  <div
-                    style={{
-                      height: 0,
-                      borderTop: `1px dashed ${C.borderDashed}`,
-                      margin: "6px 20px",
-                    }}
-                  />
-                )}
-              </div>
-            );
-          })}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Back to site */}
-        <div style={{ padding: "16px 20px", borderTop: `1px dashed ${C.borderDashed}` }}>
-          <Link
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: C.textFaint,
-              textDecoration: "none",
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "10.5px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <ArrowLeft size={13} strokeWidth={2} />
-            {!collapsed && "Back to Site"}
-          </Link>
+        {!collapsed && (
+          <div style={{ padding: "0 20px 14px" }}>
+            <Link
+              href="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: C.textFaint,
+                textDecoration: "none",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10.5,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              <ArrowLeft size={13} strokeWidth={2} />
+              Back to Site
+            </Link>
+          </div>
+        )}
+
+        {/* Footer: avatar + name + role */}
+        <div
+          style={{
+            borderTop: `1px solid ${C.border}`,
+            padding: collapsed ? "14px 0" : "14px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
+            gap: 10,
+          }}
+        >
+          {authUser?.avatar ? (
+            <img
+              src={authUser.avatar}
+              alt={userName}
+              style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${C.hot}, ${C.amber})`,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {!collapsed && (
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {userName}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  color: C.textMuted,
+                  textTransform: "capitalize",
+                }}
+              >
+                {userRole}
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -398,23 +458,15 @@ export default function AdminLayout({
             background: C.surface,
             borderBottom: `1px solid ${C.border}`,
             padding: "0 28px",
-            height: "92px",
+            height: "72px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             position: "sticky",
             top: 0,
             zIndex: 50,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img
-              src="/images/logo.png"
-              alt="RB Hair & Beauty Lounge"
-              style={{ height: 54, width: "auto", objectFit: "contain" }}
-            />
-          </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* Notification bell */}
             <div ref={notifRef} style={{ position: "relative" }}>

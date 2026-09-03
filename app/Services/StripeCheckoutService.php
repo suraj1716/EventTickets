@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use Stripe\Checkout\Session;
+use Stripe\PaymentIntent;
 use Stripe\Stripe;
 
 class StripeCheckoutService
 {
-    public function createSession(array $params): Session
+    public function createPaymentIntent(array $params): PaymentIntent
     {
-        Stripe::setApiKey(config('app.stripe_secret_key'));
+        Stripe::setApiKey(config('services.stripe.secret'));
 
-        return Session::create($params);
+        return PaymentIntent::create($params);
     }
 }

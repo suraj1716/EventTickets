@@ -36,9 +36,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'google_access_token',
         'google_refresh_token',
         'token_expires_at',
-'email_verified_at',
-
-'stripe_account_active'
+        'email_verified_at',
+        'is_read',
+        'stripe_account_active'
     ];
 
 
@@ -61,10 +61,10 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'token_expires_at' => 'datetime',
-    ];
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'token_expires_at' => 'datetime',
+        ];
     }
 
     // public function vendor():HasOne

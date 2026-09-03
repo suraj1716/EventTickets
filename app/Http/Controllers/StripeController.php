@@ -572,167 +572,264 @@ class StripeController extends Controller
         return response('', 200);
     }
 
-    public function success(Request $request)
-    {
-        $user = Auth::user();
-        $session_id = $request->get('session_id');
+public function success(Request $request)
+{
+    $user = Auth::user();
 
-        if (!$session_id) {
-            abort(404);
-        }
+    $paymentIntentId = $request->get('payment_intent');
 
-        $orders = Order::where('stripe_session_id', $session_id)
-            ->with('vendor', 'orderItems.product')
-            ->get();
+    if (!$paymentIntentId) {
+        Log::warning('Stripe success called without payment_intent', [
+            'user_id' => $user?->id,
+            'query' => $request->query(),
+        ]);
 
-        if ($orders->count() === 0) {
-            // Fallback: webhook may not have fired yet, or this is a gift-card-only
-            // checkout whose Order row is created lazily via fulfillGiftCardOrder().
-            Stripe::setApiKey(config('app.stripe_secret_key'));
+        abort(404);
+    }
 
-            try {
-                $stripeSession = StripeSession::retrieve($session_id);
-            } catch (\Exception $e) {
-                Log::error("Could not retrieve Stripe session {$session_id}: " . $e->getMessage());
-                abort(404);
-            }
+    Stripe::setApiKey(config('services.stripe.secret'));
 
-            if ($stripeSession->payment_status !== 'paid') {
-                abort(404);
-            }
+    try {
+        $paymentIntent = \Stripe\PaymentIntent::retrieve(
+            $paymentIntentId,
+            [
+                'expand' => ['payment_method', 'latest_charge'],
+            ]
+        );
+    } catch (\Exception $e) {
+        Log::error("Could not retrieve PaymentIntent {$paymentIntentId}: " . $e->getMessage());
 
-            // Resale ticket purchases don't create an Order row � the webhook
-            // (see resale_listing_id branch above) handles ownership transfer
-            // directly via TicketResaleService. Redirect straight to the
-            // buyer's ticket instead of falling through to gift-card logic.
-            if (!empty($stripeSession->metadata['resale_listing_id'])) {
-                $listing = \App\Models\TicketResaleListing::find(
-                    $stripeSession->metadata['resale_listing_id']
-                );
+        abort(404);
+    }
 
-                if ($listing && $listing->ticket_id) {
-                    return redirect()
-                        ->route('tickets.show', $listing->ticket_id)
-                        ->with('success', 'Ticket purchased! It is now in your account.');
-                }
+    /*
+    |--------------------------------------------------------------------------
+    | Payment must actually be successful
+    |--------------------------------------------------------------------------
+    */
 
-                return redirect()
-                    ->route('resale.index')
-                    ->with('success', 'Purchase complete! Check your tickets shortly.');
-            }
+    if ($paymentIntent->status !== 'succeeded') {
+        Log::warning('Stripe success reached before PaymentIntent succeeded', [
+            'payment_intent' => $paymentIntentId,
+            'status' => $paymentIntent->status,
+            'user_id' => $user->id,
+        ]);
 
-            $order = $this->fulfillGiftCardOrder($stripeSession);
+        return redirect()
+            ->route('stripe.failure')
+            ->with('error', 'Payment has not completed yet.');
+    }
 
-            if (!$order) {
-                abort(404);
-            }
+    /*
+    |--------------------------------------------------------------------------
+    | Find the orders using PaymentIntent
+    |--------------------------------------------------------------------------
+    */
 
-            $orders = Order::where('stripe_session_id', $session_id)
-                ->with('vendor', 'orderItems.product')
-                ->get();
-        }
+    $orders = Order::where('payment_intent', $paymentIntentId)
+        ->with('vendor', 'orderItems.product')
+        ->get();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Security: only the owner can view these orders
+    |--------------------------------------------------------------------------
+    */
+
+    if ($orders->isNotEmpty()) {
         foreach ($orders as $order) {
             if ($order->user_id !== $user->id) {
                 abort(403);
             }
         }
+    }
 
-        // ── Clear cart items for this checkout ──────────────────────────────
+    /*
+    |--------------------------------------------------------------------------
+    | If webhook already fulfilled the orders, we're done.
+    |
+    | The webhook is the authoritative payment fulfillment mechanism.
+    |--------------------------------------------------------------------------
+    */
 
-        // Product cart items
-        $productIds = $orders
-            ->flatMap(fn($order) => $order->orderItems->pluck('product_id'))
-            ->filter()
-            ->unique()
-            ->values();
+    if ($orders->isEmpty()) {
+        Log::warning('No orders found for successful PaymentIntent', [
+            'payment_intent' => $paymentIntentId,
+            'user_id' => $user->id,
+        ]);
 
-        if ($productIds->isNotEmpty()) {
-            CartItem::where('user_id', $user->id)
-                ->whereIn('product_id', $productIds)
-                ->where('saved_for_later', false)
-                ->delete();
+        /*
+        |--------------------------------------------------------------------------
+        | Give webhook a moment / handle payment that succeeded but hasn't
+        | created the order association yet.
+        |--------------------------------------------------------------------------
+        */
+
+        $metadata = $paymentIntent->metadata
+            ? $paymentIntent->metadata->toArray()
+            : [];
+
+        $orderIds = [];
+
+        if (!empty($metadata['order_ids'])) {
+            $orderIds = collect(explode(',', $metadata['order_ids']))
+                ->map(fn ($id) => (int) trim($id))
+                ->filter()
+                ->values()
+                ->all();
         }
 
-        // Ticket cart items
-        $ticketTierIds = $orders
-            ->flatMap(fn($order) => $order->orderItems->pluck('ticket_tier_id'))
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($ticketTierIds->isNotEmpty()) {
-            CartItem::whereIn('user_id', $orders->pluck('user_id')->unique())
-                ->whereIn('ticket_tier_id', $ticketTierIds)
-                ->where('saved_for_later', false)
-                ->delete();
+        if (!empty($orderIds)) {
+            $orders = Order::whereIn('id', $orderIds)
+                ->where('user_id', $user->id)
+                ->with('vendor', 'orderItems.product')
+                ->get();
         }
+    }
 
-        // ✅ Referral logic (unchanged)
-        if ($user->referred_by && !$user->has_received_referral_bonus) {
-            $totalSpent = $user->orders()
-                ->where(function ($q) {
-                    $q->where('status', 'Paid')
-                        ->orWhere('payment_status', 'paid');
-                })
-                ->sum('total_price');
+    /*
+    |--------------------------------------------------------------------------
+    | Still no orders
+    |--------------------------------------------------------------------------
+    */
 
-            if ($totalSpent >= 100) {
+    if ($orders->isEmpty()) {
+        Log::error('Successful PaymentIntent has no associated orders', [
+            'payment_intent' => $paymentIntentId,
+            'user_id' => $user->id,
+            'metadata' => $paymentIntent->metadata
+                ? $paymentIntent->metadata->toArray()
+                : [],
+        ]);
+
+        abort(404);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clear product cart items
+    |--------------------------------------------------------------------------
+    */
+
+    $productIds = $orders
+        ->flatMap(fn ($order) => $order->orderItems->pluck('product_id'))
+        ->filter()
+        ->unique()
+        ->values();
+
+    if ($productIds->isNotEmpty()) {
+        CartItem::where('user_id', $user->id)
+            ->whereIn('product_id', $productIds)
+            ->where('saved_for_later', false)
+            ->delete();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clear ticket cart items
+    |--------------------------------------------------------------------------
+    */
+
+    $ticketTierIds = $orders
+        ->flatMap(fn ($order) => $order->orderItems->pluck('ticket_tier_id'))
+        ->filter()
+        ->unique()
+        ->values();
+
+    if ($ticketTierIds->isNotEmpty()) {
+        CartItem::whereIn('user_id', $orders->pluck('user_id')->unique())
+            ->whereIn('ticket_tier_id', $ticketTierIds)
+            ->where('saved_for_later', false)
+            ->delete();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Referral logic
+    |--------------------------------------------------------------------------
+    */
+
+    if ($user->referred_by && !$user->has_received_referral_bonus) {
+        $totalSpent = $user->orders()
+            ->where(function ($q) {
+                $q->where('status', 'Paid')
+                    ->orWhere('payment_status', 'paid');
+            })
+            ->sum('total_price');
+
+        if ($totalSpent >= 100) {
+            Voucher::create([
+                'code' => strtoupper(Str::random(10)),
+                'type' => 'gift',
+                'amount' => 30,
+                'discount_type' => 'fixed',
+                'remaining_amount' => 30,
+                'max_uses' => 1,
+                'used_count' => 0,
+                'user_id' => $user->referred_by,
+                'active' => true,
+                'expires_at' => now()->addDays(365),
+            ]);
+
+            Voucher::create([
+                'code' => strtoupper(Str::random(10)),
+                'type' => 'gift',
+                'amount' => 30,
+                'discount_type' => 'fixed',
+                'remaining_amount' => 30,
+                'max_uses' => 1,
+                'user_id' => $user->id,
+                'active' => true,
+                'expires_at' => now()->addDays(365),
+            ]);
+
+            $user->update([
+                'has_received_referral_bonus' => true,
+            ]);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Generate vouchers for voucher products
+    |--------------------------------------------------------------------------
+    */
+
+    foreach ($orders as $order) {
+        foreach ($order->orderItems as $item) {
+            if (
+                $item->product &&
+                $item->product->product_type === 'voucher'
+            ) {
                 Voucher::create([
-                    'code' => strtoupper(Str::random(10)),
+                    'code' => strtoupper(Str::random(12)),
                     'type' => 'gift',
-                    'amount' => 30,
+                    'amount' => $item->price,
                     'discount_type' => 'fixed',
-                    'remaining_amount' => 30,
-                    'max_uses' => 1,
-                    'used_count' => 0,
-                    'user_id' => $user->referred_by,
-                    'active' => true,
-                    'expires_at' => now()->addDays(365),
-                ]);
-
-                Voucher::create([
-                    'code' => strtoupper(Str::random(10)),
-                    'type' => 'gift',
-                    'amount' => 30,
-                    'discount_type' => 'fixed',
-                    'remaining_amount' => 30,
+                    'remaining_amount' => $item->price,
                     'max_uses' => 1,
                     'used_count' => 0,
                     'user_id' => $user->id,
+                    'product_id' => $item->product_id,
                     'active' => true,
                     'expires_at' => now()->addDays(365),
                 ]);
-
-                $user->update(['has_received_referral_bonus' => true]);
             }
         }
-
-        // ✅ Voucher generation for "voucher" products (unchanged)
-        foreach ($orders as $order) {
-            foreach ($order->orderItems as $item) {
-                if ($item->product && $item->product->product_type === 'voucher') {
-                    Voucher::create([
-                        'code' => strtoupper(Str::random(12)),
-                        'type' => 'gift',
-                        'amount' => $item->price,
-                        'discount_type' => 'fixed',
-                        'remaining_amount' => $item->price,
-                        'max_uses' => 1,
-                        'used_count' => 0,
-                        'user_id' => $user->id,
-                        'product_id' => $item->product_id,
-                        'active' => true,
-                        'expires_at' => now()->addDays(365),
-                    ]);
-                }
-            }
-        }
-
-        return Inertia::render('Stripe/Success', [
-            'orders' => OrderViewResource::collection($orders)->collection->toArray()
-        ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Success page
+    |--------------------------------------------------------------------------
+    */
+
+    return Inertia::render('Stripe/Success', [
+        'orders' => OrderViewResource::collection($orders)
+            ->collection
+            ->toArray(),
+    ]);
+}
 
     private function fulfillGiftCardOrder(StripeSession $session): ?Order
     {

@@ -771,18 +771,36 @@ function LegCard({
               placeholder="Tier name"
               style={inputStyle}
             />
-            <input
-              type="number"
-              step="0.01"
-              value={tier.price || ""}
-              onChange={(e) =>
-                onUpdateTier(tierIndex, {
-                  price: parseFloat(e.target.value) || 0,
-                })
-              }
-              placeholder="Price"
-              style={inputStyle}
-            />
+            <div style={{ position: 'relative' }}>
+  <span
+    style={{
+      position: 'absolute',
+      left: 12,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      color: C.textMuted,
+      pointerEvents: 'none',
+    }}
+  >
+    $
+  </span>
+
+  <input
+    type="number"
+    step="0.01"
+    value={tier.price || ""}
+    onChange={(e) =>
+      onUpdateTier(tierIndex, {
+        price: parseFloat(e.target.value) || 0,
+      })
+    }
+    placeholder="Price"
+    style={{
+      ...inputStyle,
+      paddingLeft: 26,
+    }}
+  />
+</div>
             <input
               type="number"
               value={tier.quantity || ""}

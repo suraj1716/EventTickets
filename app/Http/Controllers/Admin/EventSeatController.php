@@ -33,32 +33,38 @@ class EventSeatController extends Controller
      * seating template (sections + seats), and the leg's current real
      * seat inventory.
      */
-    public function edit(EventLeg $eventLeg)
-    {
-        $this->authorizeEventLeg($eventLeg);
+   public function edit(EventLeg $eventLeg)
+{
+    $this->authorizeEventLeg($eventLeg);
 
-        $eventLeg->load(['ticketTiers', 'venue.sections.seats']);
+    $eventLeg->load([
+        'ticketTiers',
+        'venue.sections.seats',
+    ]);
 
-        return \Inertia\Inertia::render('Admin/Events/Seats', [
-            'eventLeg' => [
-                'id' => $eventLeg->id,
-                'venue_id' => $eventLeg->venue_id,
-                'venue_name' => $eventLeg->venue_name,
-                'seating_type' => $eventLeg->seating_type,
-                'ticket_tiers' => $eventLeg->ticketTiers->map(fn ($tier) => [
-                    'id' => $tier->id,
-                    'name' => $tier->name,
-                    'price' => $tier->price,
-                ]),
-            ],
-            'venue' => $eventLeg->venue,
-            'seats' => $eventLeg->seats()
-                ->with('ticketTier')
-                ->orderBy('row_label')
-                ->orderBy('seat_number')
-                ->get(),
-        ]);
-    }
+    return \Inertia\Inertia::render('Admin/Events/Seats', [
+        'eventLeg' => [
+            'id' => $eventLeg->id,
+            'venue_id' => $eventLeg->venue_id,
+            'venue_name' => $eventLeg->venue_name,
+            'seating_type' => $eventLeg->seating_type,
+            'ticket_tiers' => $eventLeg->ticketTiers->map(fn ($tier) => [
+                'id' => $tier->id,
+                'name' => $tier->name,
+                'price' => $tier->price,
+            ])->values(),
+        ],
+
+        'venue' => $eventLeg->venue,
+
+        'seats' => $eventLeg->seats()
+            ->with([
+                'ticketTier',
+                'venueSeat.section',
+            ])
+            ->get(),
+    ]);
+}
 
     /**
      * Delete ALL event seat inventory for this leg (used when clearing
@@ -206,15 +212,16 @@ class EventSeatController extends Controller
             EventSeat::where('event_leg_id', $eventLeg->id)->delete();
 
             foreach ($venueSeats as $venueSeat) {
-                EventSeat::create([
-                    'event_leg_id' => $eventLeg->id,
-                    'venue_seat_id' => $venueSeat->id,
-                    'ticket_tier_id' => $sectionAssignments->get($venueSeat->venue_section_id),
-                    'row_label' => $venueSeat->row_label,
-                    'seat_number' => $venueSeat->seat_number,
-                    'label' => $venueSeat->label,
-                    'status' => 'available',
-                ]);
+              EventSeat::create([
+    'event_leg_id' => $eventLeg->id,
+    'venue_seat_id' => $venueSeat->id,
+    'ticket_tier_id' => $sectionAssignments->get($venueSeat->venue_section_id),
+    'row_label' => $venueSeat->row_label,
+    'sort_order' => $venueSeat->sort_order,
+    'seat_number' => $venueSeat->seat_number,
+    'label' => $venueSeat->label,
+    'status' => 'available',
+]);
             }
 
             $eventLeg->update([

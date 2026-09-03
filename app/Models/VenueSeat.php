@@ -20,13 +20,17 @@ class VenueSeat extends Model
         'x',
         'y',
         'is_active',
+          'aisle_after',
+          'sort_order',
     ];
 
     protected $casts = [
         'seat_number' => 'integer',
+         'sort_order' => 'integer',
         'x' => 'decimal:3',
         'y' => 'decimal:3',
         'is_active' => 'boolean',
+        'aisle_after' => 'boolean',
     ];
 
     public function venue(): BelongsTo
@@ -41,4 +45,9 @@ class VenueSeat extends Model
             'venue_section_id'
         );
     }
+
+    public function eventSeats()
+{
+    return $this->hasMany(EventSeat::class);
+}
 }

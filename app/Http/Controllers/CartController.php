@@ -188,13 +188,13 @@ class CartController extends Controller
 
         $hasBooking = !is_null($latestBooking);
 
-       $cartItemIds = $request->input('cart_item_ids');
+        $cartItemIds = $request->input('cart_item_ids');
 
-$allCartItems = $cartItemIds
-    ? $cartService->getCartItemsGrouped($cartItemIds)
-    : ($request->boolean('ticket_checkout')
-        ? $cartService->getTicketCartItemsGrouped()
-        : $cartService->getCartItemsGrouped());
+        $allCartItems = $cartItemIds
+            ? $cartService->getCartItemsGrouped($cartItemIds)
+            : ($request->boolean('ticket_checkout')
+                ? $cartService->getTicketCartItemsGrouped()
+                : $cartService->getCartItemsGrouped());
         // CHECKPOINT 5 — what checkout() reads back
         Log::info('CHECKPOINT 5 - CHECKOUT READ', [
             'vendor_id_requested' => $vendorId,
@@ -620,26 +620,49 @@ $allCartItems = $cartItemIds
                     ])->toArray(),
                 ])->toArray(),
             ]);
-            $session = $stripeCheckoutService->createSession([
-                'customer_email' => $user->email,
-                'line_items' => $lineItems,
-                'mode' => 'payment',
-                'success_url' => route('stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => route('stripe.failure'),
-            ]);
-            // CHECKPOINT 6b — confirm Stripe accepted it and what session id we got
-            Log::info('CHECKPOINT 6b - STRIPE SESSION CREATED', [
-                'session_id' => $session->id,
-                'session_url' => $session->url,
-            ]);
-            foreach ($orders as $order) {
-                $order->stripe_session_id = $session->id;
-                $order->save();
-            }
+            // ── Otherwise, charge the remainder through Stripe. Same
+            //    Checkout Session/line_items engine as before — only
+            //    change is ui_mode: 'elements', so it renders inline on
+            //    our own page instead of redirecting to checkout.stripe.com.
+            //    Webhook (checkout.session.completed) is untouched. ──
+    $paymentIntent = $stripeCheckoutService->createPaymentIntent([
+    'amount' => (int) round($combinedTotalDue * 100),
+    'currency' => 'aud',
+    'receipt_email' => $user->email,
+    'payment_method_types' => ['card'], // explicit list — excludes link, wallets, etc.
+    'metadata' => [
+        'buyer_id' => $user->id,
+        'order_ids' => collect($orders)->pluck('id')->implode(','),
+    ],
+]);
 
-            DB::commit();
+foreach ($orders as $order) {
+    $order->payment_intent = $paymentIntent->id;
+    $order->save();
+}
 
-            return Inertia::location($session->url);
+DB::commit();
+
+// NEW: inline flow just wants the client secret back as JSON
+if ($request->wantsJson()) {
+    return response()->json([
+        'clientSecret' => $paymentIntent->client_secret,
+        'stripeKey' => config('services.stripe.key'),
+        'totalDue' => $combinedTotalDue,
+    ]);
+}
+
+// Fallback: keep the old full-page route working too, if you still need it
+return Inertia::render('Checkout/Payment', [
+    'clientSecret' => $paymentIntent->client_secret,
+    'stripeKey' => config('services.stripe.key'),
+    'orderSummary' => collect($lineItems)->map(fn ($li) => [
+        'title' => $li['price_data']['product_data']['name'],
+        'quantity' => $li['quantity'],
+        'price' => $li['price_data']['unit_amount'] / 100,
+    ])->values(),
+    'totalDue' => $combinedTotalDue,
+]);
         } catch (\Exception $e) {
             if ($ownsTransaction) {
                 DB::rollBack();

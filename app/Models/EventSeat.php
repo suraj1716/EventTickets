@@ -18,10 +18,12 @@ class EventSeat extends Model
         'seat_number',
         'label',
         'status',
+        'sort_order'
     ];
 
     protected $casts = [
         'seat_number' => 'integer',
+           'sort_order' => 'integer',
     ];
 
     public function eventLeg(): BelongsTo

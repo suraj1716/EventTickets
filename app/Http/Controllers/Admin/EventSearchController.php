@@ -225,7 +225,7 @@ class EventSearchController extends Controller
             'categories',
             'artists',
             'legs.ticketTiers',
-            'legs.seats',
+            'legs.seats.venueSeat',
             'media',
             'products.media',
             'products.variationTypes.options',   // NEW

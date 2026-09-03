@@ -151,18 +151,16 @@ export interface Venue {
 
 export interface VenueSeat {
   id: number;
-
   venue_id: number;
   venue_section_id: number;
-
   row_label: string;
   seat_number: number;
   label: string;
-
   is_active: boolean;
-
-  created_at?: string;
+    created_at?: string;
   updated_at?: string;
+ aisle_after: boolean;
+
 }
 
 

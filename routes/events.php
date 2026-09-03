@@ -244,6 +244,23 @@ Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
             '/venue-seats/{venueSeat}',
             [VenueSeatController::class, 'destroySeat']
         )->name('venues.seats.destroy');
+
+        Route::patch(
+            '/venue-seats/{venueSeat}/toggle-aisle',
+            [VenueSeatController::class, 'toggleAisle']
+        )->name('venue-seats.toggle-aisle');
+
+    Route::post(
+    '/venue-sections/{venueSection}/rows/reorder',
+    [VenueSeatController::class, 'reorderRows']
+)->name('venues.sections.rows.reorder');
+
+Route::delete(
+    '/venue-sections/{venueSection}/rows',
+    [VenueSeatController::class, 'destroyRow']
+)->name('venues.sections.rows.destroy');
+
+
     });
 
 

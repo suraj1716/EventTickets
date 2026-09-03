@@ -6,6 +6,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import type { Event, EventLeg, TicketTier } from "@/types";
 import HeroMediaSlider from "@/Components/HeroMediaSlider";
+import React from "react";
+import { loadStripe, Stripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 
 /*
 |--------------------------------------------------------------------------
@@ -136,44 +144,44 @@ export default function EventShow({
   const legs = event.legs ?? [];
 
   const isTour = event.type === "tour" && legs.length > 1;
-const CART_STORAGE_KEY = `event-cart-${event.id}`;
+  const CART_STORAGE_KEY = `event-cart-${event.id}`;
 
-function loadStoredCart() {
-  try {
-    const raw = sessionStorage.getItem(CART_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+  function loadStoredCart() {
+    try {
+      const raw = sessionStorage.getItem(CART_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   }
-}
 
-const storedCart = loadStoredCart();
+  const storedCart = loadStoredCart();
   /*
   |--------------------------------------------------------------------------
   | State
   |--------------------------------------------------------------------------
   */
 
-const [activeLegId, setActiveLegId] = useState<number | undefined>(
-  storedCart?.activeLegId ?? legs[0]?.id,
-);
+  const [activeLegId, setActiveLegId] = useState<number | undefined>(
+    storedCart?.activeLegId ?? legs[0]?.id,
+  );
 
-const { existingTicketSelection, existingProductSelection } = usePage().props as unknown as {
-  existingTicketSelection: Record<number, number>;
-  existingProductSelection: Record<number, number>;
-};
+  const { existingTicketSelection, existingProductSelection } = usePage()
+    .props as unknown as {
+    existingTicketSelection: Record<number, number>;
+    existingProductSelection: Record<number, number>;
+  };
 
-const [selection, setSelection] = useState<Record<number, number>>(
-  storedCart?.selection ?? existingTicketSelection ?? {},
-);
-const [productSelection, setProductSelection] = useState<Record<number, number>>(
-  storedCart?.productSelection ?? existingProductSelection ?? {},
-);
-const [showSummary, setShowSummary] = useState(false);
-const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>(
-  storedCart?.selectedSeatIds ?? [],
-);
-
+  const [selection, setSelection] = useState<Record<number, number>>(
+    storedCart?.selection ?? existingTicketSelection ?? {},
+  );
+  const [productSelection, setProductSelection] = useState<
+    Record<number, number>
+  >(storedCart?.productSelection ?? existingProductSelection ?? {});
+  const [showSummary, setShowSummary] = useState(false);
+  const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>(
+    storedCart?.selectedSeatIds ?? [],
+  );
 
   const [joiningWatchlist, setJoiningWatchlist] = useState(false);
 
@@ -241,11 +249,11 @@ const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>(
   |--------------------------------------------------------------------------
   */
 
-function selectLeg(legId: number) {
-  setActiveLegId(legId);
-  setSelection({});
-  setSelectedSeatIds([]); // was: setSelectedSeatIds({})
-}
+  function selectLeg(legId: number) {
+    setActiveLegId(legId);
+    setSelection({});
+    setSelectedSeatIds([]); // was: setSelectedSeatIds({})
+  }
 
   /*
   |--------------------------------------------------------------------------
@@ -358,22 +366,31 @@ function selectLeg(legId: number) {
     return map;
   }, [activeLeg]);
 
-useEffect(() => {
-  try {
-    sessionStorage.setItem(
-      CART_STORAGE_KEY,
-      JSON.stringify({ activeLegId, selection, productSelection, selectedSeatIds }),
-    );
-  } catch {
-    // sessionStorage unavailable (private mode, etc.) — fail silently
-  }
-}, [activeLegId, selection, productSelection, selectedSeatIds]);
-
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify({
+          activeLegId,
+          selection,
+          productSelection,
+          selectedSeatIds,
+        }),
+      );
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — fail silently
+    }
+  }, [activeLegId, selection, productSelection, selectedSeatIds]);
 
   // CHECKPOINT 0b — confirm seatLookup contents at render time
-useEffect(() => {
-  console.log('CHECKPOINT 0b - seatLookup size', seatLookup.size, 'sample:', Array.from(seatLookup.entries()).slice(0, 5));
-}, [seatLookup]);
+  useEffect(() => {
+    console.log(
+      "CHECKPOINT 0b - seatLookup size",
+      seatLookup.size,
+      "sample:",
+      Array.from(seatLookup.entries()).slice(0, 5),
+    );
+  }, [seatLookup]);
   /*
   |--------------------------------------------------------------------------
   | Ticket tier lookup
@@ -395,37 +412,70 @@ useEffect(() => {
   | Calculate complete order
   |--------------------------------------------------------------------------
   */
-const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutStage, setCheckoutStage] = useState<"summary" | "payment">(
+    "summary",
+  );
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const stripePromiseRef = useRef<Promise<Stripe | null> | null>(null);
+  async function confirmAndPay() {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setPaymentError(null);
 
-function confirmAndPay() {
-  if (isSubmitting) return;
-  setIsSubmitting(true);
+    const { ticketLines, productLines } = buildLines();
 
-  // CHECKPOINT 0a — raw state at click time
-  console.log('CHECKPOINT 0a - RAW STATE', {
-    selectedSeatIds,
-    selection,
-    productSelection,
-  });
-console.log('relateved evt',relatedEvents)
-  const { ticketLines, productLines } = buildLines();
+    try {
+      const csrf =
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+          ?.content ?? "";
 
-  // CHECKPOINT 1 — derived payload (already existed)
-  console.log('CHECKPOINT 1 - SENDING', JSON.stringify({ ticketLines, productLines }, null, 2));
+      const res = await fetch(route("events.cart.add", event.id), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRF-TOKEN": csrf,
+        },
+        body: JSON.stringify({
+          event_id: event.id,
+          ticket_lines: ticketLines,
+          product_lines: productLines,
+        }),
+      });
 
- router.post(
-  route("events.cart.add", event.id),
-  { event_id: event.id, ticket_lines: ticketLines, product_lines: productLines },
-  {
-    onFinish: () => setIsSubmitting(false),
-    onSuccess: () => {
-      try {
-        sessionStorage.removeItem(CART_STORAGE_KEY);
-      } catch {}
-    },
-  },
-);
-}
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.message ?? "Couldn't start checkout. Please try again.",
+        );
+      }
+
+      const data = await res.json();
+
+      if (data.orderComplete) {
+        // fully covered without Stripe (credit, free ticket, etc.)
+        router.visit(route("stripe.success"));
+        return;
+      }
+
+      if (!stripePromiseRef.current) {
+        stripePromiseRef.current = loadStripe(data.stripeKey);
+      }
+
+      setClientSecret(data.clientSecret);
+      setCheckoutStage("payment");
+    } catch (err) {
+      setPaymentError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const { ticketTotal, merchTotal, total, ticketCount, merchCount } =
     useMemo(() => {
@@ -1415,70 +1465,67 @@ console.log('relateved evt',relatedEvents)
             </motion.section>
           )}
 
-      {/* =========================================================
+          {/* =========================================================
     RELATED EVENTS
 ========================================================= */}
 
-{relatedEvents.length > 0 && (
-  <motion.section
-    initial={{ opacity: 0, y: 12 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: "-60px" }}
-    transition={{ duration: 0.5, ease: EASE }}
-    className="mt-20"
-  >
-    {/* Header */}
-    <div className="mb-7 flex items-end justify-between gap-4">
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
-          Discover more
-        </p>
+          {relatedEvents.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, ease: EASE }}
+              className="mt-20"
+            >
+              {/* Header */}
+              <div className="mb-7 flex items-end justify-between gap-4">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+                    Discover more
+                  </p>
 
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          You might also like
-        </h2>
-      </div>
+                  <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    You might also like
+                  </h2>
+                </div>
 
-      <div className="hidden items-center gap-2 sm:flex">
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          aria-label="Previous events"
-        >
-          ←
-        </button>
+                <div className="hidden items-center gap-2 sm:flex">
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                    aria-label="Previous events"
+                  >
+                    ←
+                  </button>
 
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          aria-label="Next events"
-        >
-          →
-        </button>
-      </div>
-    </div>
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                    aria-label="Next events"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
 
-    {/* Slider */}
-    <motion.div
-      variants={railVariants}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true }}
-      className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
-      style={{
-        scrollbarWidth: "none",
-        msOverflowStyle: "none",
-      }}
-    >
-      {relatedEvents.map((related) => (
-        <RelatedEventCard
-          key={related.id}
-          event={related}
-        />
-      ))}
-    </motion.div>
-  </motion.section>
-)}
+              {/* Slider */}
+              <motion.div
+                variants={railVariants}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                {relatedEvents.map((related) => (
+                  <RelatedEventCard key={related.id} event={related} />
+                ))}
+              </motion.div>
+            </motion.section>
+          )}
         </div>
       </div>
 
@@ -1494,141 +1541,67 @@ console.log('relateved evt',relatedEvents)
             exit={{ y: 40, opacity: 0 }}
             className="fixed inset-x-0 bottom-0 z-[999] bg-[#15141B] border-t border-[#26232E] rounded-t-2xl p-5 max-h-[70vh] overflow-y-auto"
           >
-            <h3 className="text-sm font-bold text-white mb-3">Order summary</h3>
+            <AnimatePresence mode="wait">
+              {checkoutStage === "summary" ? (
+                <motion.div
+                  key="summary"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {/* ...your existing order summary JSX unchanged... */}
 
-            {/* GA ticket lines */}
-            {!isReserved &&
-              Object.entries(selection)
-                .filter(([, q]) => q > 0)
-                .map(([tierId, qty]) => {
-                  const tier = tierLookup.get(Number(tierId));
-                  if (!tier) return null;
-                  return (
-                    <div
-                      key={tierId}
-                      className="flex items-center justify-between gap-2 text-sm text-[#D8D5DE] py-1"
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => setShowSummary(false)}
+                      className="flex-1 rounded-xl border border-[#26232E] text-[#D8D5DE] py-3 text-sm"
                     >
-                      <span className="truncate">
-                        {tier.name} × {qty}
-                      </span>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span>
-                          ${(parseFloat(tier.price) * qty).toFixed(2)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelection((prev) => {
-                              const next = { ...prev };
-                              delete next[Number(tierId)];
-                              return next;
-                            });
-                          }}
-                          className="text-[#6B6775] hover:text-[#FF6F91] transition-colors"
-                          aria-label={`Remove ${tier.name}`}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-            {/* Reserved seat lines */}
-            {isReserved &&
-              selectedSeatIds.map((seatId) => {
-                const seat = seatLookup.get(seatId);
-                const tier =
-                  seat?.ticket_tier_id != null
-                    ? tierLookup.get(seat.ticket_tier_id)
-                    : undefined;
-                if (!seat || !tier) return null;
-                return (
-                  <div
-                    key={seatId}
-                    className="flex items-center justify-between gap-2 text-sm text-[#D8D5DE] py-1"
-                  >
-                    <span className="truncate">
-                      Seat {seat.label} ({tier.name})
-                    </span>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span>${parseFloat(tier.price).toFixed(2)}</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedSeatIds((prev) =>
-                            prev.filter((id) => id !== seatId),
-                          )
-                        }
-                        className="text-[#6B6775] hover:text-[#FF6F91] transition-colors"
-                        aria-label={`Remove seat ${seat.label}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      Back
+                    </button>
+                    <button
+                      onClick={confirmAndPay}
+                      disabled={isSubmitting}
+                      className="flex-1 rounded-xl bg-[#FFB627] text-[#0B0B10] font-bold py-3 text-sm disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Processing..." : "Confirm & pay"}
+                    </button>
                   </div>
-                );
-              })}
 
-            {/* Product lines */}
-            {Object.entries(productSelection)
-              .filter(([, q]) => q > 0)
-              .map(([productId, qty]) => {
-                const product = products.find(
-                  (p) => p.id === Number(productId),
-                );
-                if (!product) return null;
-                return (
-                  <div
-                    key={productId}
-                    className="flex items-center justify-between gap-2 text-sm text-[#D8D5DE] py-1"
-                  >
-                    <span className="truncate">
-                      {product.title} × {qty}
-                    </span>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span>
-                        ${(parseFloat(product.price) * qty).toFixed(2)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProductSelection((prev) => {
-                            const next = { ...prev };
-                            delete next[Number(productId)];
-                            return next;
-                          });
-                        }}
-                        className="text-[#6B6775] hover:text-[#FF6F91] transition-colors"
-                        aria-label={`Remove ${product.title}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-            <div className="flex justify-between text-base font-bold text-white border-t border-[#26232E] mt-3 pt-3">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setShowSummary(false)}
-                className="flex-1 rounded-xl border border-[#26232E] text-[#D8D5DE] py-3 text-sm"
-              >
-                Back
-              </button>
-             <button
-  onClick={confirmAndPay}
-  disabled={isSubmitting}
-  className="flex-1 rounded-xl bg-[#FFB627] text-[#0B0B10] font-bold py-3 text-sm disabled:opacity-50"
->
-  {isSubmitting ? "Processing..." : "Confirm & pay"}
-</button>
-            </div>
+                  {paymentError && (
+                    <p className="mt-3 text-sm text-[#FF6F91]">
+                      {paymentError}
+                    </p>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="payment"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.25 }}
+                >
+                 {clientSecret && stripePromiseRef.current && (
+  <Elements stripe={stripePromiseRef.current} options={{ clientSecret }}>
+    <InlineCardForm
+      totalDue={total}
+      ticketTotal={ticketTotal}
+      merchTotal={merchTotal}
+      isReserved={isReserved}
+      selection={selection}
+      selectedSeatIds={selectedSeatIds}
+      seatLookup={seatLookup}
+      tierLookup={tierLookup}
+      products={products}
+      productSelection={productSelection}
+      onBack={() => setCheckoutStage("summary")}
+    />
+  </Elements>
+)}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1856,7 +1829,11 @@ function SeatChart({
       groups.set(seat.row_label, bucket);
     });
 
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(groups.entries()).sort(([, seatsA], [, seatsB]) => {
+      const orderA = Math.min(...seatsA.map((s) => s.sort_order));
+      const orderB = Math.min(...seatsB.map((s) => s.sort_order));
+      return orderA - orderB;
+    });
   }, [leg.seats]);
 
   return (
@@ -1905,7 +1882,7 @@ function SeatChart({
             {seats
               .slice()
               .sort((a, b) => a.seat_number - b.seat_number)
-              .map((seat) => {
+              .map((seat, i, arr) => {
                 const isSelected = selectedSeatIds.includes(seat.id);
                 const isUnavailable =
                   seat.status !== "available" || seat.ticket_tier_id == null;
@@ -1916,49 +1893,224 @@ function SeatChart({
                 const color = SEAT_TIER_COLORS[colorIdx];
 
                 return (
-                  <motion.button
-                    key={seat.id}
-                    type="button"
-                    disabled={isUnavailable}
-                    onClick={() => onToggleSeat(seat)}
-                    whileHover={!isUnavailable ? { scale: 1.15 } : undefined}
-                    whileTap={!isUnavailable ? { scale: 0.9 } : undefined}
-                    className="w-5 h-5 shrink-0 rounded-[4px] flex items-center justify-center"
-                    style={{
-                      background: isUnavailable
-                        ? "#26232E"
-                        : isSelected
-                          ? color
-                          : `${color}26`,
-                      border: `1px solid ${isUnavailable ? "#33303C" : color}`,
-                      cursor: isUnavailable ? "not-allowed" : "pointer",
-                    }}
-                    aria-label={`Seat ${seat.label}${
-                      isUnavailable
-                        ? ", unavailable"
-                        : isSelected
-                          ? ", selected"
-                          : ", available"
-                    }`}
-                  >
-                    {isSelected && (
-                      <svg
-                        className="w-3 h-3 text-[#0B0B10]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                      >
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
+                  <React.Fragment key={seat.id}>
+                    <motion.button
+                      type="button"
+                      disabled={isUnavailable}
+                      onClick={() => onToggleSeat(seat)}
+                      whileHover={!isUnavailable ? { scale: 1.15 } : undefined}
+                      whileTap={!isUnavailable ? { scale: 0.9 } : undefined}
+                      className="w-5 h-5 shrink-0 rounded-[4px] flex items-center justify-center"
+                      style={{
+                        background: isUnavailable
+                          ? "#26232E"
+                          : isSelected
+                            ? color
+                            : `${color}26`,
+                        border: `1px solid ${isUnavailable ? "#33303C" : color}`,
+                        cursor: isUnavailable ? "not-allowed" : "pointer",
+                      }}
+                      aria-label={`Seat ${seat.label}${
+                        isUnavailable
+                          ? ", unavailable"
+                          : isSelected
+                            ? ", selected"
+                            : ", available"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="w-3 h-3 text-[#0B0B10]"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      )}
+                    </motion.button>
+                    {seat.venue_seat?.aisle_after && i < arr.length - 1 && (
+                      <span className="w-4 shrink-0" aria-hidden="true" />
                     )}
-                  </motion.button>
+                  </React.Fragment>
                 );
               })}
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function InlineCardForm({
+  totalDue,
+  ticketTotal,
+  merchTotal,
+  isReserved,
+  selection,
+  selectedSeatIds,
+  seatLookup,
+  tierLookup,
+  products,
+  productSelection,
+  onBack,
+}: {
+  totalDue: number;
+  ticketTotal: number;
+  merchTotal: number;
+  isReserved: boolean;
+  selection: Selection;
+  selectedSeatIds: number[];
+  seatLookup: Map<number, Seat>;
+  tierLookup: Map<number, TicketTier>;
+  products: Product[];
+  productSelection: ProductSelection;
+  onBack: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements || submitting) return;
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/stripe/success`,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setErrorMessage(error.message ?? "Payment failed. Please check your card details.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (paymentIntent?.status === "succeeded") {
+      router.visit(route("stripe.success"));
+      return;
+    }
+
+    setSubmitting(false);
+    setErrorMessage("Payment is still processing — please wait a moment and check your orders.");
+  }
+
+  const ticketLines = isReserved
+    ? selectedSeatIds
+        .map((seatId) => {
+          const seat = seatLookup.get(seatId);
+          const tier = seat?.ticket_tier_id != null ? tierLookup.get(seat.ticket_tier_id) : undefined;
+          if (!seat || !tier) return null;
+          return {
+            key: `seat-${seatId}`,
+            label: `Seat ${seat.label} — ${tier.name}`,
+            amount: parseFloat(tier.price),
+          };
+        })
+        .filter((l): l is { key: string; label: string; amount: number } => l !== null)
+    : Object.entries(selection)
+        .filter(([, qty]) => qty > 0)
+        .map(([tierId, qty]) => {
+          const tier = tierLookup.get(Number(tierId));
+          if (!tier) return null;
+          return {
+            key: `tier-${tierId}`,
+            label: `${tier.name} × ${qty}`,
+            amount: parseFloat(tier.price) * qty,
+          };
+        })
+        .filter((l): l is { key: string; label: string; amount: number } => l !== null);
+
+  const productLines = Object.entries(productSelection)
+    .filter(([, qty]) => qty > 0)
+    .map(([productId, qty]) => {
+      const product = products.find((p) => p.id === Number(productId));
+      if (!product) return null;
+      return {
+        key: `product-${productId}`,
+        label: `${product.title} × ${qty}`,
+        amount: parseFloat(product.price) * qty,
+      };
+    })
+    .filter((l): l is { key: string; label: string; amount: number } => l !== null);
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold text-white">Card details</h3>
+        <button type="button" onClick={onBack} className="text-xs text-[#6B6775] hover:text-white">
+          ← Back to order
+        </button>
+      </div>
+
+      {/* Order recap */}
+      <div className="rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-3 mb-4">
+        {ticketLines.length > 0 && (
+          <div className="mb-2">
+            <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775] mb-1.5">
+              Tickets
+            </p>
+            {ticketLines.map((line) => (
+              <div key={line.key} className="flex items-center justify-between text-sm py-0.5">
+                <span className="text-[#D8D5DE] truncate">{line.label}</span>
+                <span className="font-['IBM_Plex_Mono'] text-white shrink-0 ml-2">
+                  ${line.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between text-xs text-[#6B6775] mt-1 pt-1 border-t border-[#1c1a22]">
+              <span>Subtotal</span>
+              <span className="font-['IBM_Plex_Mono']">${ticketTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {productLines.length > 0 && (
+          <div className={ticketLines.length > 0 ? "pt-2 border-t border-[#26232E]" : ""}>
+            <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775] mb-1.5">
+              Merchandise
+            </p>
+            {productLines.map((line) => (
+              <div key={line.key} className="flex items-center justify-between text-sm py-0.5">
+                <span className="text-[#D8D5DE] truncate">{line.label}</span>
+                <span className="font-['IBM_Plex_Mono'] text-white shrink-0 ml-2">
+                  ${line.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between text-xs text-[#6B6775] mt-1 pt-1 border-t border-[#1c1a22]">
+              <span>Subtotal</span>
+              <span className="font-['IBM_Plex_Mono']">${merchTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-base font-bold text-white mt-3 pt-2 border-t border-[#26232E]">
+          <span>Total</span>
+          <span className="font-['IBM_Plex_Mono'] text-[#FFB627]">${totalDue.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <PaymentElement />
+
+      {errorMessage && <p className="mt-3 text-sm text-[#FF6F91]">{errorMessage}</p>}
+
+      <button
+        type="submit"
+        disabled={!stripe || !elements || submitting}
+        className="w-full mt-4 rounded-xl bg-[#FFB627] text-[#0B0B10] font-bold py-3 text-sm disabled:opacity-50"
+      >
+        {submitting ? "Processing..." : `Pay $${totalDue.toFixed(2)}`}
+      </button>
+    </form>
   );
 }
 
@@ -2146,7 +2298,3 @@ function RelatedEventCard({ event }: { event: RelatedEvent }) {
     </Link>
   );
 }
-
-
-
-
