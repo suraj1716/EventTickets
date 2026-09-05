@@ -94,7 +94,7 @@ function legsFromEvent(
       event_date: formatDateInput(leg.event_date), // <-- fixed
       capacity: effectiveCapacity,
       seating_type: leg.seating_type,
-          tiers: (leg.ticket_tiers ?? [emptyTier() as any]).map((t) => ({
+      tiers: (leg.ticket_tiers ?? [emptyTier() as any]).map((t) => ({
         id: t.id,
         name: t.name,
         price: parseFloat(t.price),
@@ -193,8 +193,13 @@ export default function EventForm({ event, categories, venues }: Props) {
     setData("legs", [...data.legs, emptyLeg()]);
   }
 
+  function isLegLocked(leg: EventLegFormInput) {
+    return leg.tiers.some((t) => (t.sold_count ?? 0) > 0);
+  }
+
   function removeLeg(index: number) {
     if (data.legs.length <= 1) return;
+    if (isLegLocked(data.legs[index])) return;
     setData(
       "legs",
       data.legs.filter((_, i) => i !== index),
@@ -676,7 +681,8 @@ export default function EventForm({ event, categories, venues }: Props) {
             leg={leg}
             index={legIndex}
             isTour={data.type === "tour"}
-            canRemove={data.legs.length > 1}
+            canRemove={data.legs.length > 1 && !isLegLocked(leg)}
+            isLocked={isLegLocked(leg)}
             errors={errors}
             venues={venues}
             onChange={(patch) => updateLeg(legIndex, patch)}
@@ -792,6 +798,7 @@ interface LegCardProps {
   index: number;
   isTour: boolean;
   canRemove: boolean;
+  isLocked: boolean;
   errors: Record<string, string>;
   venues: Venue[];
   onChange: (patch: Partial<EventLegFormInput>) => void;
@@ -809,6 +816,7 @@ function LegCard({
   index,
   isTour,
   canRemove,
+  isLocked,
   venues,
   onChange,
   onRemove,
@@ -816,7 +824,10 @@ function LegCard({
   onUpdateTier,
   onRemoveTier,
 }: LegCardProps) {
-  console.log("LegCard", index, leg.id, leg); // TEMP — remove after checking
+  const legSoldCount = leg.tiers.reduce(
+    (sum, t) => sum + (t.sold_count ?? 0),
+    0,
+  );
 
   return (
     <div
@@ -872,6 +883,13 @@ function LegCard({
         </div>
       )}
 
+      {isLocked && (
+        <p style={{ fontSize: 11, color: C.textFaint, marginBottom: 8 }}>
+          {legSoldCount} ticket(s) sold across this leg's tiers — the venue,
+          date, capacity, and leg itself are locked and can't be changed or
+          removed.
+        </p>
+      )}
       <div
         style={{
           display: "grid",
@@ -882,11 +900,11 @@ function LegCard({
       >
         <select
           value={leg.venue_id ?? ""}
+          disabled={isLocked}
           onChange={(e) => {
+            if (isLocked) return;
             const venueId = Number(e.target.value);
-
             const venue = venues.find((v) => v.id === venueId);
-            console.log("SELECTED VENUE:", venueId, venue); // TEMP
             if (!venue) {
               onChange({
                 venue_id: undefined,
@@ -933,33 +951,46 @@ function LegCard({
             ))}
         </select>
 
-        <input
-          type="date"
-          value={leg.event_date}
-          onChange={(e) => onChange({ event_date: e.target.value })}
-          style={inputStyle}
-        />
+      <input
+  type="date"
+  value={leg.event_date}
+  disabled={isLocked}
+  onChange={(e) => {
+    if (isLocked) return;
+    onChange({ event_date: e.target.value });
+  }}
+  style={{
+    ...inputStyle,
+    opacity: isLocked ? 0.6 : 1,
+    cursor: isLocked ? "not-allowed" : "text",
+  }}
+/>
 
         <input
           type="number"
           value={leg.capacity || ""}
-          readOnly={leg.seating_type === "reserved"}
+          readOnly={leg.seating_type === "reserved" || isLocked}
           onChange={(e) => {
-            if (leg.seating_type === "reserved") return;
+            if (leg.seating_type === "reserved" || isLocked) return;
             onChange({
               capacity: parseInt(e.target.value, 10) || 0,
             });
           }}
           placeholder="Capacity"
           title={
-            leg.seating_type === "reserved"
-              ? 'Managed by the seat map — edit seats in "Manage seats" instead.'
-              : undefined
+            isLocked
+              ? "This leg has sold tickets and its capacity is locked."
+              : leg.seating_type === "reserved"
+                ? 'Managed by the seat map — edit seats in "Manage seats" instead.'
+                : undefined
           }
           style={{
             ...inputStyle,
-            opacity: leg.seating_type === "reserved" ? 0.6 : 1,
-            cursor: leg.seating_type === "reserved" ? "not-allowed" : "text",
+            opacity: leg.seating_type === "reserved" || isLocked ? 0.6 : 1,
+            cursor:
+              leg.seating_type === "reserved" || isLocked
+                ? "not-allowed"
+                : "text",
           }}
         />
       </div>
@@ -1000,17 +1031,33 @@ function LegCard({
         </button>
       </div>
 
-            {leg.tiers.map((tier, tierIndex) => {
+      {leg.tiers.map((tier, tierIndex) => {
         const isLocked = (tier.sold_count ?? 0) > 0;
 
         return (
-          <div key={tierIndex} style={{ borderTop: `1px dashed ${C.borderDashed}`, paddingTop: 12, marginTop: 12 }}>
+          <div
+            key={tierIndex}
+            style={{
+              borderTop: `1px dashed ${C.borderDashed}`,
+              paddingTop: 12,
+              marginTop: 12,
+            }}
+          >
             {isLocked && (
               <p style={{ fontSize: 11, color: C.textFaint, marginBottom: 6 }}>
-                {tier.sold_count} ticket(s) sold — this tier is locked and can't be edited or removed.
+                {tier.sold_count} ticket(s) sold — this tier is locked and can't
+                be edited or removed.
               </p>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.7fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 0.9fr 0.7fr auto",
+                gap: 8,
+                marginBottom: 8,
+                alignItems: "center",
+              }}
+            >
               <input
                 type="text"
                 value={tier.name}
@@ -1077,20 +1124,34 @@ function LegCard({
                 <button
                   type="button"
                   onClick={() => onRemoveTier(tierIndex)}
-                  style={{ background: "none", border: "none", color: C.textFaint, fontSize: 13, padding: "0 4px", cursor: "pointer" }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: C.textFaint,
+                    fontSize: 13,
+                    padding: "0 4px",
+                    cursor: "pointer",
+                  }}
                   aria-label="Remove tier"
                 >
                   ×
                 </button>
               )}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
               <input
                 type="datetime-local"
                 value={tier.starts_at}
                 readOnly={isLocked}
                 onChange={(e) =>
-                  !isLocked && onUpdateTier(tierIndex, { starts_at: e.target.value })
+                  !isLocked &&
+                  onUpdateTier(tierIndex, { starts_at: e.target.value })
                 }
                 style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
               />
@@ -1099,7 +1160,8 @@ function LegCard({
                 value={tier.ends_at}
                 readOnly={isLocked}
                 onChange={(e) =>
-                  !isLocked && onUpdateTier(tierIndex, { ends_at: e.target.value })
+                  !isLocked &&
+                  onUpdateTier(tierIndex, { ends_at: e.target.value })
                 }
                 style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
               />

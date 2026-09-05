@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
-import AdminLayout from '../AdminLayout';
+import { useEffect, useMemo, useState } from "react";
+import { Head, router } from "@inertiajs/react";
+import AdminLayout from "../AdminLayout";
 import {
   AdminPageHeader,
   AdminBtn,
   C,
   fontBody,
   fontMono,
-} from '@/Components/Admin/AdminComponents';
+} from "@/Components/Admin/AdminComponents";
 
 interface VenueSeat {
   id: number;
@@ -74,18 +74,18 @@ const panelStyle: React.CSSProperties = {
   background: C.surface,
   border: `1px solid ${C.border}`,
   borderRadius: 14,
-  overflow: 'hidden',
+  overflow: "hidden",
 };
 
 const selectStyle: React.CSSProperties = {
-  padding: '8px 12px',
+  padding: "8px 12px",
   fontFamily: fontBody,
   fontSize: 13,
   color: C.text,
   background: C.bg,
   border: `1px solid ${C.border}`,
   borderRadius: 8,
-  outline: 'none',
+  outline: "none",
   minWidth: 180,
 };
 
@@ -95,14 +95,14 @@ function money(value: string | number | null | undefined) {
 
 function statusLabel(status: string) {
   switch (status) {
-    case 'available':
-      return 'Available';
-    case 'reserved':
-      return 'Reserved';
-    case 'sold':
-      return 'Sold';
-    case 'blocked':
-      return 'Blocked';
+    case "available":
+      return "Available";
+    case "reserved":
+      return "Reserved";
+    case "sold":
+      return "Sold";
+    case "blocked":
+      return "Blocked";
     default:
       return status;
   }
@@ -111,31 +111,31 @@ function statusLabel(status: string) {
 function statusStyle(status: string, unpriced = false): React.CSSProperties {
   if (unpriced) {
     return {
-      background: 'rgba(245,158,11,.10)',
-      border: '1px solid rgba(245,158,11,.35)',
+      background: "rgba(245,158,11,.10)",
+      border: "1px solid rgba(245,158,11,.35)",
       color: C.amber,
     };
   }
 
   switch (status) {
-    case 'sold':
+    case "sold":
       return {
-        background: 'rgba(239,68,68,.12)',
-        border: '1px solid rgba(239,68,68,.35)',
+        background: "rgba(239,68,68,.12)",
+        border: "1px solid rgba(239,68,68,.35)",
         color: C.error,
       };
 
-    case 'reserved':
+    case "reserved":
       return {
-        background: 'rgba(245,158,11,.12)',
-        border: '1px solid rgba(245,158,11,.35)',
+        background: "rgba(245,158,11,.12)",
+        border: "1px solid rgba(245,158,11,.35)",
         color: C.amber,
       };
 
-    case 'blocked':
+    case "blocked":
       return {
-        background: 'rgba(148,163,184,.12)',
-        border: '1px solid rgba(148,163,184,.35)',
+        background: "rgba(148,163,184,.12)",
+        border: "1px solid rgba(148,163,184,.35)",
         color: C.textMuted,
       };
 
@@ -149,57 +149,170 @@ function statusStyle(status: string, unpriced = false): React.CSSProperties {
 }
 
 function seatTypeLabel(type: string | null) {
-  if (!type) return 'Standard';
+  if (!type) return "Standard";
 
   return type
-    .replace(/[_-]/g, ' ')
+    .replace(/[_-]/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export default function Seats({ eventLeg, venue, seats }: Props) {
-  const [activeSectionId, setActiveSectionId] = useState<number | 'all'>('all');
+  const [activeSectionId, setActiveSectionId] = useState<number | "all">("all");
+
+  const venueSeatIdToSectionId = useMemo(() => {
+    const map = new Map<number, number>();
+
+    for (const section of venue?.sections ?? []) {
+      for (const vs of section.seats) {
+        map.set(vs.id, section.id);
+      }
+    }
+
+    // Fallback for seats whose venue_seat still carries its own
+    // nested section (covers seats from a section no longer in
+    // venue.sections, e.g. renamed/reseeded sections).
+    for (const seat of seats) {
+      if (seat.venue_seat_id && seat.venue_seat?.section?.id) {
+        map.set(seat.venue_seat_id, seat.venue_seat.section.id);
+      }
+    }
+
+    return map;
+  }, [venue, seats]);
 
   const initialAssignments = useMemo(() => {
     const result: Record<number, string> = {};
 
     for (const seat of seats) {
-      const sectionId =
-        seat.venue_seat?.venue_section_id ??
-        seat.venue_seat?.section?.id;
+      const sectionId = seat.venue_seat_id
+        ? venueSeatIdToSectionId.get(seat.venue_seat_id)
+        : undefined;
 
-      if (
-        sectionId &&
-        seat.ticket_tier_id &&
-        result[sectionId] === undefined
-      ) {
+      if (sectionId && seat.ticket_tier_id && result[sectionId] === undefined) {
         result[sectionId] = String(seat.ticket_tier_id);
       }
     }
 
     return result;
-  }, [seats]);
+  }, [seats, venueSeatIdToSectionId]);
 
   const [sectionAssignments, setSectionAssignments] =
     useState<Record<number, string>>(initialAssignments);
 
+  useEffect(() => {
+    setSectionAssignments(initialAssignments);
+  }, [initialAssignments]);
+
+  const displayedAssignments = useMemo(() => {
+    const result = { ...initialAssignments, ...sectionAssignments };
+
+    for (const seat of seats) {
+      const sectionId =
+        seat.venue_seat?.venue_section_id ?? seat.venue_seat?.section?.id;
+
+      if (sectionId && seat.ticket_tier_id && result[sectionId] === undefined) {
+        result[sectionId] = String(seat.ticket_tier_id);
+      }
+    }
+
+    return result;
+  }, [initialAssignments, sectionAssignments, seats]);
+
   const totalVenueSeats =
     venue?.sections.reduce(
-      (total, section) => total + section.seats.filter((s) => s.is_active).length,
-      0
+      (total, section) =>
+        total + section.seats.filter((s) => s.is_active).length,
+      0,
     ) ?? 0;
 
-  const available = seats.filter((seat) => seat.status === 'available').length;
-  const reserved = seats.filter((seat) => seat.status === 'reserved').length;
-  const sold = seats.filter((seat) => seat.status === 'sold').length;
-  const blocked = seats.filter((seat) => seat.status === 'blocked').length;
+  const available = seats.filter((seat) => seat.status === "available").length;
+  const reserved = seats.filter((seat) => seat.status === "reserved").length;
+  const sold = seats.filter((seat) => seat.status === "sold").length;
+  const isLocked = sold > 0;
+  const blocked = seats.filter((seat) => seat.status === "blocked").length;
   const unpriced = seats.filter((seat) => !seat.ticket_tier_id).length;
+  console.log("=== SEATS DEBUG ===");
+  console.log("eventLeg:", eventLeg);
+  console.log("venue:", venue);
+  console.log("seats:", seats);
+  console.log("sold:", sold);
+  console.log("isLocked:", isLocked);
+  console.log("initialAssignments:", initialAssignments);
+  console.log(
+    "seat pricing:",
+    seats.map((seat) => ({
+      eventSeatId: seat.id,
+      venueSeatId: seat.venue_seat_id,
+      sectionId:
+        seat.venue_seat?.venue_section_id ?? seat.venue_seat?.section?.id,
+      ticketTierId: seat.ticket_tier_id,
+      ticketTier: seat.ticket_tier,
+      label: seat.label,
+    })),
+  );
+  console.log("===================");
+  // The grid below is normally driven by the live venue's section
+  // template (venue.sections). But once seats are imported, they're
+  // locked in place independently of the venue — the venue can later
+  // be detached (nullOnDelete on event_legs.venue_id) or a section
+  // removed/renamed, while the already-sold EventSeat rows persist
+  // untouched. Without this, those seats become invisible: seats.length
+  // is still > 0 so the "no seats configured" placeholder doesn't show,
+  // but there's no live section left to iterate, so the grid silently
+  // renders empty. Reconstruct sections from what each seat actually
+  // references (seat.venue_seat.section) so already-imported seats
+  // always have somewhere to render, live venue or not.
+  const sectionsFromSeats = useMemo(() => {
+    const map = new Map<number, VenueSection>();
+
+    for (const seat of seats) {
+      const section = seat.venue_seat?.section;
+      if (!section) continue;
+
+      if (!map.has(section.id)) {
+        map.set(section.id, { ...section, seats: [] });
+      }
+
+      if (seat.venue_seat) {
+        const existing = map.get(section.id)!;
+        if (!existing.seats.some((s) => s.id === seat.venue_seat!.id)) {
+          existing.seats.push(seat.venue_seat);
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }, [seats]);
+
+  const allSections = useMemo(() => {
+    const bySection = new Map<number, VenueSection>();
+
+    for (const section of venue?.sections ?? []) {
+      bySection.set(section.id, section);
+    }
+console.log('eventLeg.venue_id:', eventLeg.venue_id);
+console.log('venue.id:', venue?.id);
+console.log('venue.sections:', venue?.sections);
+    for (const section of sectionsFromSeats) {
+      if (!bySection.has(section.id)) {
+        bySection.set(section.id, section);
+      }
+    }
+
+    return Array.from(bySection.values()).sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+    );
+  }, [venue, sectionsFromSeats]);
+
+  const sectionsWithSeats = useMemo(
+    () => allSections.filter((section) => rowsForSection(section).length > 0),
+    [allSections, seats],
+  );
 
   const visibleSections =
-    activeSectionId === 'all'
-      ? venue?.sections ?? []
-      : (venue?.sections ?? []).filter(
-          (section) => section.id === activeSectionId
-        );
+    activeSectionId === "all"
+      ? sectionsWithSeats
+      : sectionsWithSeats.filter((section) => section.id === activeSectionId);
 
   function setAssignment(sectionId: number, tierId: string) {
     setSectionAssignments((prev) => ({
@@ -210,18 +323,18 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
 
   function importVenueSeats() {
     if (!venue) {
-      alert('This event leg does not have a venue selected.');
+      alert("This event leg does not have a venue selected.");
       return;
     }
 
     if (totalVenueSeats === 0) {
-      alert('This venue does not have any active seats configured.');
+      alert("This venue does not have any active seats configured.");
       return;
     }
 
-    if (seats.some((seat) => seat.status !== 'available')) {
+    if (seats.some((seat) => seat.status !== "available")) {
       alert(
-        'This event has reserved, sold, or blocked seats. The seat map cannot be regenerated while those seats exist.'
+        "This event has reserved, sold, or blocked seats. The seat map cannot be regenerated while those seats exist.",
       );
       return;
     }
@@ -230,7 +343,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
     // which the buyer-facing seat chart treats as unsellable/unavailable.
     // Warn with real seat counts before that happens silently.
     const sectionsWithoutTier = (venue?.sections ?? []).filter(
-      (section) => !sectionAssignments[section.id]
+      (section) => !sectionAssignments[section.id],
     );
 
     if (sectionsWithoutTier.length > 0) {
@@ -239,10 +352,10 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
           const seatCount = section.seats.filter((s) => s.is_active).length;
           return `${section.name} (${seatCount} seats)`;
         })
-        .join(', ');
+        .join(", ");
 
       const confirmed = confirm(
-        `These sections have no ticket tier assigned and will NOT be sellable to buyers: ${details}. Import anyway?`
+        `These sections have no ticket tier assigned and will NOT be sellable to buyers: ${details}. Import anyway?`,
       );
 
       if (!confirmed) return;
@@ -250,7 +363,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
 
     if (seats.length > 0) {
       const confirmed = confirm(
-        'Re-importing the venue layout will replace the current event seat inventory. Continue?'
+        "Re-importing the venue layout will replace the current event seat inventory. Continue?",
       );
 
       if (!confirmed) return;
@@ -259,72 +372,71 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
     const payload = {
       section_assignments: Object.fromEntries(
         Object.entries(sectionAssignments).filter(
-          ([, tierId]) => tierId !== ''
-        )
+          ([, tierId]) => tierId !== "",
+        ),
       ),
     };
 
-    router.post(
-      route('admin.event-legs.seats.import', eventLeg.id),
-      payload,
-      {
-        preserveScroll: true,
-      }
-    );
+    router.post(route("admin.event-legs.seats.import", eventLeg.id), payload, {
+      preserveScroll: true,
+    });
   }
 
   function deleteSeat(seatId: number, label: string) {
     if (
       !confirm(
-        `Remove seat ${label} from this event? This does not modify the venue layout.`
+        `Remove seat ${label} from this event? This does not modify the venue layout.`,
       )
     ) {
       return;
     }
 
     router.delete(
-      route('admin.event-legs.seats.seat.destroy', {
+      route("admin.event-legs.seats.seat.destroy", {
         eventLeg: eventLeg.id,
         seat: seatId,
       }),
       {
         preserveScroll: true,
-      }
+      },
     );
   }
 
-  function clearInventory() {
+ function clearInventory() {
+    if (isLocked) {
+      alert(
+        `This event has ${sold} sold ticket(s). The seat inventory cannot be cleared while sold tickets exist.`,
+      );
+      return;
+    }
+
     if (
       !confirm(
-        'Clear the entire event seat inventory? The venue template will not be changed.'
+        "Clear the entire event seat inventory? The venue template will not be changed.",
       )
     ) {
       return;
     }
 
-    router.delete(
-      route('admin.event-legs.seats.destroy', eventLeg.id),
-      {
-        preserveScroll: true,
-      }
-    );
+    router.delete(route("admin.event-legs.seats.destroy", eventLeg.id), {
+      preserveScroll: true,
+    });
   }
 
   function rowsForSection(section: VenueSection) {
     const sectionSeatIds = new Set(
-      section.seats.filter((seat) => seat.is_active).map((seat) => seat.id)
+      section.seats.filter((seat) => seat.is_active).map((seat) => seat.id),
     );
 
     const sectionEventSeats = seats.filter(
       (seat) =>
-        seat.venue_seat_id !== null &&
-        sectionSeatIds.has(seat.venue_seat_id)
+        seat.venue_seat_id !== null && sectionSeatIds.has(seat.venue_seat_id),
     );
 
     const rows = new Map<string, EventSeat[]>();
 
     for (const seat of sectionEventSeats) {
-      const row = seat.row_label || '—';
+      const row = seat.row_label || "—";
 
       if (!rows.has(row)) {
         rows.set(row, []);
@@ -337,14 +449,10 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
       .map(([row, rowSeats]) => {
         const sorted = [...rowSeats].sort((a, b) => {
           const aOrder =
-            a.venue_seat?.sort_order ??
-            a.sort_order ??
-            a.seat_number;
+            a.venue_seat?.sort_order ?? a.sort_order ?? a.seat_number;
 
           const bOrder =
-            b.venue_seat?.sort_order ??
-            b.sort_order ??
-            b.seat_number;
+            b.venue_seat?.sort_order ?? b.sort_order ?? b.seat_number;
 
           return aOrder - bOrder;
         });
@@ -373,7 +481,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
       <div
         style={{
           maxWidth: 1250,
-          margin: '0 auto',
+          margin: "0 auto",
           paddingBottom: 50,
         }}
       >
@@ -386,34 +494,33 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
         {/* Summary */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(145px, 1fr))',
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
             gap: 10,
             marginBottom: 20,
           }}
         >
           {[
-            ['Configured', seats.length, C.text],
-            ['Available', available, C.text],
-            ['Reserved', reserved, C.amber],
-            ['Sold', sold, C.error],
-            ['Blocked', blocked, C.textMuted],
-            ['Unpriced', unpriced, C.amber],
+            ["Configured", seats.length, C.text],
+            ["Available", available, C.text],
+            ["Reserved", reserved, C.amber],
+            ["Sold", sold, C.error],
+            ["Blocked", blocked, C.textMuted],
+            ["Unpriced", unpriced, C.amber],
           ].map(([label, value, color]) => (
             <div
               key={String(label)}
               style={{
                 ...panelStyle,
-                padding: '15px 16px',
+                padding: "15px 16px",
               }}
             >
               <div
                 style={{
                   fontFamily: fontMono,
                   fontSize: 9,
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
+                  letterSpacing: ".12em",
+                  textTransform: "uppercase",
                   color: C.textFaint,
                 }}
               >
@@ -444,11 +551,11 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
         >
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
               gap: 20,
-              flexWrap: 'wrap',
+              flexWrap: "wrap",
             }}
           >
             <div>
@@ -456,8 +563,8 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                 style={{
                   fontFamily: fontMono,
                   fontSize: 9,
-                  letterSpacing: '.14em',
-                  textTransform: 'uppercase',
+                  letterSpacing: ".14em",
+                  textTransform: "uppercase",
                   color: C.textFaint,
                 }}
               >
@@ -482,28 +589,36 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                   color: C.textMuted,
                 }}
               >
-                {venue?.sections.length ?? 0} sections ·{' '}
-                {totalVenueSeats} active venue seats ·{' '}
-                {eventLeg.seating_type === 'reserved'
-                  ? 'Reserved seating'
-                  : 'General admission'}
+                {venue?.sections.length ?? 0} sections · {totalVenueSeats}{" "}
+                active venue seats ·{" "}
+                {eventLeg.seating_type === "reserved"
+                  ? "Reserved seating"
+                  : "General admission"}
               </p>
             </div>
 
             <div
               style={{
-                display: 'flex',
+                display: "flex",
                 gap: 8,
-                flexWrap: 'wrap',
+                flexWrap: "wrap",
               }}
             >
-              {seats.length > 0 && (
+             {seats.length > 0 && (
                 <AdminBtn
                   onClick={clearInventory}
+                  disabled={isLocked}
+                  title={
+                    isLocked
+                      ? "Seat inventory is locked because tickets have been sold."
+                      : undefined
+                  }
                   style={{
-                    background: 'transparent',
+                    background: "transparent",
                     color: C.error,
                     border: `1px solid ${C.error}50`,
+                    opacity: isLocked ? 0.5 : 1,
+                    cursor: isLocked ? "not-allowed" : "pointer",
                   }}
                 >
                   Clear event seats
@@ -511,10 +626,22 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               )}
 
               {venue && (
-                <AdminBtn onClick={importVenueSeats}>
+                <AdminBtn
+                  onClick={importVenueSeats}
+                  disabled={isLocked}
+                  title={
+                    isLocked
+                      ? "The venue layout and section pricing are locked because tickets have been sold."
+                      : undefined
+                  }
+                  style={{
+                    opacity: isLocked ? 0.5 : 1,
+                    cursor: isLocked ? "not-allowed" : "pointer",
+                  }}
+                >
                   {seats.length > 0
-                    ? 'Re-import venue layout'
-                    : 'Import venue layout'}
+                    ? "Re-import venue layout"
+                    : "Import venue layout"}
                 </AdminBtn>
               )}
             </div>
@@ -526,14 +653,15 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                 marginTop: 16,
                 padding: 14,
                 borderRadius: 9,
-                background: 'rgba(224,133,133,.08)',
+                background: "rgba(224,133,133,.08)",
                 border: `1px solid ${C.error}40`,
                 color: C.error,
                 fontSize: 13,
               }}
             >
-              No venue is assigned to this event leg. Select a venue before
-              configuring reserved seats.
+              {seats.length > 0
+                ? "This event leg's original venue is no longer available (it was removed from the catalog). The seat map and pricing below reflect what was already imported and are read-only — no venue can be re-selected while sold or held seats exist."
+                : "No venue is assigned to this event leg. Select a venue before configuring reserved seats."}
             </div>
           )}
         </div>
@@ -548,7 +676,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
           >
             <div
               style={{
-                padding: '18px 20px',
+                padding: "18px 20px",
                 borderBottom: `1px dashed ${C.borderDashed}`,
               }}
             >
@@ -571,6 +699,18 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               >
                 Assign a ticket tier to each physical venue section.
               </p>
+              {isLocked && (
+                <p
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: C.textFaint,
+                  }}
+                >
+                  🔒 Section pricing is locked because {sold} ticket(s) have
+                  been sold.
+                </p>
+              )}
             </div>
 
             {eventLeg.ticket_tiers.length === 0 ? (
@@ -579,7 +719,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                   margin: 20,
                   padding: 14,
                   borderRadius: 9,
-                  background: 'rgba(245,158,11,.08)',
+                  background: "rgba(245,158,11,.08)",
                   border: `1px solid ${C.amber}40`,
                   color: C.amber,
                   fontSize: 13,
@@ -591,15 +731,15 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               <div
                 style={{
                   padding: 20,
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(280px, 1fr))',
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                   gap: 10,
                 }}
               >
                 {venue.sections.map((section) => {
+                   console.log('rendering section', section.id, 'value=', displayedAssignments[section.id]);
                   const activeSeats = section.seats.filter(
-                    (seat) => seat.is_active
+                    (seat) => seat.is_active,
                   );
 
                   return (
@@ -614,10 +754,10 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                     >
                       <div
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
+                          display: "flex",
+                          justifyContent: "space-between",
                           gap: 12,
-                          alignItems: 'center',
+                          alignItems: "center",
                         }}
                       >
                         <div>
@@ -640,33 +780,33 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                             }}
                           >
                             {activeSeats.length} seats
-                            {section.code
-                              ? ` · ${section.code}`
-                              : ''}
+                            {section.code ? ` · ${section.code}` : ""}
                           </div>
                         </div>
 
                         <select
-                          value={sectionAssignments[section.id] ?? ''}
-                          onChange={(e) =>
-                            setAssignment(
-                              section.id,
-                              e.target.value
-                            )
+                          value={displayedAssignments[section.id] ?? ""}
+                          disabled={isLocked}
+                          onChange={(e) => {
+                            if (isLocked) return;
+                            setAssignment(section.id, e.target.value);
+                          }}
+                          style={{
+                            ...selectStyle,
+                            opacity: isLocked ? 0.6 : 1,
+                            cursor: isLocked ? "not-allowed" : "pointer",
+                          }}
+                          title={
+                            isLocked
+                              ? "Section pricing is locked because tickets have been sold."
+                              : undefined
                           }
-                          style={selectStyle}
                         >
-                          <option value="">
-                            No price yet
-                          </option>
+                          <option value="">No price yet</option>
 
                           {eventLeg.ticket_tiers.map((tier) => (
-                            <option
-                              key={tier.id}
-                              value={tier.id}
-                            >
-                              {tier.name} · $
-                              {money(tier.price)}
+                            <option key={tier.id} value={tier.id}>
+                              {tier.name} · ${money(tier.price)}
                             </option>
                           ))}
                         </select>
@@ -683,17 +823,17 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
         <div style={panelStyle}>
           <div
             style={{
-              padding: '18px 20px',
+              padding: "18px 20px",
               borderBottom: `1px dashed ${C.borderDashed}`,
             }}
           >
             <div
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
+                display: "flex",
+                justifyContent: "space-between",
                 gap: 15,
-                alignItems: 'center',
-                flexWrap: 'wrap',
+                alignItems: "center",
+                flexWrap: "wrap",
               }}
             >
               <div>
@@ -718,64 +858,51 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                 </p>
               </div>
 
-              {venue && (
+              {allSections.length > 0 && (
                 <div
                   style={{
-                    display: 'flex',
+                    display: "flex",
                     gap: 6,
-                    flexWrap: 'wrap',
+                    flexWrap: "wrap",
                   }}
                 >
                   <button
                     type="button"
-                    onClick={() => setActiveSectionId('all')}
+                    onClick={() => setActiveSectionId("all")}
                     style={{
                       border: `1px solid ${
-                        activeSectionId === 'all'
-                          ? C.text
-                          : C.border
+                        activeSectionId === "all" ? C.text : C.border
                       }`,
-                      background:
-                        activeSectionId === 'all'
-                          ? C.text
-                          : C.bg,
+                      background: activeSectionId === "all" ? C.text : C.bg,
                       color:
-                        activeSectionId === 'all'
-                          ? C.surface
-                          : C.textMuted,
+                        activeSectionId === "all" ? C.surface : C.textMuted,
                       borderRadius: 7,
-                      padding: '7px 11px',
-                      cursor: 'pointer',
+                      padding: "7px 11px",
+                      cursor: "pointer",
                       fontSize: 11,
                     }}
                   >
                     All sections
                   </button>
 
-                  {venue.sections.map((section) => (
+                  {sectionsWithSeats.map((section) => (
                     <button
                       key={section.id}
                       type="button"
-                      onClick={() =>
-                        setActiveSectionId(section.id)
-                      }
+                      onClick={() => setActiveSectionId(section.id)}
                       style={{
                         border: `1px solid ${
-                          activeSectionId === section.id
-                            ? C.text
-                            : C.border
+                          activeSectionId === section.id ? C.text : C.border
                         }`,
                         background:
-                          activeSectionId === section.id
-                            ? C.text
-                            : C.bg,
+                          activeSectionId === section.id ? C.text : C.bg,
                         color:
                           activeSectionId === section.id
                             ? C.surface
                             : C.textMuted,
                         borderRadius: 7,
-                        padding: '7px 11px',
-                        cursor: 'pointer',
+                        padding: "7px 11px",
+                        cursor: "pointer",
                         fontSize: 11,
                       }}
                     >
@@ -790,15 +917,15 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
           {seats.length === 0 ? (
             <div
               style={{
-                padding: '65px 20px',
-                textAlign: 'center',
+                padding: "65px 20px",
+                textAlign: "center",
               }}
             >
               <div
                 style={{
                   fontSize: 38,
                   marginBottom: 12,
-                  opacity: .7,
+                  opacity: 0.7,
                 }}
               >
                 💺
@@ -821,24 +948,24 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                   color: C.textMuted,
                 }}
               >
-                Import the venue layout above to create this
-                event's seat inventory.
+                Import the venue layout above to create this event's seat
+                inventory.
               </p>
             </div>
           ) : (
             <div
               style={{
                 padding: 20,
-                overflowX: 'auto',
+                overflowX: "auto",
               }}
             >
               {/* Stage */}
               <div
                 style={{
-                  width: 'min(680px, 75%)',
+                  width: "min(680px, 75%)",
                   minWidth: 300,
-                  margin: '0 auto 35px',
-                  textAlign: 'center',
+                  margin: "0 auto 35px",
+                  textAlign: "center",
                 }}
               >
                 <div
@@ -846,7 +973,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                     height: 8,
                     borderRadius: 999,
                     background: C.text,
-                    opacity: .8,
+                    opacity: 0.8,
                   }}
                 />
 
@@ -855,8 +982,8 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                     marginTop: 8,
                     fontFamily: fontMono,
                     fontSize: 9,
-                    letterSpacing: '.18em',
-                    textTransform: 'uppercase',
+                    letterSpacing: ".18em",
+                    textTransform: "uppercase",
                     color: C.textFaint,
                   }}
                 >
@@ -876,12 +1003,11 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                     seats
                       .filter(
                         (seat) =>
-                          seat.venue_seat?.venue_section_id ===
-                          section.id
+                          seat.venue_seat?.venue_section_id === section.id,
                       )
                       .map((seat) => seat.ticket_tier_id)
-                      .filter(Boolean)
-                  )
+                      .filter(Boolean),
+                  ),
                 );
 
                 return (
@@ -892,16 +1018,16 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                       border: `1px solid ${C.border}`,
                       borderRadius: 12,
                       background: C.bg,
-                      overflow: 'hidden',
+                      overflow: "hidden",
                     }}
                   >
                     <div
                       style={{
-                        padding: '12px 15px',
+                        padding: "12px 15px",
                         borderBottom: `1px dashed ${C.borderDashed}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 15,
                       }}
                     >
@@ -923,10 +1049,11 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                             color: C.textFaint,
                           }}
                         >
-                          {rows.length} rows ·{' '}
-                          {section.seats.filter(
-                            (seat) => seat.is_active
-                          ).length}{' '}
+                          {rows.length} rows ·{" "}
+                          {
+                            section.seats.filter((seat) => seat.is_active)
+                              .length
+                          }{" "}
                           venue seats
                         </div>
                       </div>
@@ -945,7 +1072,7 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
 
                     <div
                       style={{
-                        padding: '22px 15px',
+                        padding: "22px 15px",
                         minWidth: 760,
                       }}
                     >
@@ -953,8 +1080,8 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                         <div
                           key={`${section.id}-${row}`}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
+                            display: "flex",
+                            alignItems: "center",
                             gap: 10,
                             marginBottom: 9,
                           }}
@@ -962,8 +1089,8 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                           <div
                             style={{
                               width: 35,
-                              flex: '0 0 35px',
-                              textAlign: 'right',
+                              flex: "0 0 35px",
+                              textAlign: "right",
                               fontFamily: fontMono,
                               fontSize: 9,
                               color: C.textFaint,
@@ -974,62 +1101,52 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
 
                           <div
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                               flex: 1,
                               gap: 5,
                             }}
                           >
                             {rowSeats.map((seat, index) => {
-                              const venueSeat =
-                                seat.venue_seat;
+                              const venueSeat = seat.venue_seat;
 
-                              const unpriced =
-                                !seat.ticket_tier_id;
+                              const unpriced = !seat.ticket_tier_id;
 
                               const previousVenueSeat =
                                 rowSeats[index - 1]?.venue_seat;
 
-                              const hasAisle =
-                                !!previousVenueSeat?.aisle_after;
+                              const hasAisle = !!previousVenueSeat?.aisle_after;
 
                               return (
                                 <div
                                   key={seat.id}
                                   style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
+                                    display: "flex",
+                                    alignItems: "center",
                                     gap: hasAisle ? 14 : 5,
                                   }}
                                 >
                                   <button
                                     type="button"
                                     title={`${seat.label} · ${statusLabel(
-                                      seat.status
+                                      seat.status,
                                     )}${
                                       seat.ticket_tier
                                         ? ` · ${seat.ticket_tier.name} · $${money(
-                                            seat.ticket_tier
-                                              .price
+                                            seat.ticket_tier.price,
                                           )}`
-                                        : ' · No price'
+                                        : " · No price"
                                     }${
                                       venueSeat?.seat_type
                                         ? ` · ${seatTypeLabel(
-                                            venueSeat.seat_type
+                                            venueSeat.seat_type,
                                           )}`
-                                        : ''
+                                        : ""
                                     }`}
                                     onClick={() => {
-                                      if (
-                                        seat.status ===
-                                        'available'
-                                      ) {
-                                        deleteSeat(
-                                          seat.id,
-                                          seat.label
-                                        );
+                                      if (seat.status === "available") {
+                                        deleteSeat(seat.id, seat.label);
                                       }
                                     }}
                                     style={{
@@ -1038,22 +1155,15 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                                       padding: 0,
                                       borderRadius: 6,
                                       cursor:
-                                        seat.status ===
-                                        'available'
-                                          ? 'pointer'
-                                          : 'default',
+                                        seat.status === "available"
+                                          ? "pointer"
+                                          : "default",
                                       fontFamily: fontMono,
                                       fontSize: 8,
                                       fontWeight: 600,
-                                      ...statusStyle(
-                                        seat.status,
-                                        unpriced
-                                      ),
+                                      ...statusStyle(seat.status, unpriced),
                                       opacity:
-                                        seat.status ===
-                                        'blocked'
-                                          ? .65
-                                          : 1,
+                                        seat.status === "blocked" ? 0.65 : 1,
                                     }}
                                   >
                                     {seat.seat_number}
@@ -1072,25 +1182,25 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               {/* Legend */}
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
+                  display: "flex",
+                  justifyContent: "center",
                   gap: 18,
-                  flexWrap: 'wrap',
+                  flexWrap: "wrap",
                   paddingTop: 8,
                 }}
               >
                 {[
-                  ['Available', 'available'],
-                  ['Reserved', 'reserved'],
-                  ['Sold', 'sold'],
-                  ['Blocked', 'blocked'],
-                  ['No price', 'unpriced'],
+                  ["Available", "available"],
+                  ["Reserved", "reserved"],
+                  ["Sold", "sold"],
+                  ["Blocked", "blocked"],
+                  ["No price", "unpriced"],
                 ].map(([label, status]) => (
                   <div
                     key={label}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
+                      display: "flex",
+                      alignItems: "center",
                       gap: 6,
                       fontSize: 10,
                       color: C.textMuted,
@@ -1101,12 +1211,10 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
                         width: 18,
                         height: 16,
                         borderRadius: 4,
-                        display: 'inline-block',
+                        display: "inline-block",
                         ...statusStyle(
-                          status === 'unpriced'
-                            ? 'available'
-                            : status,
-                          status === 'unpriced'
+                          status === "unpriced" ? "available" : status,
+                          status === "unpriced",
                         ),
                       }}
                     />
@@ -1119,13 +1227,13 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
               <p
                 style={{
                   marginTop: 14,
-                  textAlign: 'center',
+                  textAlign: "center",
                   fontSize: 10,
                   color: C.textFaint,
                 }}
               >
-                Clicking an available seat removes it from this
-                event only. Sold or reserved seats cannot be removed.
+                Clicking an available seat removes it from this event only. Sold
+                or reserved seats cannot be removed.
               </p>
             </div>
           )}

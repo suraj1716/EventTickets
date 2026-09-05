@@ -383,12 +383,10 @@ export default function EventShow({
   }, [activeLegId, selection, productSelection, selectedSeatIds]);
 
   // CHECKPOINT 0b — confirm seatLookup contents at render time
+
   useEffect(() => {
-    console.log(
-      "CHECKPOINT 0b - seatLookup size",
-      seatLookup.size,
-      "sample:",
-      Array.from(seatLookup.entries()).slice(0, 5),
+    setSelectedSeatIds((prev) =>
+      prev.filter((id) => seatLookup.get(id)?.status === "available"),
     );
   }, [seatLookup]);
   /*
@@ -455,8 +453,13 @@ export default function EventShow({
 
       const data = await res.json();
 
-      if (data.orderComplete) {
+         if (data.orderComplete) {
         // fully covered without Stripe (credit, free ticket, etc.)
+        try {
+          sessionStorage.removeItem(CART_STORAGE_KEY);
+        } catch {
+          // sessionStorage unavailable — nothing to clean up
+        }
         router.visit(route("stripe.success"));
         return;
       }
@@ -468,11 +471,17 @@ export default function EventShow({
       setClientSecret(data.clientSecret);
       setCheckoutStage("payment");
     } catch (err) {
-      setPaymentError(
+           setPaymentError(
         err instanceof Error
           ? err.message
           : "Something went wrong. Please try again.",
       );
+      // Seat/tier state we're holding in memory (and whatever got
+      // restored from sessionStorage) may be stale — refetch this
+      // event's props so seatLookup reflects current statuses. The
+      // prune effect above then drops any seat that's no longer
+      // available, instead of it silently riding along on the retry.
+      router.reload({ only: ["event"] });
     } finally {
       setIsSubmitting(false);
     }
@@ -1594,8 +1603,9 @@ export default function EventShow({
       selectedSeatIds={selectedSeatIds}
       seatLookup={seatLookup}
       tierLookup={tierLookup}
-      products={products}
+       products={products}
       productSelection={productSelection}
+      cartStorageKey={CART_STORAGE_KEY}
       onBack={() => setCheckoutStage("summary")}
     />
   </Elements>
@@ -1955,6 +1965,7 @@ function InlineCardForm({
   tierLookup,
   products,
   productSelection,
+  cartStorageKey,
   onBack,
 }: {
   totalDue: number;
@@ -1967,6 +1978,7 @@ function InlineCardForm({
   tierLookup: Map<number, TicketTier>;
   products: Product[];
   productSelection: ProductSelection;
+  cartStorageKey: string;
   onBack: () => void;
 }) {
   const stripe = useStripe();
@@ -1995,7 +2007,12 @@ function InlineCardForm({
       return;
     }
 
-  if (paymentIntent?.status === "succeeded") {
+   if (paymentIntent?.status === "succeeded") {
+  try {
+    sessionStorage.removeItem(cartStorageKey);
+  } catch {
+    // sessionStorage unavailable — nothing to clean up
+  }
   router.visit(route("stripe.success", { payment_intent: paymentIntent.id }));
   return;
 }

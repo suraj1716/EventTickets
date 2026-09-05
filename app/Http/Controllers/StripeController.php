@@ -541,7 +541,12 @@ class StripeController extends Controller
                                     ->lockForUpdate()
                                     ->get();
 
-                                $unavailable = $lockedSeats->firstWhere('status', '!=', 'available');
+                               // 'reserved' is the expected state for a seat this same buyer
+// holds via their cart (see CartService::setTicketCartItems).
+// Only 'sold' or 'blocked' mean it's genuinely gone.
+$unavailable = $lockedSeats->first(
+    fn($seat) => in_array($seat->status, ['sold', 'blocked'], true)
+);
 
                                 if ($unavailable) {
                                     Log::error('Seat already unavailable at payment confirmation', [
@@ -691,11 +696,33 @@ class StripeController extends Controller
                     }
                 }
 
-                if ($userId && !empty($productsToDeleteFromCart)) {
+                              if ($userId && !empty($productsToDeleteFromCart)) {
                     CartItem::where('user_id', $userId)
                         ->whereIn('product_id', $productsToDeleteFromCart)
                         ->where('saved_for_later', false)
                         ->delete();
+                }
+
+                // ── Clear ticket cart items for orders that actually fulfilled ──
+                // Missing this left the seat-holding CartItem (and its
+                // 'reserved' EventSeat) sitting around forever even after
+                // the ticket was successfully generated and the seat
+                // flipped to 'sold' — untracked and unreleasable.
+                if (!empty($successfulOrderIds)) {
+                    $fulfilledOrders = Order::with('orderItems')
+                        ->whereIn('id', $successfulOrderIds)
+                        ->get();
+
+                    $ticketTierIds = $fulfilledOrders
+                        ->flatMap(fn($order) => $order->orderItems->pluck('ticket_tier_id'))
+                        ->filter()->unique()->values();
+
+                    if ($userId && $ticketTierIds->isNotEmpty()) {
+                        CartItem::where('user_id', $userId)
+                            ->whereIn('ticket_tier_id', $ticketTierIds)
+                            ->where('saved_for_later', false)
+                            ->delete();
+                    }
                 }
 
                 if (!empty($successfulOrderIds)) {
@@ -712,6 +739,7 @@ class StripeController extends Controller
                 }
 
                 break;
+
 
                 case 'refund.created':
                 $refund = $event->data->object;

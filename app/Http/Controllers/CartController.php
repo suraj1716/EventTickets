@@ -233,7 +233,7 @@ class CartController extends Controller
         if ($staleOrders->isNotEmpty()) {
             \Stripe\Stripe::setApiKey(config("services.stripe.secret"));
 
-            foreach ($staleOrders as $staleOrder) {
+                       foreach ($staleOrders as $staleOrder) {
                 if ($staleOrder->stripe_session_id) {
                     try {
                         \Stripe\Checkout\Session::retrieve($staleOrder->stripe_session_id)->expire();
@@ -243,6 +243,25 @@ class CartController extends Controller
                             "error" => $e->getMessage(),
                         ]);
                     }
+                }
+
+                // Release any seats this abandoned draft was holding before
+                // deleting its order items — otherwise the EventSeat rows
+                // stay 'reserved' forever with nothing left to track or
+                // release them (the order/order-items that referenced them
+                // are gone). A Draft order was never fulfilled, so any seat
+                // it references is still ours to release; only skip ones a
+                // concurrent process has already sold.
+                $staleSeatIds = $staleOrder->orderItems
+                    ->flatMap(fn($item) => $item->seat_ids ?? [])
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($staleSeatIds->isNotEmpty()) {
+                    \App\Models\EventSeat::whereIn('id', $staleSeatIds)
+                        ->where('status', 'reserved')
+                        ->update(['status' => 'available']);
                 }
 
                 $staleOrder->orderItems()->delete();
@@ -524,7 +543,9 @@ class CartController extends Controller
                     $order->payment_method = 'gift_card';
                     $order->is_paid = true;
                     $order->save();
-
+  if ($order->orderItems->contains(fn($item) => $item->ticket_tier_id !== null)) {
+                        app(\App\Services\TicketGenerationService::class)->generate($order);
+                    }
                     if ($order->vendorUser) {
                         Mail::to($order->vendorUser)->queue(new NewOrderMail($order));
                     }
@@ -570,42 +591,7 @@ class CartController extends Controller
                     'orders' => OrderViewResource::collection($orders)->collection->toArray(),
                 ]);
             }
-            if ($combinedTotalDue <= 0) {
-                foreach ($orders as $order) {
-                    $order->status = OrderStatusEnum::Paid->value;
-                    $order->payment_method = 'gift_card';
-                    $order->is_paid = true;
-                    $order->save();
 
-                    if ($order->vendorUser) {
-                        Mail::to($order->vendorUser)->queue(new NewOrderMail($order));
-                    }
-                }
-
-                $orderedProductIds = collect($orders)
-                    ->flatMap(fn($o) => $o->orderItems()->pluck('product_id'))
-                    ->unique()
-                    ->values();
-
-                if ($orderedProductIds->isNotEmpty()) {
-                    CartItem::where('user_id', $user->id)
-                        ->whereIn('product_id', $orderedProductIds)
-                        ->where('saved_for_later', false)
-                        ->delete();
-                }
-
-                if (!empty($orders)) {
-                    Mail::to($user)->queue(new CheckoutCompleted(collect($orders)));
-                }
-
-                if ($ownsTransaction) {
-                    DB::commit();
-                }
-
-                return Inertia::render('Stripe/Success', [
-                    'orders' => OrderViewResource::collection($orders)->collection->toArray(),
-                ]);
-            }
 
             // ── Otherwise, charge the remainder through Stripe ──
 
