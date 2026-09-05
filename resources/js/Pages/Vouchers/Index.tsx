@@ -1,9 +1,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { useForm, router } from "@inertiajs/react";
+import { Head, useForm, router } from "@inertiajs/react";
 import { useState } from "react";
 import Button from "@/Components/App/ui/Button";
-import { Eyebrow } from "@/Components/App/ui/SectionHeading";
-import { input as sharedInput } from "@/Components/App/formStyles";
 import PageHero from "@/Components/Page/PageHero";
 
 type Voucher = {
@@ -37,7 +35,23 @@ interface VouchersProps {
   received?: GiftVoucherCard[];
 }
 
-// ── Gift card visual ─────────────────────────────────────────────
+// Box Office dark theme tokens
+const C = {
+  bg: "#0B0B10",
+  surface: "#15141B",
+  border: "#26232E",
+  borderDark: "#34303F",
+  text: "#F7F5F2",
+  textMuted: "#9C97A8",
+  textLight: "#6B6775",
+  amber: "#FFB627",
+  amberDark: "#C98A1A",
+  amberLight: "#FFC864",
+  success: "#34D399",
+  error: "#F87171",
+};
+
+// ── Gift card tile (ticket-stub styled) ──────────────────────────
 function GiftCardTile({
   card,
   variant = "purchased",
@@ -67,141 +81,105 @@ function GiftCardTile({
     if (removing) return;
     setRemoving(true);
     onRemove?.(card.id);
-    // Parent removes this card from the visible list once the request
-    // settles, so there's no need to reset `removing` on success — the
-    // tile simply unmounts. If it fails and the card reappears, the
-    // button becomes usable again on the next render.
   };
 
   let statusLabel = "Active";
-  let statusColor = "var(--color-success)";
+  let statusColor = C.success;
   if (isDepleted) {
     statusLabel = "Used Up";
-    statusColor = "var(--color-text-light)";
+    statusColor = C.textLight;
   } else if (isExpired) {
     statusLabel = "Expired";
-    statusColor = "var(--color-error)";
+    statusColor = C.error;
   } else if (!card.active) {
     statusLabel = "Pending";
-    statusColor = "var(--color-warning)";
+    statusColor = C.amber;
   }
 
   return (
-
-
     <div
+      className="relative overflow-hidden rounded-2xl"
       style={{
-        position: "relative",
         background: isUsable
-          ? "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)"
-          : "var(--color-surface-warm)",
-        border: `1px solid ${isUsable ? "var(--color-primary)" : "var(--color-border)"}`,
-        padding: "var(--space-xl)",
-        overflow: "hidden",
-        opacity: isUsable ? 1 : 0.75,
+          ? `linear-gradient(135deg, ${C.amber} 0%, ${C.amberDark} 100%)`
+          : C.surface,
+        border: `1px solid ${isUsable ? C.amber : C.border}`,
+        padding: "24px",
+        opacity: isUsable ? 1 : 0.8,
       }}
     >
-
-      {/* decorative corner accent */}
+      {/* perforated ticket-stub edge (top) */}
       <div
+        className="absolute left-0 right-0 top-0 h-3"
         style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
+          backgroundImage: `radial-gradient(circle at 10px 0, ${C.bg} 5px, transparent 5.5px)`,
+          backgroundSize: "20px 6px",
+          backgroundRepeat: "repeat-x",
+          backgroundPosition: "top",
+        }}
+      />
+
+      {/* decorative corner glow */}
+      <div
+        className="absolute right-0 top-0 rounded-full"
+        style={{
           width: "90px",
           height: "90px",
-          background: isUsable
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(0,0,0,0.02)",
-          borderRadius: "50%",
+          background: isUsable ? "rgba(255,255,255,0.08)" : "rgba(255,182,39,0.04)",
           transform: "translate(30%, -30%)",
         }}
       />
 
       {/* status pill */}
       <div
+        className="absolute rounded-full font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
         style={{
-          position: "absolute",
-          top: "var(--space-md)",
-          right: "var(--space-md)",
-          fontFamily: "var(--font-body)",
-          fontSize: "var(--text-xs)",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: isUsable ? "#fff" : statusColor,
-          background: isUsable ? "rgba(255,255,255,0.15)" : "transparent",
+          top: "16px",
+          right: "16px",
+          color: isUsable ? "#0B0B10" : statusColor,
+          background: isUsable ? "rgba(11,11,16,0.15)" : "transparent",
           border: isUsable ? "none" : `1px solid ${statusColor}`,
           padding: "3px 10px",
-          borderRadius: "var(--radius-full)",
         }}
       >
         {statusLabel}
       </div>
 
-      {/* gifted-to badge */}
+      {/* gifted-to / received badge */}
       {variant === "purchased" && card.gifted_to_email && (
         <span
-          style={{
-            display: "inline-block",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: isUsable ? "rgba(255,255,255,0.8)" : "var(--color-accent)",
-            marginBottom: "var(--space-sm)",
-          }}
+          className="mb-2 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+          style={{ color: isUsable ? "rgba(11,11,16,0.75)" : C.amber }}
         >
           Sent to {card.gifted_to_email}
         </span>
       )}
       {variant === "received" && (
         <span
-          style={{
-            display: "inline-block",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: isUsable ? "rgba(255,255,255,0.8)" : "var(--color-accent)",
-            marginBottom: "var(--space-sm)",
-          }}
+          className="mb-2 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+          style={{ color: isUsable ? "rgba(11,11,16,0.75)" : C.amber }}
         >
           Gift Received
         </span>
       )}
 
       {/* balance */}
-      <div style={{ marginBottom: "var(--space-md)" }}>
+      <div className="mb-4">
         <span
-          style={{
-            display: "block",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: isUsable ? "rgba(255,255,255,0.7)" : "var(--color-text-light)",
-            marginBottom: "4px",
-          }}
+          className="mb-1 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+          style={{ color: isUsable ? "rgba(11,11,16,0.65)" : C.textLight }}
         >
           Remaining Balance
         </span>
         <span
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-3xl)",
-            fontWeight: 300,
-            color: isUsable ? "#fff" : "var(--color-text)",
-          }}
+          className="font-['Anton'] uppercase"
+          style={{ fontSize: "32px", color: isUsable ? "#0B0B10" : C.text }}
         >
           A${Number(card.remaining_amount ?? 0).toFixed(2)}
         </span>
         <span
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-sm)",
-            color: isUsable ? "rgba(255,255,255,0.6)" : "var(--color-text-light)",
-            marginLeft: "var(--space-sm)",
-          }}
+          className="ml-2 font-['IBM_Plex_Mono'] text-sm"
+          style={{ color: isUsable ? "rgba(11,11,16,0.55)" : C.textLight }}
         >
           of A${Number(card.amount).toFixed(2)}
         </span>
@@ -209,59 +187,42 @@ function GiftCardTile({
 
       {/* usage bar */}
       <div
-        style={{
-          height: "3px",
-          background: isUsable ? "rgba(255,255,255,0.2)" : "var(--color-border)",
-          width: "100%",
-          marginBottom: "var(--space-lg)",
-        }}
+        className="mb-4 w-full"
+        style={{ height: "3px", background: isUsable ? "rgba(11,11,16,0.2)" : C.border }}
       >
         <div
+          className="h-full transition-all duration-500"
           style={{
-            height: "100%",
             width: `${Math.min(Math.max(usagePct, 0), 100)}%`,
-            background: isUsable ? "var(--color-accent-light)" : "var(--color-text-light)",
-            transition: "width var(--transition-slow)",
+            background: isUsable ? "#0B0B10" : C.amber,
           }}
         />
       </div>
 
       {/* code row */}
       <div
+        className="flex items-center justify-between gap-2 rounded-lg"
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "var(--space-sm)",
-          background: isUsable ? "rgba(255,255,255,0.1)" : "var(--color-surface)",
-          border: `1px dashed ${isUsable ? "rgba(255,255,255,0.35)" : "var(--color-border-dark)"}`,
-          padding: "var(--space-sm) var(--space-md)",
+          background: isUsable ? "rgba(11,11,16,0.12)" : C.bg,
+          border: `1px dashed ${isUsable ? "rgba(11,11,16,0.35)" : C.borderDark}`,
+          padding: "10px 14px",
         }}
       >
         <span
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-base)",
-            fontWeight: 600,
-            letterSpacing: "0.15em",
-            color: isUsable ? "#fff" : "var(--color-primary)",
-          }}
+          className="font-['IBM_Plex_Mono'] text-sm font-semibold tracking-widest"
+          style={{ color: isUsable ? "#0B0B10" : C.amber }}
         >
           {card.code}
         </span>
         <button
           onClick={handleCopy}
+          className="whitespace-nowrap font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
           style={{
             background: "none",
             border: "none",
             cursor: "pointer",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: isUsable ? "#fff" : "var(--color-primary)",
+            color: isUsable ? "#0B0B10" : C.amber,
             opacity: 0.85,
-            whiteSpace: "nowrap",
           }}
         >
           {copied ? "Copied!" : "Copy"}
@@ -271,13 +232,8 @@ function GiftCardTile({
       {/* expiry */}
       {card.expires_at && (
         <p
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            color: isUsable ? "rgba(255,255,255,0.6)" : "var(--color-text-light)",
-            marginTop: "var(--space-sm)",
-            marginBottom: 0,
-          }}
+          className="mt-2 mb-0 font-['IBM_Plex_Mono'] text-xs"
+          style={{ color: isUsable ? "rgba(11,11,16,0.6)" : C.textLight }}
         >
           {isExpired ? "Expired" : "Expires"}{" "}
           {new Date(card.expires_at).toLocaleDateString("en-AU", {
@@ -288,42 +244,46 @@ function GiftCardTile({
         </p>
       )}
 
-      {/* remove button — only shown once the card is fully used up */}
+      {/* remove button — only once fully used up */}
       {isDepleted && (
         <button
           onClick={handleRemove}
           disabled={removing}
+          className="mt-4 block w-full rounded-lg font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider transition-colors"
           style={{
-            display: "block",
-            width: "100%",
-            marginTop: "var(--space-md)",
-            padding: "0.5rem 0.75rem",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-xs)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: removing ? "var(--color-text-light)" : "var(--color-error)",
+            padding: "8px 12px",
+            color: removing ? C.textLight : C.error,
             background: "transparent",
-            border: `1px solid ${removing ? "var(--color-border)" : "var(--color-error)"}`,
+            border: `1px solid ${removing ? C.border : C.error}`,
             cursor: removing ? "not-allowed" : "pointer",
-            transition: "background var(--transition-fast), color var(--transition-fast)",
           }}
           onMouseEnter={(e) => {
             if (!removing) {
-              (e.currentTarget as HTMLButtonElement).style.background = "var(--color-error)";
-              (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+              (e.currentTarget as HTMLButtonElement).style.background = C.error;
+              (e.currentTarget as HTMLButtonElement).style.color = "#0B0B10";
             }
           }}
           onMouseLeave={(e) => {
             if (!removing) {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-error)";
+              (e.currentTarget as HTMLButtonElement).style.color = C.error;
             }
           }}
         >
           {removing ? "Removing…" : "Remove"}
         </button>
       )}
+
+      {/* perforated ticket-stub edge (bottom) */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-3"
+        style={{
+          backgroundImage: `radial-gradient(circle at 10px 6px, ${C.bg} 5px, transparent 5.5px)`,
+          backgroundSize: "20px 6px",
+          backgroundRepeat: "repeat-x",
+          backgroundPosition: "bottom",
+        }}
+      />
     </div>
   );
 }
@@ -346,33 +306,15 @@ function VoucherSection({
 
   return (
     <div>
-      <h2
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "var(--text-xl)",
-          fontWeight: 400,
-          color: "var(--color-text)",
-          marginBottom: "4px",
-        }}
-      >
+      <h2 className="mb-1 font-['Anton'] uppercase text-xl" style={{ color: C.text }}>
         {title}
       </h2>
-      <p
-        style={{
-          fontFamily: "var(--font-body)",
-          fontSize: "var(--text-sm)",
-          color: "var(--color-text-muted)",
-          margin: "0 0 var(--space-lg)",
-        }}
-      >
+      <p className="mb-6 font-['Manrope'] text-sm" style={{ color: C.textMuted }}>
         {subtitle}
       </p>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: "var(--space-lg)",
-        }}
+        className="grid gap-6"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
       >
         {cards.map((card) => (
           <GiftCardTile key={card.id} card={card} variant={variant} onRemove={onRemove} />
@@ -391,17 +333,11 @@ export default function Vouchers({
 }: VouchersProps) {
   const { data, setData, post, processing } = useForm({ code: "" });
 
-  // "Remove" for used-up gift cards is non-destructive: it flips a `hidden`
-  // flag on the record via a PATCH request (no delete, no other fields
-  // touched), so admins still see full voucher history. We hide the card
-  // optimistically for a snappy UI, and put it back if the request fails.
   const [hiddenIds, setHiddenIds] = useState<number[]>([]);
 
   const handleRemove = (id: number) => {
     setHiddenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
 
-    // NOTE: adjust the route name/params to match your backend's endpoint
-    // for marking a voucher hidden (e.g. PATCH /vouchers/{id}/hide).
     router.patch(
       route("vouchers.hide", id),
       {},
@@ -409,7 +345,6 @@ export default function Vouchers({
         preserveScroll: true,
         preserveState: true,
         onError: () => {
-          // Revert — the card reappears and its button becomes usable again.
           setHiddenIds((prev) => prev.filter((hiddenId) => hiddenId !== id));
         },
       }
@@ -431,494 +366,338 @@ export default function Vouchers({
   const usagePct = voucher ? (voucher.used_count / voucher.max_uses) * 100 : 0;
 
   return (
-    <AuthenticatedLayout>
-        {/* ── Page heading ── */}
-          <PageHero
-            eyebrow="Promotions & Rewards"
-            title={<>Your <em>Vouchers</em></>}
-            subtitle="Your gift card balances, plus a quick way to check any promo or gift code."
-            breadcrumbs={[{ label: "Home", href: route("home") }, { label: "Gallery" }]}
+    <AuthenticatedLayout
+      header={
+        <h2 className="font-['Anton'] uppercase text-2xl text-white">Vouchers</h2>
+      }
+    >
+      <Head title="Vouchers">
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
+
+      <div className="min-h-screen font-['Manrope']" style={{ background: C.bg, color: C.text }}>
+        <PageHero
+          eyebrow="Promotions & Rewards"
+          title={<>Your <em>Vouchers</em></>}
+          subtitle="Your gift card balances, plus a quick way to check any promo or gift code."
+          breadcrumbs={[{ label: "Home", href: route("home") }, { label: "Vouchers" }]}
+        />
+
+        <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 pb-24 sm:px-1">
+          {/* ── Purchased gift cards ── */}
+          <VoucherSection
+            title="Your Gift Cards"
+            subtitle="Gift cards you've purchased, for yourself or to send to someone else."
+            cards={visiblePurchased}
+            variant="purchased"
+            onRemove={handleRemove}
           />
-      <div
-        style={{
-          maxWidth: "1230px",
-          margin: "0 auto",
-          padding: "var(--space-4xl) var(--space-lg)",
-          fontFamily: "var(--font-body)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--space-2xl)",
-        }}
-      >
 
+          {/* ── Received gift cards ── */}
+          <VoucherSection
+            title="Gifted to You"
+            subtitle="Gift cards someone sent you — ready to use on your next order."
+            cards={visibleReceived}
+            variant="received"
+            onRemove={handleRemove}
+          />
 
-        {/* ── Purchased gift cards ── */}
-        <VoucherSection
-          title="Your Gift Cards"
-          subtitle="Gift cards you've purchased, for yourself or to send to someone else."
-          cards={visiblePurchased}
-          variant="purchased"
-          onRemove={handleRemove}
-        />
-
-        {/* ── Received gift cards ── */}
-        <VoucherSection
-          title="Gifted to You"
-          subtitle="Gift cards someone sent you — ready to use on your next order."
-          cards={visibleReceived}
-          variant="received"
-          onRemove={handleRemove}
-        />
-
-        {/* ── Empty state if no gift cards at all ── */}
-        {visiblePurchased.length === 0 && visibleReceived.length === 0 && (
-          <div
-            style={{
-              background: "var(--color-surface-warm)",
-              border: "1px dashed var(--color-border)",
-              padding: "var(--space-2xl)",
-              textAlign: "center",
-            }}
-          >
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-sm)",
-                color: "var(--color-text-muted)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
-              You don't have any gift cards yet.
-            </p>
-            <a
-              href="/gift-vouchers/shop"
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--color-primary)",
-                textDecoration: "none",
-                borderBottom: "1px solid var(--color-primary)",
-                paddingBottom: "1px",
-              }}
-            >
-              Buy a Gift Card →
-            </a>
-          </div>
-        )}
-
-        {/* ── Referral Code ── */}
-        {referral_code && (
-          <div
-            style={{
-              background: "var(--color-surface-warm)",
-              border: "1px solid var(--color-border)",
-              borderLeft: "3px solid var(--color-primary)",
-              padding: "var(--space-xl)",
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "var(--color-primary)",
-                marginBottom: "var(--space-sm)",
-              }}
-            >
-              Your Referral Code
-            </span>
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-xl)",
-                fontWeight: 400,
-                color: "var(--color-text)",
-                marginBottom: "var(--space-sm)",
-              }}
-            >
-              Share &amp; Earn
-            </h2>
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-sm)",
-                color: "var(--color-text-muted)",
-                marginBottom: "var(--space-lg)",
-              }}
-            >
-              Give your friends a $30 voucher — and you'll earn one too after they spend $100.
-            </p>
-
-            {/* Code pill */}
+          {/* ── Empty state ── */}
+          {visiblePurchased.length === 0 && visibleReceived.length === 0 && (
             <div
+              className="rounded-2xl px-8 py-16 text-center"
+              style={{ background: C.surface, border: `1px dashed ${C.border}` }}
+            >
+              <p className="mb-4 font-['Manrope'] text-sm" style={{ color: C.textMuted }}>
+                You don't have any gift cards yet.
+              </p>
+
+               <a href="/gift-vouchers/shop"
+                className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider no-underline"
+                style={{ color: C.amber, borderBottom: `1px solid ${C.amber}`, paddingBottom: "1px" }}
+              >
+                Buy a Gift Card →
+              </a>
+            </div>
+          )}
+
+          {/* ── Referral Code ── */}
+          {referral_code && (
+            <div
+              className="rounded-2xl"
               style={{
-                display: "inline-block",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xl)",
-                fontWeight: 600,
-                letterSpacing: "0.2em",
-                color: "var(--color-primary)",
-                background: "var(--color-surface)",
-                border: "1px dashed var(--color-border-dark)",
-                padding: "var(--space-sm) var(--space-xl)",
-                marginBottom: "var(--space-md)",
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${C.amber}`,
+                padding: "24px",
               }}
             >
-              {referral_code}
-            </div>
+              <span
+                className="mb-2 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em]"
+                style={{ color: C.amber }}
+              >
+                Your Referral Code
+              </span>
+              <h2 className="mb-2 font-['Anton'] uppercase text-xl" style={{ color: C.text }}>
+                Share &amp; Earn
+              </h2>
+              <p className="mb-4 font-['Manrope'] text-sm" style={{ color: C.textMuted }}>
+                Give your friends a $30 voucher — and you'll earn one too after they spend $100.
+              </p>
 
-            {/* Copy link row */}
-            <div style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap" }}>
+              <div
+                className="mb-3 inline-block font-['IBM_Plex_Mono'] text-xl font-semibold tracking-[0.2em] rounded-lg"
+                style={{
+                  color: C.amber,
+                  background: C.bg,
+                  border: `1px dashed ${C.borderDark}`,
+                  padding: "10px 24px",
+                }}
+              >
+                {referral_code}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral_code}`}
+                  className="flex-1 rounded-lg font-['IBM_Plex_Mono'] text-sm"
+                  style={{
+                    minWidth: "200px",
+                    padding: "10px 16px",
+                    color: C.textMuted,
+                    background: C.bg,
+                    border: `1px solid ${C.border}`,
+                    outline: "none",
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      `${window.location.origin}/login?ref=${referral_code}`
+                    )
+                  }
+                >
+                  Copy Link
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Code check form ── */}
+          <div
+            className="rounded-2xl"
+            style={{ background: C.surface, border: `1px solid ${C.border}`, padding: "24px" }}
+          >
+            <label
+              className="mb-4 block font-['IBM_Plex_Mono'] text-[10px] font-medium uppercase tracking-wider"
+              style={{ color: C.textMuted }}
+            >
+              Check a Code
+            </label>
+            <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
               <input
                 type="text"
-                readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral_code}`}
+                name="code"
+                placeholder="Enter voucher or gift code"
+                value={data.code}
+                onChange={(e) => setData("code", e.target.value)}
+                className="flex-1 rounded-lg font-['IBM_Plex_Mono'] text-sm"
                 style={{
-                  flex: 1,
                   minWidth: "200px",
-                  padding: "0.65rem 1rem",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "var(--text-sm)",
-                  color: "var(--color-text-muted)",
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
+                  padding: "10px 16px",
+                  color: C.text,
+                  background: C.bg,
+                  border: `1px solid ${C.border}`,
                   outline: "none",
                 }}
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}/login?ref=${referral_code}`
-                  )
+                onFocus={(e) =>
+                  ((e.currentTarget as HTMLInputElement).style.borderColor = C.amber)
                 }
-              >
-                Copy Link
+                onBlur={(e) =>
+                  ((e.currentTarget as HTMLInputElement).style.borderColor = C.border)
+                }
+              />
+              <Button type="submit" variant="accent" disabled={processing}>
+                {processing ? "Checking…" : "Check Code"}
               </Button>
-            </div>
+            </form>
+
+            {error && (
+              <p className="mt-4 font-['Manrope'] text-sm" style={{ color: C.error }}>
+                {error}
+              </p>
+            )}
           </div>
-        )}
 
-        {/* ── Code check form ── */}
-        <div
-          style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-border)",
-            padding: "var(--space-xl)",
-          }}
-        >
-          <label
-            style={{
-              display: "block",
-              fontFamily: "var(--font-body)",
-              fontSize: "var(--text-xs)",
-              fontWeight: 500,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "var(--color-text-muted)",
-              marginBottom: "var(--space-md)",
-            }}
-          >
-            Check a Code
-          </label>
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap" }}
-          >
-            <input
-              type="text"
-              name="code"
-              placeholder="Enter voucher or gift code"
-              value={data.code}
-              onChange={(e) => setData("code", e.target.value)}
-              style={{ ...sharedInput, flex: 1, minWidth: "200px" }}
-              onFocus={(e) =>
-                ((e.currentTarget as HTMLInputElement).style.borderColor =
-                  "var(--color-primary)")
-              }
-              onBlur={(e) =>
-                ((e.currentTarget as HTMLInputElement).style.borderColor =
-                  "var(--color-border)")
-              }
-            />
-            <Button type="submit" variant="accent" disabled={processing}>
-              {processing ? "Checking…" : "Check Code"}
-            </Button>
-          </form>
-
-          {error && (
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-sm)",
-                color: "var(--color-error)",
-                marginTop: "var(--space-md)",
-              }}
-            >
-              {error}
-            </p>
-          )}
-        </div>
-
-        {/* ── Voucher result (from code-check form) ── */}
-        {voucher && (
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Result header */}
+          {/* ── Voucher result ── */}
+          {voucher && (
             <div
-              style={{
-                background: "var(--color-primary)",
-                padding: "var(--space-lg) var(--space-xl)",
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-              }}
+              className="overflow-hidden rounded-2xl"
+              style={{ background: C.surface, border: `1px solid ${C.border}` }}
             >
-              <span
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "var(--text-xl)",
-                  fontWeight: 400,
-                  color: "#fff",
-                }}
+              <div
+                className="flex items-baseline justify-between"
+                style={{ background: C.amber, padding: "18px 24px" }}
               >
-                Voucher Details
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontSize: "var(--text-xs)",
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: "var(--color-accent-light)",
-                }}
-              >
-                {voucher.type === "gift" ? "Gift Card" : "Promo Code"}
-              </span>
-            </div>
-
-            <div style={{ padding: "var(--space-xl)" }}>
-              {/* Code display */}
-              <div style={{ textAlign: "center", marginBottom: "var(--space-xl)" }}>
+                <span className="font-['Anton'] uppercase text-xl" style={{ color: "#0B0B10" }}>
+                  Voucher Details
+                </span>
                 <span
-                  style={{
-                    display: "inline-block",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "var(--text-2xl)",
-                    fontWeight: 600,
-                    letterSpacing: "0.2em",
-                    color: "var(--color-primary)",
-                    background: "var(--color-surface-warm)",
-                    border: "1px dashed var(--color-border-dark)",
-                    padding: "var(--space-sm) var(--space-2xl)",
-                  }}
+                  className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+                  style={{ color: "rgba(11,11,16,0.7)" }}
                 >
-                  {voucher.code}
+                  {voucher.type === "gift" ? "Gift Card" : "Promo Code"}
                 </span>
               </div>
 
-              {/* Detail rows */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "0",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                {[
-                  { label: "Type", value: voucher.type.charAt(0).toUpperCase() + voucher.type.slice(1) },
-                  { label: "Value", value: `A$${Number(voucher.amount).toFixed(2)}` },
-                  ...(voucher.type === "gift"
-                    ? [{ label: "Remaining", value: `A$${Number(voucher.remaining_amount ?? 0).toFixed(2)}` }]
-                    : []),
-                  { label: "Expires", value: new Date(voucher.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) },
-                ].map(({ label, value }, i) => (
-                  <div
-                    key={label}
-                    style={{
-                      padding: "var(--space-lg)",
-                      borderRight: i % 2 === 0 ? "1px solid var(--color-border)" : "none",
-                      borderBottom: "1px solid var(--color-border)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "block",
-                        fontFamily: "var(--font-body)",
-                        fontSize: "var(--text-xs)",
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                        color: "var(--color-text-light)",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      {label}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "var(--text-xl)",
-                        fontWeight: 400,
-                        color: "var(--color-text)",
-                      }}
-                    >
-                      {value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Usage bar */}
-              <div style={{ marginTop: "var(--space-xl)" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "var(--space-xs)",
-                  }}
-                >
+              <div style={{ padding: "24px" }}>
+                <div className="mb-6 text-center">
                   <span
+                    className="inline-block rounded-lg font-['IBM_Plex_Mono'] text-2xl font-semibold tracking-[0.2em]"
                     style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: "var(--text-xs)",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      color: "var(--color-text-light)",
+                      color: C.amber,
+                      background: C.bg,
+                      border: `1px dashed ${C.borderDark}`,
+                      padding: "10px 32px",
                     }}
                   >
-                    Usage
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: "var(--text-xs)",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {voucher.used_count} / {voucher.max_uses}
+                    {voucher.code}
                   </span>
                 </div>
+
                 <div
+                  className="grid rounded-lg overflow-hidden"
                   style={{
-                    height: "3px",
-                    background: "var(--color-border)",
-                    width: "100%",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    border: `1px solid ${C.border}`,
                   }}
                 >
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${Math.min(usagePct, 100)}%`,
-                      background:
-                        usagePct >= 100
-                          ? "var(--color-error)"
-                          : usagePct > 60
-                          ? "var(--color-warning)"
-                          : "var(--color-primary)",
-                      transition: "width var(--transition-slow)",
-                    }}
-                  />
+                  {[
+                    { label: "Type", value: voucher.type.charAt(0).toUpperCase() + voucher.type.slice(1) },
+                    { label: "Value", value: `A$${Number(voucher.amount).toFixed(2)}` },
+                    ...(voucher.type === "gift"
+                      ? [{ label: "Remaining", value: `A$${Number(voucher.remaining_amount ?? 0).toFixed(2)}` }]
+                      : []),
+                    {
+                      label: "Expires",
+                      value: new Date(voucher.expires_at).toLocaleDateString("en-AU", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      }),
+                    },
+                  ].map(({ label, value }, i) => (
+                    <div
+                      key={label}
+                      style={{
+                        padding: "16px",
+                        borderRight: i % 2 === 0 ? `1px solid ${C.border}` : "none",
+                        borderBottom: `1px solid ${C.border}`,
+                      }}
+                    >
+                      <span
+                        className="mb-1 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+                        style={{ color: C.textLight }}
+                      >
+                        {label}
+                      </span>
+                      <span className="font-['Anton'] uppercase text-xl" style={{ color: C.text }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6">
+                  <div className="mb-1 flex justify-between">
+                    <span
+                      className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+                      style={{ color: C.textLight }}
+                    >
+                      Usage
+                    </span>
+                    <span className="font-['IBM_Plex_Mono'] text-xs" style={{ color: C.textMuted }}>
+                      {voucher.used_count} / {voucher.max_uses}
+                    </span>
+                  </div>
+                  <div className="w-full" style={{ height: "3px", background: C.border }}>
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(usagePct, 100)}%`,
+                        background:
+                          usagePct >= 100 ? C.error : usagePct > 60 ? C.amber : C.success,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ── Info panels ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)" }}>
-          <div
-            style={{
-              background: "var(--color-surface-warm)",
-              border: "1px solid var(--color-border)",
-              borderLeft: "3px solid var(--color-accent)",
-              padding: "var(--space-xl)",
-            }}
-          >
-            <span
+          {/* ── Info panels ── */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div
+              className="rounded-2xl"
               style={{
-                display: "block",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: "var(--color-accent-dark)",
-                marginBottom: "var(--space-sm)",
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${C.amberLight}`,
+                padding: "24px",
               }}
             >
-              Tip
-            </span>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text-muted)", margin: "0 0 var(--space-sm)" }}>
-              Looking for more discounts? Check our latest seasonal promotions.
-            </p>
-            <a
-              href="/offers"
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--color-primary)",
-                textDecoration: "none",
-                borderBottom: "1px solid var(--color-primary)",
-                paddingBottom: "1px",
-                transition: "color var(--transition-fast)",
-              }}
-            >
-              View Offers →
-            </a>
-          </div>
+              <span
+                className="mb-2 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+                style={{ color: C.amberLight }}
+              >
+                Tip
+              </span>
+              <p className="mb-2 font-['Manrope'] text-sm" style={{ color: C.textMuted }}>
+                Looking for more discounts? Check our latest seasonal promotions.
+              </p>
 
-          <div
-            style={{
-              background: "var(--color-surface-warm)",
-              border: "1px solid var(--color-border)",
-              borderLeft: "3px solid var(--color-primary)",
-              padding: "var(--space-xl)",
-            }}
-          >
-            <span
+               <a href="/offers"
+                className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider no-underline"
+                style={{ color: C.amber, borderBottom: `1px solid ${C.amber}`, paddingBottom: "1px" }}
+              >
+                View Offers →
+              </a>
+            </div>
+
+            <div
+              className="rounded-2xl"
               style={{
-                display: "block",
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: "var(--color-primary)",
-                marginBottom: "var(--space-sm)",
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${C.amber}`,
+                padding: "24px",
               }}
             >
-              Referral Program
-            </span>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: "var(--color-text-muted)", margin: "0 0 var(--space-sm)" }}>
-              Invite friends and earn bonus gift vouchers for every referral.
-            </p>
-            <a
-              href="/referral"
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-xs)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--color-primary)",
-                textDecoration: "none",
-                borderBottom: "1px solid var(--color-primary)",
-                paddingBottom: "1px",
-                transition: "color var(--transition-fast)",
-              }}
-            >
-              Learn More →
-            </a>
+              <span
+                className="mb-2 block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider"
+                style={{ color: C.amber }}
+              >
+                Referral Program
+              </span>
+              <p className="mb-2 font-['Manrope'] text-sm" style={{ color: C.textMuted }}>
+                Invite friends and earn bonus gift vouchers for every referral.
+              </p>
+
+              <a  href="/referral"
+                className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider no-underline"
+                style={{ color: C.amber, borderBottom: `1px solid ${C.amber}`, paddingBottom: "1px" }}
+              >
+                Learn More →
+              </a>
+            </div>
           </div>
         </div>
       </div>

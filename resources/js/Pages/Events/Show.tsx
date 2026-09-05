@@ -433,6 +433,7 @@ export default function EventShow({
 
       const res = await fetch(route("events.cart.add", event.id), {
         method: "POST",
+         credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -688,23 +689,23 @@ export default function EventShow({
             </div>
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B10] via-[#0B0B10]/50 to-transparent" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-t from-[#0B0B10] via-[#0B0B10]/50 to-transparent pointer-events-none" />
 
-          <Link
-            href={route("events.index")}
-            className="absolute top-5 left-4 sm:left-6 lg:left-8 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 backdrop-blur px-3 py-1.5 text-xs text-white/80 hover:text-white hover:border-white/30 transition-colors"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="m15 18-6-6 6-6" />
-            </svg>
-            Back to events
-          </Link>
+<Link
+  href={route("events.index")}
+  className="absolute top-5 left-4 sm:left-6 lg:left-8 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 backdrop-blur px-3 py-1.5 text-xs text-white/80 hover:text-white hover:border-white/30 transition-colors"
+>
+  <svg
+    className="w-3.5 h-3.5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="m15 18-6-6 6-6" />
+  </svg>
+  Back to events
+</Link>
 
           <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-8">
             <motion.p
@@ -1994,10 +1995,10 @@ function InlineCardForm({
       return;
     }
 
-    if (paymentIntent?.status === "succeeded") {
-      router.visit(route("stripe.success"));
-      return;
-    }
+  if (paymentIntent?.status === "succeeded") {
+  router.visit(route("stripe.success", { payment_intent: paymentIntent.id }));
+  return;
+}
 
     setSubmitting(false);
     setErrorMessage("Payment is still processing — please wait a moment and check your orders.");

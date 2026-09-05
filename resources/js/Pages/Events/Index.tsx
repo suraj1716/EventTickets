@@ -114,7 +114,7 @@ export default function EventsIndex({ events, filters, categories }: Props) {
         />
       </Head>
 
-      <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
+      <div className="min-h-screen bg-[#0B0B10] -ml-16 text-[#F7F5F2] font-['Manrope']">
         {/* Hero — marquee */}
         <section className="relative overflow-hidden border-b border-[#26232E] min-h-[800px] sm:min-h-[600px] lg:min-h-[550px] flex items-center">
           <video
@@ -129,7 +129,7 @@ export default function EventsIndex({ events, filters, categories }: Props) {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B0B10]" />
           <div className="pointer-events-none absolute inset-0" />
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+          <div className="relative max-w-7xl  mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
             <motion.p
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -148,7 +148,7 @@ export default function EventsIndex({ events, filters, categories }: Props) {
               Box office — open now
             </motion.p>
 
-            <h1 className="font-['Anton'] uppercase leading-[0.88] text-5xl sm:text-6xl lg:text-7xl tracking-tight flex flex-wrap gap-x-4 gap-y-2">
+            <h1 className="font-['Anton'] uppercase leading-[0.88]  text-5xl sm:text-6xl lg:text-7xl tracking-tight flex flex-wrap gap-x-4 gap-y-2">
               {heroWords.map((word, i) => (
                 <motion.span
                   key={word + i}

@@ -625,44 +625,44 @@ class CartController extends Controller
             //    change is ui_mode: 'elements', so it renders inline on
             //    our own page instead of redirecting to checkout.stripe.com.
             //    Webhook (checkout.session.completed) is untouched. ──
-    $paymentIntent = $stripeCheckoutService->createPaymentIntent([
-    'amount' => (int) round($combinedTotalDue * 100),
-    'currency' => 'aud',
-    'receipt_email' => $user->email,
-    'payment_method_types' => ['card'], // explicit list — excludes link, wallets, etc.
-    'metadata' => [
-        'buyer_id' => $user->id,
-        'order_ids' => collect($orders)->pluck('id')->implode(','),
-    ],
-]);
+            $paymentIntent = $stripeCheckoutService->createPaymentIntent([
+                'amount' => (int) round($combinedTotalDue * 100),
+                'currency' => 'aud',
+                'receipt_email' => $user->email,
+                'payment_method_types' => ['card'], // explicit list — excludes link, wallets, etc.
+                'metadata' => [
+                    'buyer_id' => $user->id,
+                    'order_ids' => collect($orders)->pluck('id')->implode(','),
+                ],
+            ]);
 
-foreach ($orders as $order) {
-    $order->payment_intent = $paymentIntent->id;
-    $order->save();
-}
+            foreach ($orders as $order) {
+                $order->payment_intent = $paymentIntent->id;
+                $order->save();
+            }
 
-DB::commit();
+            DB::commit();
 
-// NEW: inline flow just wants the client secret back as JSON
-if ($request->wantsJson()) {
-    return response()->json([
-        'clientSecret' => $paymentIntent->client_secret,
-        'stripeKey' => config('services.stripe.key'),
-        'totalDue' => $combinedTotalDue,
-    ]);
-}
+            // NEW: inline flow just wants the client secret back as JSON
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'clientSecret' => $paymentIntent->client_secret,
+                    'stripeKey' => config('services.stripe.key'),
+                    'totalDue' => $combinedTotalDue,
+                ]);
+            }
 
-// Fallback: keep the old full-page route working too, if you still need it
-return Inertia::render('Checkout/Payment', [
-    'clientSecret' => $paymentIntent->client_secret,
-    'stripeKey' => config('services.stripe.key'),
-    'orderSummary' => collect($lineItems)->map(fn ($li) => [
-        'title' => $li['price_data']['product_data']['name'],
-        'quantity' => $li['quantity'],
-        'price' => $li['price_data']['unit_amount'] / 100,
-    ])->values(),
-    'totalDue' => $combinedTotalDue,
-]);
+            // Fallback: keep the old full-page route working too, if you still need it
+            return Inertia::render('Checkout/Payment', [
+                'clientSecret' => $paymentIntent->client_secret,
+                'stripeKey' => config('services.stripe.key'),
+                'orderSummary' => collect($lineItems)->map(fn($li) => [
+                    'title' => $li['price_data']['product_data']['name'],
+                    'quantity' => $li['quantity'],
+                    'price' => $li['price_data']['unit_amount'] / 100,
+                ])->values(),
+                'totalDue' => $combinedTotalDue,
+            ]);
         } catch (\Exception $e) {
             if ($ownsTransaction) {
                 DB::rollBack();

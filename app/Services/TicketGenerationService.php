@@ -80,7 +80,11 @@ class TicketGenerationService
                 foreach ($seatIds as $seatId) {
                     $seat = $seats->get($seatId);
 
-                    if (! $seat || $seat->status !== 'available') {
+                    // 'reserved' is the expected state for a seat this buyer
+                    // held via their cart (CartService::setTicketCartItems)
+                    // — only 'sold'/'blocked' mean it's genuinely gone. See
+                    // the matching fix in StripeController::handle().
+                    if (! $seat || in_array($seat->status, ['sold', 'blocked'], true)) {
                         throw new \RuntimeException(
                             "Seat {$seatId} is no longer available."
                         );

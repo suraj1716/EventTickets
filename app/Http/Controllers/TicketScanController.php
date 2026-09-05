@@ -37,6 +37,18 @@ class TicketScanController extends Controller
             ]);
         }
 
+        // Route middleware only checks the role:Admin|Vendor — it says
+        // nothing about WHICH vendor's tickets this Vendor may scan.
+        // Without this, any Vendor account could scan/void a ticket for
+        // an event they don't own.
+        if (! $request->user()->hasRole('Admin')) {
+            abort_unless(
+                $ticket->eventLeg?->event?->vendor_user_id === $request->user()->id,
+                403,
+                'This ticket belongs to a different event.'
+            );
+        }
+
         if ($ticket->status === 'void') {
             return Inertia::render('Staff/Scan', [
                 'result' => ['status' => 'void', 'ticket' => $ticket],

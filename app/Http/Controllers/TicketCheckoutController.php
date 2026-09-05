@@ -129,30 +129,30 @@ class TicketCheckoutController extends Controller
         // second visit left the first visit's merch cart items untouched —
         // they'd then ride along into the new Stripe session alongside the
         // new ticket selection.
-        $ticketItemIds = $cartService->setTicketCartItems($ticketLines);
-        // CHECKPOINT 4 — what actually got written to cart_items
+        //
+        // NOTE: setTicketCartItems() was previously called TWICE here (once
+        // just to log, then again for real). Each call independently locks
+        // + validates + holds seats in its own transaction, so calling it
+        // twice meant briefly releasing and re-acquiring the same seat
+        // between the two calls — a needless race window against a
+        // concurrent buyer, on top of doing the DB work twice for nothing.
+        $ticketItems = $cartService->setTicketCartItems($ticketLines);
+        $productItemIds = $cartService->setEventMerchCartItems($event->id, $productLines);
+
         Log::info('CHECKPOINT 4 - AFTER WRITE', [
-            'ticketItemIds' => $ticketItemIds,
-            'rows' => \App\Models\CartItem::whereIn('id', $ticketItemIds)
-                ->get(['id', 'ticket_tier_id', 'seat_ids'])
-                ->map(fn($r) => $r->only(['id', 'ticket_tier_id', 'seat_ids']))
-                ->toArray(),
+            'ticketItemIds' => collect($ticketItems)->pluck('id')->all(),
         ]);
-       // app/Http/Controllers/TicketCheckoutController.php — inside addToCart()
 
-$ticketItems = $cartService->setTicketCartItems($ticketLines);
-$productItemIds = $cartService->setEventMerchCartItems($event->id, $productLines);
+        $cartItemIds = array_merge(
+            collect($ticketItems)->pluck('id')->all(),
+            $productItemIds
+        );
 
-$cartItemIds = array_merge(
-    collect($ticketItems)->pluck('id')->all(),
-    $productItemIds
-);
+        $request->merge([
+            'vendor_id' => $event->vendor_user_id,
+            'cart_item_ids' => $cartItemIds,
+        ]);
 
-$request->merge([
-    'vendor_id' => $event->vendor_user_id,
-    'cart_item_ids' => $cartItemIds,
-]);
-
-return $cartController->checkout($request, $cartService, $stripeCheckoutService);
+        return $cartController->checkout($request, $cartService, $stripeCheckoutService);
     }
 }

@@ -225,7 +225,13 @@ class StripeController extends Controller
                                     ->lockForUpdate()
                                     ->get();
 
-                                $unavailable = $lockedSeats->firstWhere('status', '!=', 'available');
+                                // 'available' and 'reserved' are both fine here: 'reserved' is
+                                // the expected state for a seat this same buyer holds via their
+                                // cart (see CartService::setTicketCartItems). Only 'sold' or
+                                // 'blocked' mean the seat is genuinely gone.
+                                $unavailable = $lockedSeats->first(
+                                    fn($seat) => in_array($seat->status, ['sold', 'blocked'], true)
+                                );
 
                                 if ($unavailable) {
                                     Log::error('Seat already unavailable at payment confirmation', [

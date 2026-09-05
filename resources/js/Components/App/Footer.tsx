@@ -42,6 +42,7 @@ export default function Footer() {
       heading: "Explore",
       links: [
         { label: "Events", href: route("events.index") },
+            { label: "Resale", href: route("resale.index") },
         { label: "My Tickets", href: route("tickets.index") },
         { label: "Gift Vouchers", href: route("gift-voucher.shop") },
         { label: "Contact", href: route("contact.index") },
@@ -50,6 +51,9 @@ export default function Footer() {
     {
       heading: "Account",
       links: [
+        { label: "My Tickets", href: route("tickets.index") },
+        { label: "Resale Listings", href: route("resale.mine") },
+
         { label: "Orders", href: route("orders.history") },
         { label: "Vouchers", href: route("vouchers.index") },
         { label: "Profile", href: route("profile.edit") },

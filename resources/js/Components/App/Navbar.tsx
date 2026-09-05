@@ -5,7 +5,6 @@ import { Dialog, Transition } from "@headlessui/react";
 import { Head, Link, usePage, router } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, User, X, ChevronRight, Ticket } from "lucide-react";
-import MiniCartDropdown from "./MiniCartDropdown";
 import { PageProps } from "@/types";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { useAuthModal } from "@/Contexts/AuthModalContext";
@@ -268,7 +267,6 @@ export default function Navbar() {
     border: "none",
     cursor: "pointer",
     color: C.textMuted,
-    display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: 36,
@@ -285,7 +283,6 @@ export default function Navbar() {
 
     { label: "Coming Soon", href: route("events.coming-soon") },
 
-    { label: "My Tickets", href: route("tickets.index") },
     { label: "Gift Vouchers", href: route("gift-voucher.shop") },
     { label: "Contact", href: route("contact.index") },
   ];
@@ -591,7 +588,7 @@ export default function Navbar() {
           transition={{ duration: 0.35, ease: EASE }}
           style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-8" style={{ height: 76 }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-4 flex items-center justify-between gap-8" style={{ height: 76 }}>
             {/* Wordmark */}
             <Link href={route("home")} className="flex items-center gap-2 shrink-0" style={{ textDecoration: "none" }}>
               <Ticket size={22} color={C.amber} strokeWidth={1.8} />
@@ -601,7 +598,7 @@ export default function Navbar() {
             </Link>
 
             {/* Nav links — desktop only */}
-            <nav className="hidden lg:flex items-center gap-8 mx-auto shrink-0">
+            <nav className="hidden lg:flex items-start gap-8 -ml-44 shrink-0">
               <NavLink href={route("events.index")} active={url.startsWith("/events")}>
                 Events
               </NavLink>
@@ -611,9 +608,7 @@ export default function Navbar() {
                <NavLink href={route("events.coming-soon")} active={url.startsWith("/coming-soon")}>
                 Coming Soon
               </NavLink>
-              <NavLink href={route("tickets.index")} active={url.startsWith("/tickets")}>
-                My Tickets
-              </NavLink>
+
               <NavLink href={route("gift-voucher.shop")} active={url.startsWith("/gift-voucher")}>
                 Gift Vouchers
               </NavLink>
@@ -623,7 +618,7 @@ export default function Navbar() {
             </nav>
 
             {/* Icons + CTA */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <motion.button
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
@@ -635,9 +630,7 @@ export default function Navbar() {
                 <Search size={18} strokeWidth={1.8} />
               </motion.button>
 
-              <div className="relative flex">
-                <MiniCartDropdown />
-              </div>
+
 
               <div className="hidden lg:flex relative" ref={userDropdownRef}>
                 {user ? (
@@ -778,14 +771,14 @@ export default function Navbar() {
               </MotionLink>
 
               {/* Hamburger — mobile only */}
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setMobileOpen(true)}
-                style={{ ...iconBtnStyle, marginRight: -6 }}
-                aria-label="Open menu"
-                className="lg:hidden flex items-center justify-center"
-              >
+            <motion.button
+  whileHover={{ scale: 1.08 }}
+  whileTap={{ scale: 0.92 }}
+  onClick={() => setMobileOpen(true)}
+  style={{ ...iconBtnStyle, marginRight: -6 }}
+  aria-label="Open menu"
+  className="flex items-center justify-center lg:hidden"
+>
                 <Bars3Icon className="size-5" />
               </motion.button>
             </div>

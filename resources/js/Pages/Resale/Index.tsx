@@ -7,6 +7,7 @@
 import { Head, Link, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import toast from "react-hot-toast";
+import PageHero from "@/Components/Page/PageHero";
 
 interface Listing {
   id: number;
@@ -73,22 +74,26 @@ function buy(listingId: number) {
       <Head title="Resale tickets" />
 
       <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-          <p className="text-xs uppercase tracking-wide text-[#6B6775] mb-1">
-            Resale marketplace
-          </p>
-          <h1 className="text-3xl font-bold mb-2">Tickets from other fans</h1>
-          <p className="text-sm text-[#9C97A8] mb-2 max-w-xl">
-            Every listing here transfers through this platform — the seller's
+
+           <PageHero
+                    eyebrow="Resale Marketplace"
+                    title={<>Tickets <em> from other fans</em></>}
+                    subtitle=" Every listing here transfers through this platform — the seller's
             original ticket is retired the moment you buy, so what you get is
-            the only valid copy.
-          </p>
-          <a
+            the only valid copy."
+                    breadcrumbs={[{ label: "Home", href: route("home") }, { label: "Vouchers" }]}
+                  />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-1 py-14 pb-48  -mt-12 ">
+
+           <a
             href={route("verify.index")}
-            className="text-xs text-[#FFB627] underline"
+            className="text-xs text-[#FFB627] underline "
           >
             Bought a ticket from someone off-platform? Verify it first →
           </a>
+
+
+
 
           {listings.data.length === 0 ? (
             <div className="mt-10 border border-dashed border-[#26232E] rounded-2xl py-16 text-center">

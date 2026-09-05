@@ -18,7 +18,7 @@ class OrderViewResource extends JsonResource
             'created_at' => $this->created_at,
             'total_price' => $this->total_price,
             'voucher_discount' => (float) ($this->voucher_discount ?? 0),
-            'booking_fee' => (float) ($this->vendorUser->vendor->booking_fee ?? 0), // ← Add this
+            'booking_fee' => (float) ($this->vendorUser->vendor->booking_fee ?? 0),
             'payment_method' => $this->payment_method,
             'booking_date' => optional($this->booking)->booking_date,
             'time_slot' => optional($this->booking)->time_slot,
@@ -27,7 +27,7 @@ class OrderViewResource extends JsonResource
             'refund_reason' => $this->refund_reason,
             'refunded_types' => $this->refunds->pluck('type'),
             'vendor' => [
-                'user_id' => $this->vendor_user_id,   // ← this is what BookingWidget's vendorId should be
+                'user_id' => $this->vendor_user_id,
                 'id' => $this->vendorUser->vendor->id ?? null,
                 'name' => $this->vendorUser->name ?? '',
                 'store_name' => $this->vendorUser->vendor->store_name ?? '',
@@ -81,7 +81,7 @@ class OrderViewResource extends JsonResource
                     'product' => $item->product ? [
                         'id'    => $item->product->id,
                         'title' => $item->product->title,
-                        'image' => $item->product->getImageForOptions($variationOptionIds ?: []), // ← fixed
+                        'image' => $item->product->getImageForOptions($variationOptionIds ?: []),
                         'slug'  => $item->product->slug,
                     ] : ($item->gift_card_template_id ? [
                         'id'    => null,
@@ -90,19 +90,37 @@ class OrderViewResource extends JsonResource
                         'slug'  => null,
                     ] : null),
 
-                    'vouchers' => $item->gift_card_template_id
-    ? \App\Models\Voucher::where('stripe_session_id', $this->stripe_session_id)
-        ->get()
-        ->map(fn($v) => [
-            'code'             => $v->code,
-            'amount'           => $v->amount,
-            'remaining_amount' => $v->remaining_amount,
-            'expires_at'       => $v->expires_at?->toDateString(),
-            'gifted_to_email'  => $v->gifted_to_email,
-            'active'           => $v->active,
-        ])
-    : [],
+                   'ticket_tier' => $item->ticketTier ? [
+    'id'          => $item->ticketTier->id,
+    'name'        => $item->ticketTier->name,
+    'event_name'  => $item->ticketTier->eventLeg->event->name ?? null,
+    'venue_name'  => $item->ticketTier->eventLeg->venue_name ?? null,
+    'event_date'  => $item->ticketTier->eventLeg->event_date ?? null,
+    'event_image' => $item->ticketTier->eventLeg->event->media->first()?->url,
+] : null,
 
+                    'seats' => !empty($item->seat_ids)
+                        ? \App\Models\EventSeat::whereIn('id', $item->seat_ids)
+                            ->get()
+                            ->map(fn ($seat) => [
+                                'id'        => $seat->id,
+                                'label'     => $seat->label,
+                                'row_label' => $seat->row_label,
+                            ])
+                        : [],
+
+                    'vouchers' => $item->gift_card_template_id
+                        ? \App\Models\Voucher::where('stripe_session_id', $this->stripe_session_id)
+                            ->get()
+                            ->map(fn($v) => [
+                                'code'             => $v->code,
+                                'amount'           => $v->amount,
+                                'remaining_amount' => $v->remaining_amount,
+                                'expires_at'       => $v->expires_at?->toDateString(),
+                                'gifted_to_email'  => $v->gifted_to_email,
+                                'active'           => $v->active,
+                            ])
+                        : [],
                 ];
             }),
         ];

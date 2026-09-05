@@ -1,235 +1,209 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { CheckIcon } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { PageProps, Order } from "@/types";
 import { useEffect } from "react";
 
-function Success({ orders }: PageProps<{ orders: Order[] }>) {
+const EASE = [0.16, 1, 0.3, 1] as const;
 
-    useEffect(() => {
-   router.reload({
-  only: ['cartCount', 'cartItems'],
-});
+function Success({ orders }: PageProps<{ orders: Order[] }>) {
+  useEffect(() => {
+    router.reload({
+      only: ["cartCount", "cartItems"],
+    });
   }, []);
 
-    return (
-        <AuthenticatedLayout>
-            <Head title="Payment Completed" />
+  const grandTotal = orders.reduce(
+    (sum, order) => sum + Number(order.total_price ?? 0),
+    0,
+  );
 
-            <div
-                style={{
-                    minHeight: "calc(100vh - 80px)",
-                    backgroundColor: "var(--color-bg)",
-                    padding: "clamp(32px, 8vw, 96px) 16px",
-                }}
+  return (
+    <AuthenticatedLayout>
+      <Head title="Payment Completed">
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
+
+      <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
+        <div className="mx-auto max-w-xl px-4 sm:px-6 py-16 sm:py-24">
+          {/* ===================================================
+              CONFIRMATION MARK
+          =================================================== */}
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
+            className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#FFB627] shadow-[0_10px_40px_rgba(255,182,39,0.25)]"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, rotate: -15 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ duration: 0.4, delay: 0.35, ease: EASE }}
             >
-                <div
-                    style={{
-                        width: "100%",
-                        maxWidth: 560,
-                        margin: "0 auto",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        textAlign: "center",
-                    }}
-                >
-                    {/* Tick — plays once on mount, no looping pulse */}
-                    <div
-                        style={{
-                            width: "clamp(72px, 18vw, 96px)",
-                            height: "clamp(72px, 18vw, 96px)",
-                            marginBottom: "clamp(20px, 4vw, 28px)",
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "var(--color-primary)",
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
-                            animation:
-                                "successReveal 0.6s cubic-bezier(.34,1.56,.64,1) both",
-                        }}
-                    >
-                        <CheckIcon
-                            style={{
-                                width: "42%",
-                                height: "42%",
-                                color: "#fff",
-                                strokeWidth: 3,
-                                animation:
-                                    "successCheck 0.4s ease-out 0.35s both",
-                            }}
-                        />
-                    </div>
+              <CheckIcon className="h-9 w-9 text-[#0B0B10]" strokeWidth={3} />
+            </motion.div>
+          </motion.div>
 
-                    <h1
-                        style={{
-                            margin: 0,
-                            fontFamily: "var(--font-display)",
-                            fontSize: "clamp(1.75rem, 6vw, var(--text-4xl))",
-                            lineHeight: 1.15,
-                            fontWeight: 500,
-                            color: "var(--color-text)",
-                        }}
-                    >
-                        Payment successful
-                    </h1>
+          {/* ===================================================
+              HEADLINE
+          =================================================== */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
+            className="text-center"
+          >
+            <p className="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.3em] text-[#FFB627] mb-3">
+              Payment confirmed
+            </p>
 
-                    <p
-                        style={{
-                            margin: "10px 0 0",
-                            fontFamily: "var(--font-body)",
-                            fontSize: "clamp(0.9rem, 2.5vw, var(--text-base))",
-                            color: "var(--color-text-muted)",
-                        }}
-                    >
-                        Order confirmed
+            <h1 className="font-['Anton'] uppercase leading-[0.95] text-4xl sm:text-5xl tracking-tight text-white">
+              You're going
+            </h1>
+
+            <p className="text-sm text-[#9C97A8] mt-3">
+              {orders.length === 1
+                ? "Your order is confirmed. Details are below."
+                : `${orders.length} orders confirmed. Details are below.`}
+            </p>
+          </motion.div>
+
+          {/* ===================================================
+              ORDERS
+          =================================================== */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: EASE }}
+            className="mt-10 space-y-4"
+          >
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                className="rounded-2xl border border-[#26232E] bg-[#15141B] p-5 sm:p-6"
+              >
+                {/* Order header */}
+                <div className="flex items-center justify-between pb-4 border-b border-[#26232E]">
+                  <div>
+                    <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775]">
+                      Order number
                     </p>
+                    <p className="font-['IBM_Plex_Mono'] text-lg font-semibold text-white mt-0.5">
+                      #{order.id}
+                    </p>
+                  </div>
 
-                    {/* One card per order — number + buttons only */}
-                    <div
-                        style={{
-                            width: "100%",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 14,
-                            marginTop: "clamp(28px, 6vw, 40px)",
-                        }}
-                    >
-                        {orders.map((order) => (
-                            <div
-                                key={order.id}
-                                style={{
-                                    width: "100%",
-                                    backgroundColor: "var(--color-surface)",
-                                    border: "1px solid var(--color-border)",
-                                    borderRadius: "var(--radius-lg)",
-                                    padding: "clamp(20px, 5vw, 28px)",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: "clamp(16px, 4vw, 22px)",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        fontFamily: "var(--font-body)",
-                                        fontSize: "var(--text-sm)",
-                                        color: "var(--color-text-muted)",
-                                    }}
-                                >
-                                    Order number
-                                    <span
-                                        style={{
-                                            display: "block",
-                                            marginTop: 4,
-                                            fontFamily: "var(--font-display)",
-                                            fontSize:
-                                                "clamp(1.1rem, 3vw, var(--text-xl))",
-                                            fontWeight: 500,
-                                            color: "var(--color-text)",
-                                        }}
-                                    >
-                                        #{order.id}
-                                    </span>
-                                </div>
-
-                                <div
-                                    style={{
-                                        width: "100%",
-                                        display: "grid",
-                                        gridTemplateColumns:
-                                            "repeat(auto-fit, minmax(160px, 1fr))",
-                                        gap: 10,
-                                    }}
-                                >
-                                    <Link
-                                        href={route("orders.history")}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            minHeight: 46,
-                                            padding: "11px 18px",
-                                            borderRadius: "var(--radius-md)",
-                                            background: "var(--color-primary)",
-                                            color: "#fff",
-                                            textDecoration: "none",
-                                            fontFamily: "var(--font-body)",
-                                            fontSize: "var(--text-sm)",
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        View order details
-                                    </Link>
-
-                                    <Link
-                                        href={route("home")}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            minHeight: 46,
-                                            padding: "11px 18px",
-                                            borderRadius: "var(--radius-md)",
-                                            border: "1px solid var(--color-border)",
-                                            background: "transparent",
-                                            color: "var(--color-text)",
-                                            textDecoration: "none",
-                                            fontFamily: "var(--font-body)",
-                                            fontSize: "var(--text-sm)",
-                                            fontWeight: 500,
-                                        }}
-                                    >
-                                        Back to home
-                                    </Link>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                  {order.vendor?.name && (
+                    <span className="rounded-full border border-[#26232E] bg-[#0B0B10] px-3 py-1.5 text-[11px] text-[#9C97A8]">
+                      {order.vendor.name}
+                    </span>
+                  )}
                 </div>
-            </div>
 
-            <style>
-                {`
-                    @keyframes successReveal {
-                        0% {
-                            transform: scale(0);
-                            opacity: 0;
-                        }
-                        70% {
-                            transform: scale(1.08);
-                            opacity: 1;
-                        }
-                        100% {
-                            transform: scale(1);
-                            opacity: 1;
-                        }
-                    }
+                {/* Line items */}
+                {order.orderItems && order.orderItems.length > 0 && (
+                  <div className="py-4 space-y-2.5 border-b border-[#26232E]">
+                   {order.orderItems.map((item, i) => {
+  const title =
+    item.ticketTier?.name ??
+    item.product?.title ??
+    (item.booking ? "Service booking" : null) ??
+    "Item";
 
-                    @keyframes successCheck {
-                        0% {
-                            opacity: 0;
-                            transform: scale(0.5) rotate(-15deg);
-                        }
-                        100% {
-                            opacity: 1;
-                            transform: scale(1) rotate(0);
-                        }
-                    }
+  const ticketMeta = item.ticketTier
+    ? [
+        item.ticketTier.event_name,
+        item.seats?.length
+          ? `Seat${item.seats.length > 1 ? "s" : ""} ${item.seats.map((s) => s.label).join(", ")}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
 
-                    @media (prefers-reduced-motion: reduce) {
-                        *,
-                        *::before,
-                        *::after {
-                            animation-duration: 0.01ms !important;
-                            animation-iteration-count: 1 !important;
-                        }
-                    }
-                `}
-            </style>
-        </AuthenticatedLayout>
-    );
+  return (
+    <div
+      key={item.id ?? i}
+      className="flex items-start justify-between gap-3 text-sm"
+    >
+      <div className="min-w-0">
+        <span className="text-[#D8D5DE] truncate block">
+          {title}
+          {item.quantity ? ` × ${item.quantity}` : ""}
+        </span>
+        {ticketMeta && (
+          <span className="text-xs text-[#6B6775]">{ticketMeta}</span>
+        )}
+      </div>
+
+      <span className="font-['IBM_Plex_Mono'] text-white shrink-0">
+        $
+        {(
+          Number(item.price ?? 0) * (item.quantity ?? 1)
+        ).toFixed(2)}
+      </span>
+    </div>
+  );
+})}
+                  </div>
+                )}
+
+                {/* Total */}
+                <div className="flex items-center justify-between pt-4">
+                  <span className="text-sm font-semibold text-white">
+                    Total
+                  </span>
+                  <span className="font-['IBM_Plex_Mono'] text-lg font-semibold text-[#FFB627]">
+                    ${Number(order.total_price ?? 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {orders.length > 1 && (
+              <div className="flex items-center justify-between rounded-xl border border-[#26232E] bg-[#0B0B10] px-5 py-4">
+                <span className="text-sm text-[#9C97A8]">
+                  Total across all orders
+                </span>
+                <span className="font-['IBM_Plex_Mono'] text-base font-semibold text-white">
+                  ${grandTotal.toFixed(2)}
+                </span>
+              </div>
+            )}
+          </motion.div>
+
+          {/* ===================================================
+              ACTIONS
+          =================================================== */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3, ease: EASE }}
+            className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          >
+            <Link
+              href={route("orders.history")}
+              className="flex items-center justify-center rounded-xl bg-[#FFB627] px-5 py-3.5 text-sm font-bold text-[#0B0B10] transition-colors hover:bg-[#ffc355]"
+            >
+              View order details
+            </Link>
+
+            <Link
+              href={route("home")}
+              className="flex items-center justify-center rounded-xl border border-[#26232E] bg-[#15141B] px-5 py-3.5 text-sm font-semibold text-[#D8D5DE] transition-colors hover:border-[#3a3745] hover:text-white"
+            >
+              Back to home
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    </AuthenticatedLayout>
+  );
 }
 
 export default Success;

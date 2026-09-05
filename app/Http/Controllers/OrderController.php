@@ -22,40 +22,35 @@ class OrderController extends Controller
     {
         $this->refundService = $refundService;
     }
-    public function index()
-    {
-        $orders = Auth::user()
-            ->orders()
-            ->where('status', OrderStatusEnum::Paid)
-            ->with([
-                'orderItems.product.variationTypes.options',
-                'booking',
-                'vendorUser.vendor',
-            ])
-            ->latest()
-            ->paginate(10);
+   public function index()
+{
+    $orders = Auth::user()
+        ->orders()
+        ->where('status', OrderStatusEnum::Paid)
+        ->with([
+            'orderItems.product.variationTypes.options',
+           'orderItems.ticketTier.eventLeg.event.media',
+            'booking',
+            'vendorUser.vendor',
+        ])
+        ->latest()
+        ->paginate(10);
 
-        return Inertia::render('Order/OrdersHistory', [
-            'orders' => OrderViewResource::collection($orders),
-        ]);
-    }
+    return Inertia::render('Order/OrdersHistory', [
+        'orders' => OrderViewResource::collection($orders),
+    ]);
+}
 
+public function show($orderId)
+{
+    $order = Order::with([
+        'orderItems.product',
+        'orderItems.booking',
+        'orderItems.ticketTier.eventLeg.event',
+        'vendor.vendor',
+        'shippingAddress'
+    ])->findOrFail($orderId);
 
-    public function show($orderId)
-    {
-        $order = Order::with([
-            'orderItems.product',
-            'orderItems.booking', // Make sure this line is added
-            'vendor.vendor',
-            'shippingAddress'
-        ])->findOrFail($orderId);
-
-        return new OrderViewResource($order);
-    }
-
-
-
-
-
-
+    return new OrderViewResource($order);
+}
 }

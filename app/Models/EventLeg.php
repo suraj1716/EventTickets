@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class EventLeg extends Model
 {
     use HasFactory;
@@ -20,8 +21,8 @@ class EventLeg extends Model
         'event_date',
         'capacity',
         'sequence',
-         'seating_type',
-          'venue_id',
+        'seating_type',
+        'venue_id',
     ];
 
     protected $casts = [
@@ -32,10 +33,10 @@ class EventLeg extends Model
 
 
 
-public function venue(): BelongsTo
-{
-    return $this->belongsTo(Venue::class);
-}
+    public function venue(): BelongsTo
+    {
+        return $this->belongsTo(Venue::class);
+    }
 
 
 
@@ -43,15 +44,15 @@ public function venue(): BelongsTo
     {
         return $this->belongsTo(Event::class);
     }
-public function seats(): HasMany
-{
-    return $this->hasMany(EventSeat::class)->orderBy('row_label')->orderBy('seat_number');
-}
+    public function seats(): HasMany
+    {
+        return $this->hasMany(EventSeat::class)->orderBy('row_label')->orderBy('seat_number');
+    }
 
-public function isReservedSeating(): bool
-{
-    return $this->seating_type === 'reserved';
-}
+    public function isReservedSeating(): bool
+    {
+        return $this->seating_type === 'reserved';
+    }
     public function ticketTiers(): HasMany
     {
         return $this->hasMany(TicketTier::class)->orderBy('starts_at');

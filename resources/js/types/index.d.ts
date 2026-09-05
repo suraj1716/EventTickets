@@ -70,8 +70,12 @@ export interface OrderItem {
   gift_card_template_id: number | null;
   quantity: number;
   price: string;
-
-  ticket_tier?: TicketTier;
+  product: { id: number; title: string; image: string | null; slug: string } | null;
+  ticket_tier?: TicketTier | null;
+  seats?: { id: number; label: string; row_label: string }[];
+  variation_summary?: { type: string; option: string; image: string | null }[];
+  attachment_path?: string;
+  attachment_name?: string;
 }
 
 
@@ -90,7 +94,10 @@ export interface TicketTier {
   id: number;
   event_leg_id: number;
   name: string;
-
+  event_name: string | null;
+  venue_name: string | null;
+  event_date: string | null;
+  event_image: string | null;
   // Laravel decimal cast serializes as string
   price: string;
 

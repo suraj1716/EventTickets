@@ -96,107 +96,124 @@ export default function ComingSoon({ events, filters, categories }: Props) {
 
       <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
         {/* Hero */}
-        <section className="relative overflow-hidden border-b border-[#26232E]">
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -top-32 -left-24 h-80 w-80 rounded-full bg-[#8B6BFF] opacity-[0.16] blur-[100px]"
-            animate={{ y: [0, 30, 0], x: [0, 20, 0] }}
-            transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-          />
+<section className="relative overflow-hidden border-b border-[#26232E]">
+  <motion.div
+    aria-hidden
+    className="pointer-events-none absolute -top-32 -left-24 h-80 w-80 rounded-full bg-[#8B6BFF] opacity-[0.16] blur-[100px]"
+    animate={{ y: [0, 30, 0], x: [0, 20, 0] }}
+    transition={{
+      duration: 14,
+      repeat: Infinity,
+      ease: "easeInOut",
+    }}
+  />
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.3em] text-[#8B6BFF] mb-4 flex items-center gap-2"
-            >
-              <motion.span
-                animate={{ opacity: [1, 0.25, 1] }}
-                transition={{
-                  duration: 1.8,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="inline-block h-1.5 w-1.5 rounded-full bg-[#8B6BFF]"
-              />
-              Not confirmed yet — be first to know
-            </motion.p>
+  <div className="relative mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+    <motion.p
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="mb-4 flex items-center justify-center gap-2 font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.3em] text-[#8B6BFF]"
+    >
+      <motion.span
+        animate={{ opacity: [1, 0.25, 1] }}
+        transition={{
+          duration: 1.8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+        className="inline-block h-1.5 w-1.5 rounded-full bg-[#8B6BFF]"
+      />
 
-            <h1 className="font-['Anton'] uppercase leading-[0.88] text-5xl sm:text-6xl lg:text-7xl tracking-tight">
-              Coming <span className="text-[#8B6BFF]">soon.</span>
-            </h1>
+      Not confirmed yet — be first to know
+    </motion.p>
 
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mt-5 max-w-xl text-base sm:text-lg text-[#9C97A8] leading-relaxed"
-            >
-              These events aren't confirmed yet. Join the waitlist and we'll
-              email you the moment tickets go on sale.
-            </motion.p>
+    <h1 className="font-['Anton'] text-5xl uppercase leading-[0.88] tracking-tight sm:text-6xl lg:text-7xl">
+      Coming <span className="text-[#8B6BFF]">soon.</span>
+    </h1>
 
-            {/* Search */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="mt-9 max-w-2xl"
-            >
-              <div className="relative">
-                <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9C97A8]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-4-4" />
-                </svg>
+    <motion.p
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.5,
+        delay: 0.2,
+      }}
+      className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#9C97A8] sm:text-lg"
+    >
+      These events aren't confirmed yet. Join the waitlist and we'll
+      email you the moment tickets go on sale.
+    </motion.p>
 
-                <input
-                  type="text"
-                  value={local.search ?? ""}
-                  onChange={(e) =>
-                    setLocal((prev) => ({ ...prev, search: e.target.value }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") apply({ search: local.search });
-                  }}
-                  onBlur={() => apply({ search: local.search })}
-                  placeholder="Search upcoming events..."
-                  className="w-full h-[52px] rounded-xl border border-[#26232E] bg-[#15141B] pl-11 pr-4 text-sm text-[#F7F5F2] placeholder:text-[#6B6775] outline-none transition focus:border-[#8B6BFF]/60 focus:ring-2 focus:ring-[#8B6BFF]/20"
-                />
-              </div>
+    {/* Search */}
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.5,
+        delay: 0.3,
+      }}
+      className="mx-auto mt-9 max-w-2xl"
+    >
+      <div className="relative">
+        <svg
+          className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9C97A8]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-4-4" />
+        </svg>
 
-              {categories.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {categories.map((category) => {
-                    const active = local.category === category.id;
-                    return (
-                      <motion.button
-                        whileTap={{ scale: 0.94 }}
-                        type="button"
-                        key={category.id}
-                        onClick={() => toggleCategory(category.id)}
-                        className={[
-                          "px-3 py-1.5 rounded-full text-xs border transition-colors",
-                          active
-                            ? "bg-[#8B6BFF] text-white border-[#8B6BFF] font-semibold"
-                            : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#8B6BFF]/50 hover:text-white",
-                        ].join(" ")}
-                      >
-                        {category.name}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
-          </div>
-        </section>
+        <input
+          type="text"
+          value={local.search ?? ""}
+          onChange={(e) =>
+            setLocal((prev) => ({
+              ...prev,
+              search: e.target.value,
+            }))
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              apply({ search: local.search });
+            }
+          }}
+          onBlur={() => apply({ search: local.search })}
+          placeholder="Search upcoming events..."
+          className="h-[52px] w-full rounded-xl border border-[#26232E] bg-[#15141B] pl-11 pr-4 text-left text-sm text-[#F7F5F2] outline-none transition placeholder:text-[#6B6775] focus:border-[#8B6BFF]/60 focus:ring-2 focus:ring-[#8B6BFF]/20"
+        />
+      </div>
+
+      {categories.length > 0 && (
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {categories.map((category) => {
+            const active = local.category === category.id;
+
+            return (
+              <motion.button
+                whileTap={{ scale: 0.94 }}
+                type="button"
+                key={category.id}
+                onClick={() => toggleCategory(category.id)}
+                className={[
+                  "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                  active
+                    ? "border-[#8B6BFF] bg-[#8B6BFF] font-semibold text-white"
+                    : "border-[#26232E] bg-[#15141B] text-[#9C97A8] hover:border-[#8B6BFF]/50 hover:text-white",
+                ].join(" ")}
+              >
+                {category.name}
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  </div>
+</section>
 
         {/* Results */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -288,90 +305,89 @@ export default function ComingSoon({ events, filters, categories }: Props) {
           )}
         </main>
 
-<AnimatePresence>
-  {watchlistEvent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={() => {
-        if (!joiningWatchlist) {
-          setWatchlistEvent(null);
-        }
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.97 }}
-        transition={{ duration: 0.2 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-[#26232E] bg-[#15141B] p-6 shadow-2xl"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[#8B6BFF]">
-              Event watchlist
-            </p>
+        <AnimatePresence>
+          {watchlistEvent && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+              onClick={() => {
+                if (!joiningWatchlist) {
+                  setWatchlistEvent(null);
+                }
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.97 }}
+                transition={{ duration: 0.2 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl border border-[#26232E] bg-[#15141B] p-6 shadow-2xl"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[#8B6BFF]">
+                      Event watchlist
+                    </p>
 
-            <h2 className="mt-2 text-xl font-bold text-white">
-              {watchlistEvent.name}
-            </h2>
-          </div>
+                    <h2 className="mt-2 text-xl font-bold text-white">
+                      {watchlistEvent.name}
+                    </h2>
+                  </div>
 
-          <button
-            type="button"
-            onClick={() => setWatchlistEvent(null)}
-            disabled={joiningWatchlist}
-            className="text-[#6B6775] hover:text-white text-xl"
-          >
-            ×
-          </button>
-        </div>
+                  <button
+                    type="button"
+                    onClick={() => setWatchlistEvent(null)}
+                    disabled={joiningWatchlist}
+                    className="text-[#6B6775] hover:text-white text-xl"
+                  >
+                    ×
+                  </button>
+                </div>
 
-        <p className="mt-4 text-sm leading-relaxed text-[#9C97A8]">
-          This event isn't confirmed yet. Enter your email and we'll
-          send you a confirmation link.
-        </p>
+                <p className="mt-4 text-sm leading-relaxed text-[#9C97A8]">
+                  This event isn't confirmed yet. Enter your email and we'll
+                  send you a confirmation link.
+                </p>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleJoinWatchlist();
-          }}
-          className="mt-5"
-        >
-          <input
-            type="email"
-            value={watchlistEmail}
-            onChange={(e) => setWatchlistEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-            autoFocus
-            className="w-full rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-3 text-sm text-white placeholder:text-[#565262] outline-none focus:border-[#8B6BFF]/60 focus:ring-2 focus:ring-[#8B6BFF]/20"
-          />
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleJoinWatchlist();
+                  }}
+                  className="mt-5"
+                >
+                  <input
+                    type="email"
+                    value={watchlistEmail}
+                    onChange={(e) => setWatchlistEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    autoFocus
+                    className="w-full rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-3 text-sm text-white placeholder:text-[#565262] outline-none focus:border-[#8B6BFF]/60 focus:ring-2 focus:ring-[#8B6BFF]/20"
+                  />
 
-          <button
-            type="submit"
-            disabled={joiningWatchlist || !watchlistEmail.trim()}
-            className="mt-3 w-full rounded-lg bg-[#8B6BFF] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#9D81FF] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {joiningWatchlist
-              ? 'Sending confirmation…'
-              : 'Send confirmation email'}
-          </button>
-        </form>
+                  <button
+                    type="submit"
+                    disabled={joiningWatchlist || !watchlistEmail.trim()}
+                    className="mt-3 w-full rounded-lg bg-[#8B6BFF] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#9D81FF] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {joiningWatchlist
+                      ? "Sending confirmation…"
+                      : "Send confirmation email"}
+                  </button>
+                </form>
 
-        <p className="mt-3 text-center text-[11px] text-[#565262]">
-          You must confirm your email before you are included in
-          the watcher count.
-        </p>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
-
+                <p className="mt-3 text-center text-[11px] text-[#565262]">
+                  You must confirm your email before you are included in the
+                  watcher count.
+                </p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </AuthenticatedLayout>
   );
@@ -402,21 +418,20 @@ function ComingSoonCard({
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
       className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] transition-colors hover:border-[#8B6BFF]/40"
     >
-
       <div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
-       {event.media?.length > 0 ? (
-    <img
-        src={event.media[0].url}
-        alt={event.name}
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-    />
-) : event.image_url ? (
-    <img
-        src={event.image_url}
-        alt={event.name}
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-    />
-) : (
+        {event.media?.length > 0 ? (
+          <img
+            src={event.media[0].url}
+            alt={event.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : event.image_url ? (
+          <img
+            src={event.image_url}
+            alt={event.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
           <div className="relative h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(139,107,255,0.12),transparent_35%)]" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -507,7 +522,6 @@ function ComingSoonCard({
         </div>
       </div>
     </motion.a>
-
   );
 }
 
