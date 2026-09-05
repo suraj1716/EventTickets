@@ -258,8 +258,10 @@ class EventSeatController extends Controller
     private function authorizeEventLeg(EventLeg $eventLeg): void
     {
         abort_unless(
-            $eventLeg->event &&
-            $eventLeg->event->vendor_user_id === request()->user()->id,
+            $eventLeg->event && (
+                $eventLeg->event->vendor_user_id === request()->user()->id
+                || request()->user()->hasRole('Admin')
+            ),
             403
         );
     }

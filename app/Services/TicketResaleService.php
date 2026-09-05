@@ -24,6 +24,16 @@ class TicketResaleService
         return DB::transaction(function () use ($ticket, $seller, $price) {
             $ticket = Ticket::where('id', $ticket->id)->lockForUpdate()->firstOrFail();
 
+            // Same check TicketResaleController::store() does before calling
+            // in — enforced here too, since this service can be reached
+            // directly (jobs, commands, webhooks, admin actions) without
+            // going through that controller.
+            abort_unless(
+                $seller->stripe_account_active,
+                422,
+                'Set up payouts before listing a ticket — we need somewhere to send your money once it sells.'
+            );
+
             abort_unless($ticket->owner_user_id === $seller->id, 403, 'You do not own this ticket.');
             abort_unless($ticket->status === 'valid', 422, 'Only a valid, unscanned ticket can be listed for resale.');
 

@@ -51,6 +51,26 @@ class CartService
 
         $userId = Auth::id();
 
+        return DB::transaction(function () use ($lines, $userId) {
+        // Release any seats this user is currently holding from their
+        // existing ticket cart items before re-evaluating the new
+        // selection — otherwise a seat abandoned mid-checkout stays
+        // locked as 'reserved' forever.
+        $heldSeatIds = CartItem::where('user_id', $userId)
+            ->whereNotNull('ticket_tier_id')
+            ->whereNotNull('seat_ids')
+            ->get()
+            ->flatMap(fn($item) => $item->seat_ids ?? [])
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($heldSeatIds) {
+            \App\Models\EventSeat::whereIn('id', $heldSeatIds)
+                ->where('status', 'reserved')
+                ->update(['status' => 'available']);
+        }
+
         // Remove existing ticket items only.
         // Merchandise remains in the cart.
         CartItem::where('user_id', $userId)
@@ -94,9 +114,13 @@ class CartService
                     );
                 }
 
+                // Lock the candidate rows for the rest of this transaction
+                // so a second buyer's concurrent request can't read them
+                // as 'available' between our check and our update below.
                 $seats = \App\Models\EventSeat::whereIn('id', $seatIds)
                     ->where('event_leg_id', $tier->event_leg_id)
                     ->where('status', 'available')
+                    ->lockForUpdate()
                     ->get();
 
                 if ($seats->count() !== count($seatIds)) {
@@ -118,6 +142,12 @@ class CartService
                         'One or more selected seats do not belong to this ticket tier.'
                     );
                 }
+
+                // Hold the seats immediately — this is what stops a second
+                // buyer's cart from grabbing the same seat while this one
+                // is still shopping/checking out.
+                \App\Models\EventSeat::whereIn('id', $seatIds)
+                    ->update(['status' => 'reserved']);
             }
 
             /*
@@ -154,6 +184,7 @@ class CartService
         }
 
         return $createdItems;
+        });
     }
     public function setEventMerchCartItems(int $eventId, array $lines): array
     {
