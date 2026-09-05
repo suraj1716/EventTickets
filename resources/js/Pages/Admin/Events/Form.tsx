@@ -15,7 +15,7 @@ import type {
   Venue,
 } from "@/types";
 import AdminLayout from "../AdminLayout";
-import { formatDatetimeLocal, formatDateInput } from '@/utils/dateFormat';
+import { formatDatetimeLocal, formatDateInput } from "@/utils/dateFormat";
 import {
   AdminPageHeader,
   AdminBtn,
@@ -34,6 +34,10 @@ function emptyTier(): TicketTierFormInput {
   return { name: "", price: 0, quantity: 0, starts_at: "", ends_at: "" };
 }
 
+function tierQuantityTotal(leg: EventLegFormInput): number {
+  return leg.tiers.reduce((sum, t) => sum + (t.quantity || 0), 0);
+}
+
 function emptyLeg(): EventLegFormInput {
   return {
     id: undefined,
@@ -45,113 +49,128 @@ function emptyLeg(): EventLegFormInput {
     longitude: undefined,
     event_date: "",
     capacity: 0,
+    seating_type: "general",
     tiers: [emptyTier()],
   };
 }
 
-function legsFromEvent(event?: Event): EventLegFormInput[] {
+function legsFromEvent(
+  event: Event | undefined,
+  venues: Venue[],
+): EventLegFormInput[] {
   if (!event?.legs?.length) {
     return [emptyLeg()];
   }
 
-  return event.legs.map((leg) => ({
-    id: leg.id,
-    venue_id: leg.venue_id,
-    venue_name: leg.venue_name,
-    address: leg.address ?? '',
-    city: leg.city ?? '',
-    latitude: leg.latitude ? parseFloat(leg.latitude) : undefined,
-    longitude: leg.longitude ? parseFloat(leg.longitude) : undefined,
-    event_date: formatDateInput(leg.event_date),   // <-- fixed
-    capacity: leg.capacity,
-    tiers: (leg.ticket_tiers ?? [emptyTier() as any]).map((t) => ({
-      id: t.id,
-      name: t.name,
-      price: parseFloat(t.price),
-      quantity: t.quantity,
-      starts_at: formatDatetimeLocal(t.starts_at),
-      ends_at: formatDatetimeLocal(t.ends_at),
-    })),
-  }));
+  return event.legs.map((leg) => {
+    // If this leg is linked to a real venue, trust the venue's current
+    // capacity over whatever was last saved on the leg — the venue is
+    // the source of truth and its capacity may have changed since.
+    const linkedVenue = leg.venue_id
+      ? venues.find((v) => v.id === leg.venue_id)
+      : undefined;
+
+    // Reserved-seating legs get their capacity from the seat map — it's
+    // kept in sync server-side every time seats are imported/removed
+    // (see EventSeatController), so leg.capacity is the source of truth
+    // here and must NOT be overwritten by the venue's flat number.
+    //
+    // General-admission legs have no seat map, so the venue's capacity
+    // is the only figure that exists — use it if the leg's own value
+    // looks unset/stale.
+    const effectiveCapacity =
+      leg.seating_type === "reserved"
+        ? leg.capacity
+        : (linkedVenue?.capacity ?? leg.capacity);
+
+    return {
+      id: leg.id,
+      venue_id: leg.venue_id,
+      venue_name: leg.venue_name,
+      address: leg.address ?? "",
+      city: leg.city ?? "",
+      latitude: leg.latitude ? parseFloat(leg.latitude) : undefined,
+      longitude: leg.longitude ? parseFloat(leg.longitude) : undefined,
+      event_date: formatDateInput(leg.event_date), // <-- fixed
+      capacity: effectiveCapacity,
+      seating_type: leg.seating_type,
+          tiers: (leg.ticket_tiers ?? [emptyTier() as any]).map((t) => ({
+        id: t.id,
+        name: t.name,
+        price: parseFloat(t.price),
+        quantity: t.quantity,
+        starts_at: formatDatetimeLocal(t.starts_at),
+        ends_at: formatDatetimeLocal(t.ends_at),
+        sold_count: t.sold_count ?? 0,
+      })),
+    };
+  });
 }
 
 export default function EventForm({ event, categories, venues }: Props) {
+  console.log("VENUES PROP:", venues);
   const isEditing = !!event;
   const [artistInput, setArtistInput] = useState("");
-const { data, setData, post, transform, processing, errors } =
-  useForm<EventFormInput>({
-    name: event?.name ?? "",
-    description: event?.description ?? "",
-    type: event?.type ?? "standalone",
-    status: (event?.status as "draft" | "proposed") ?? "draft",
-    languages: event?.languages ?? [],
-    category_ids: event?.categories?.map((c) => c.id) ?? [],
-    artists: event?.artists?.map((a) => a.name) ?? [],
-    legs: legsFromEvent(event),
-    media: [],
-    remove_media_ids: [],
-  });
+  const { data, setData, post, transform, processing, errors } =
+    useForm<EventFormInput>({
+      name: event?.name ?? "",
+      description: event?.description ?? "",
+      type: event?.type ?? "standalone",
+      status: (event?.status as "draft" | "proposed") ?? "draft",
+      languages: event?.languages ?? [],
+      category_ids: event?.categories?.map((c) => c.id) ?? [],
+      artists: event?.artists?.map((a) => a.name) ?? [],
+      legs: legsFromEvent(event, venues),
+      media: [],
+      remove_media_ids: [],
+    });
 
+  // ---------- Media ----------
 
+  function handleMediaChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
 
-    // ---------- Media ----------
+    if (files.length === 0) {
+      return;
+    }
 
-function handleMediaChange(
-  e: React.ChangeEvent<HTMLInputElement>
-) {
-  const files = Array.from(e.target.files ?? []);
+    const existingMedia = event?.media ?? [];
+    const removedIds = data.remove_media_ids ?? [];
 
-  if (files.length === 0) {
-    return;
-  }
+    // Existing media that will actually remain
+    const remainingExistingCount = existingMedia.filter(
+      (media) => !removedIds.includes(media.id),
+    ).length;
 
-  const existingMedia = event?.media ?? [];
-  const removedIds = data.remove_media_ids ?? [];
+    const currentNewFiles = data.media?.length ?? 0;
 
-  // Existing media that will actually remain
-  const remainingExistingCount = existingMedia.filter(
-    (media) => !removedIds.includes(media.id)
-  ).length;
+    const totalAfterUpload =
+      remainingExistingCount + currentNewFiles + files.length;
 
-  const currentNewFiles = data.media?.length ?? 0;
+    if (totalAfterUpload > 2) {
+      alert("An event can have a maximum of 2 media files.");
+      e.target.value = "";
+      return;
+    }
 
-  const totalAfterUpload =
-    remainingExistingCount +
-    currentNewFiles +
-    files.length;
+    setData("media", [...(data.media ?? []), ...files]);
 
-  if (totalAfterUpload > 2) {
-    alert("An event can have a maximum of 2 media files.");
     e.target.value = "";
-    return;
   }
 
-  setData("media", [
-    ...(data.media ?? []),
-    ...files,
-  ]);
+  function removeNewMedia(index: number) {
+    setData(
+      "media",
+      (data.media ?? []).filter((_, i) => i !== index),
+    );
+  }
 
-  e.target.value = "";
-}
-
-function removeNewMedia(index: number) {
-  setData(
-    "media",
-    (data.media ?? []).filter((_, i) => i !== index)
-  );
-}
-
-function removeExistingMedia(id: number) {
-  setData(
-    "remove_media_ids",
-    Array.from(
-      new Set([
-        ...(data.remove_media_ids ?? []),
-        id,
-      ])
-    )
-  );
-}
+  function removeExistingMedia(id: number) {
+    setData(
+      "remove_media_ids",
+      Array.from(new Set([...(data.remove_media_ids ?? []), id])),
+    );
+  }
 
   // ---------- Tour toggle ----------
 
@@ -208,6 +227,7 @@ function removeExistingMedia(id: number) {
   function removeTier(legIndex: number, tierIndex: number) {
     const legs = [...data.legs];
     if (legs[legIndex].tiers.length <= 1) return;
+    if ((legs[legIndex].tiers[tierIndex].sold_count ?? 0) > 0) return;
     legs[legIndex] = {
       ...legs[legIndex],
       tiers: legs[legIndex].tiers.filter((_, i) => i !== tierIndex),
@@ -243,12 +263,61 @@ function removeExistingMedia(id: number) {
 
   // ---------- Submit ----------
 
-const submit: FormEventHandler = (e) => {
-  e.preventDefault();
+  const submit: FormEventHandler = (e) => {
+    e.preventDefault();
 
-  console.log("SUBMIT DATA:", data);
+    const overCapacityLeg = data.legs.find(
+      (leg) => leg.capacity > 0 && tierQuantityTotal(leg) > leg.capacity,
+    );
+    if (overCapacityLeg) {
+      alert(
+        "One or more legs have ticket quantities exceeding the venue capacity.",
+      );
+      return;
+    }
 
-  if (isEditing) {
+    console.log("SUBMIT DATA:", data);
+
+    if (isEditing) {
+      transform((data) => ({
+        ...data,
+        _method: "PUT",
+      }));
+
+      post(route("admin.events.update", event!.id), {
+        forceFormData: true,
+        onSuccess: () => {
+          router.post(route("admin.events.publish", event!.id));
+        },
+      });
+    } else {
+      post(route("admin.events.store"), {
+        forceFormData: true,
+      });
+    }
+  };
+  function handlePublish() {
+    const overCapacityLeg = data.legs.find(
+      (leg) => leg.capacity > 0 && tierQuantityTotal(leg) > leg.capacity,
+    );
+    if (overCapacityLeg) {
+      alert(
+        "One or more legs have ticket quantities exceeding the venue capacity.",
+      );
+      return;
+    }
+
+    if (!isEditing) {
+      post(route("admin.events.store"), {
+        forceFormData: true,
+        onSuccess: () => {
+          // Handle create + publish separately if needed
+        },
+      });
+
+      return;
+    }
+
     transform((data) => ({
       ...data,
       _method: "PUT",
@@ -257,39 +326,10 @@ const submit: FormEventHandler = (e) => {
     post(route("admin.events.update", event!.id), {
       forceFormData: true,
       onSuccess: () => {
-       router.post(route("admin.events.publish", event!.id));
+        router.post(route("admin.events.publish", event!.id));
       },
     });
-  } else {
-    post(route("admin.events.store"), {
-      forceFormData: true,
-    });
   }
-};
-function handlePublish() {
-  if (!isEditing) {
-    post(route("admin.events.store"), {
-      forceFormData: true,
-      onSuccess: () => {
-        // Handle create + publish separately if needed
-      },
-    });
-
-    return;
-  }
-
-  transform((data) => ({
-    ...data,
-    _method: "PUT",
-  }));
-
-  post(route("admin.events.update", event!.id), {
-    forceFormData: true,
-    onSuccess: () => {
-      router.post(route("admin.events.publish", event!.id));
-    },
-  });
-}
 
   return (
     <AdminLayout>
@@ -301,11 +341,12 @@ function handlePublish() {
       />
 
       <form onSubmit={submit} style={{ maxWidth: 640 }}>
-
         <Field label="Part of a tour?">
           <select
             value={data.type}
-            onChange={(e) => handleTypeChange(e.target.value as 'standalone' | 'tour')}
+            onChange={(e) =>
+              handleTypeChange(e.target.value as "standalone" | "tour")
+            }
             style={inputStyle}
           >
             <option value="standalone">Standalone event, one location</option>
@@ -316,18 +357,22 @@ function handlePublish() {
         <Field label="Visibility">
           <select
             value={data.status}
-            onChange={(e) => setData('status', e.target.value as 'draft' | 'proposed')}
+            onChange={(e) =>
+              setData("status", e.target.value as "draft" | "proposed")
+            }
             style={inputStyle}
-            disabled={event?.status === 'published'}
+            disabled={event?.status === "published"}
           >
             <option value="draft">Draft — hidden, only visible to you</option>
-            <option value="proposed">Proposed — visible via link, waitlist signups open</option>
-            {event?.status === 'published' && (
+            <option value="proposed">
+              Proposed — visible via link, waitlist signups open
+            </option>
+            {event?.status === "published" && (
               <option value="published">Published — live and on sale</option>
             )}
           </select>
           <p style={{ fontSize: 11, color: C.textFaint, marginTop: 6 }}>
-            {event?.status === 'published'
+            {event?.status === "published"
               ? "This event is live. Visibility can't be changed back from here."
               : 'Use "Publish event" below when you\'re ready to go on sale — that overrides this setting.'}
           </p>
@@ -354,36 +399,61 @@ function handlePublish() {
 
         <Field label="Event media" error={errors.media}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
             {/* Existing media */}
             {event?.media
               ?.filter(
-                (media) =>
-                  !(data.remove_media_ids ?? []).includes(media.id)
+                (media) => !(data.remove_media_ids ?? []).includes(media.id),
               )
               .map((media) => (
                 <div
                   key={media.id}
-                  style={{ position: "relative", overflow: "hidden", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgAlt }}
+                  style={{
+                    position: "relative",
+                    overflow: "hidden",
+                    borderRadius: 12,
+                    border: `1px solid ${C.border}`,
+                    background: C.bgAlt,
+                  }}
                 >
                   {media.type === "video" ? (
                     <video
                       src={media.url}
                       controls
-                      style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                      style={{
+                        width: "100%",
+                        maxHeight: 256,
+                        objectFit: "contain",
+                        background: "#000",
+                      }}
                     />
                   ) : (
                     <img
                       src={media.url}
                       alt=""
-                      style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                      style={{
+                        width: "100%",
+                        maxHeight: 256,
+                        objectFit: "contain",
+                        background: "#000",
+                      }}
                     />
                   )}
 
                   <button
                     type="button"
                     onClick={() => removeExistingMedia(media.id)}
-                    style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, background: "rgba(0,0,0,0.7)", padding: "6px 12px", fontSize: 11, color: "#fff", border: "none", cursor: "pointer" }}
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      borderRadius: 8,
+                      background: "rgba(0,0,0,0.7)",
+                      padding: "6px 12px",
+                      fontSize: 11,
+                      color: "#fff",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
                     Remove
                   </button>
@@ -394,50 +464,94 @@ function handlePublish() {
             {(data.media ?? []).map((file, index) => (
               <div
                 key={`${file.name}-${index}`}
-                style={{ position: "relative", overflow: "hidden", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgAlt }}
+                style={{
+                  position: "relative",
+                  overflow: "hidden",
+                  borderRadius: 12,
+                  border: `1px solid ${C.border}`,
+                  background: C.bgAlt,
+                }}
               >
                 {file.type.startsWith("video/") ? (
                   <video
                     src={URL.createObjectURL(file)}
                     controls
-                    style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                    style={{
+                      width: "100%",
+                      maxHeight: 256,
+                      objectFit: "contain",
+                      background: "#000",
+                    }}
                   />
                 ) : (
                   <img
                     src={URL.createObjectURL(file)}
                     alt={file.name}
-                    style={{ width: "100%", maxHeight: 256, objectFit: "contain", background: "#000" }}
+                    style={{
+                      width: "100%",
+                      maxHeight: 256,
+                      objectFit: "contain",
+                      background: "#000",
+                    }}
                   />
                 )}
 
                 <button
                   type="button"
                   onClick={() => removeNewMedia(index)}
-                  style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, background: "rgba(0,0,0,0.7)", padding: "6px 12px", fontSize: 11, color: "#fff", border: "none", cursor: "pointer" }}
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    borderRadius: 8,
+                    background: "rgba(0,0,0,0.7)",
+                    padding: "6px 12px",
+                    fontSize: 11,
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
                 >
                   Remove
                 </button>
 
-                <div style={{ padding: "8px 12px", fontSize: 11, color: C.textFaint }}>
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    fontSize: 11,
+                    color: C.textFaint,
+                  }}
+                >
                   {file.name}
                 </div>
               </div>
             ))}
 
             {/* Upload button */}
-            {(
-              (event?.media ?? []).filter(
-                (media) =>
-                  !(data.remove_media_ids ?? []).includes(media.id)
-              ).length +
-              (data.media?.length ?? 0)
-            ) < 2 && (
-              <label style={{ display: "flex", cursor: "pointer", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 12, border: `1px dashed ${C.borderDashed}`, background: C.bgAlt, padding: "32px 24px", textAlign: "center" }}>
-                <span style={{ fontSize: 13, color: C.text }}>
-                  + Add media
-                </span>
+            {(event?.media ?? []).filter(
+              (media) => !(data.remove_media_ids ?? []).includes(media.id),
+            ).length +
+              (data.media?.length ?? 0) <
+              2 && (
+              <label
+                style={{
+                  display: "flex",
+                  cursor: "pointer",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 12,
+                  border: `1px dashed ${C.borderDashed}`,
+                  background: C.bgAlt,
+                  padding: "32px 24px",
+                  textAlign: "center",
+                }}
+              >
+                <span style={{ fontSize: 13, color: C.text }}>+ Add media</span>
 
-                <span style={{ marginTop: 4, fontSize: 11, color: C.textFaint }}>
+                <span
+                  style={{ marginTop: 4, fontSize: 11, color: C.textFaint }}
+                >
                   Images or videos · maximum 2 files
                 </span>
 
@@ -452,30 +566,47 @@ function handlePublish() {
             )}
 
             <p style={{ fontSize: 11, color: C.textFaint }}>
-              {(
-                (event?.media ?? []).filter(
-                  (media) =>
-                    !(data.remove_media_ids ?? []).includes(media.id)
-                ).length +
-                (data.media?.length ?? 0)
-              )}{" "}
+              {(event?.media ?? []).filter(
+                (media) => !(data.remove_media_ids ?? []).includes(media.id),
+              ).length + (data.media?.length ?? 0)}{" "}
               / 2 media files
             </p>
           </div>
         </Field>
 
         <Field label="Artists">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
             {(data.artists ?? []).map((name) => (
               <span
                 key={name}
-                style={{ background: C.bgAlt, color: C.text, fontSize: 13, padding: "4px 12px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 8 }}
+                style={{
+                  background: C.bgAlt,
+                  color: C.text,
+                  fontSize: 13,
+                  padding: "4px 12px",
+                  borderRadius: 999,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
               >
                 {name}
                 <button
                   type="button"
                   onClick={() => removeArtist(name)}
-                  style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: C.textFaint,
+                    cursor: "pointer",
+                  }}
                   aria-label={`Remove ${name}`}
                 >
                   ×
@@ -508,11 +639,14 @@ function handlePublish() {
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
                   style={{
-                    fontSize: 13, padding: "6px 14px", borderRadius: 999,
+                    fontSize: 13,
+                    padding: "6px 14px",
+                    borderRadius: 999,
                     border: `1px solid ${active ? C.amber : C.border}`,
                     background: active ? C.amber : "transparent",
                     color: active ? C.textInverse : C.textMuted,
-                    cursor: "pointer", transition: "all 150ms ease",
+                    cursor: "pointer",
+                    transition: "all 150ms ease",
                   }}
                 >
                   {cat.name}
@@ -522,7 +656,15 @@ function handlePublish() {
           </div>
         </Field>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 32, marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 32,
+            marginBottom: 12,
+          }}
+        >
           <label style={{ fontSize: 13, color: C.textMuted }}>
             {data.type === "tour" ? "Tour legs" : "Location"}
           </label>
@@ -552,17 +694,37 @@ function handlePublish() {
             type="button"
             onClick={addLeg}
             style={{
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              border: `1px dashed ${C.borderDashed}`, borderRadius: 12, padding: "12px 0",
-              fontSize: 13, color: C.textMuted, background: "transparent", cursor: "pointer",
-              transition: "all 150ms ease", marginBottom: 24,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              border: `1px dashed ${C.borderDashed}`,
+              borderRadius: 12,
+              padding: "12px 0",
+              fontSize: 13,
+              color: C.textMuted,
+              background: "transparent",
+              cursor: "pointer",
+              transition: "all 150ms ease",
+              marginBottom: 24,
             }}
           >
             + Add location
           </button>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, marginTop: 32, paddingTop: 24, borderTop: `1px dashed ${C.borderDashed}` }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 12,
+            marginTop: 32,
+            paddingTop: 24,
+            borderTop: `1px dashed ${C.borderDashed}`,
+          }}
+        >
           <AdminBtn type="submit" variant="ghost" disabled={processing}>
             Save
           </AdminBtn>
@@ -607,9 +769,20 @@ function Field({
 }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <label style={{ display: "block", fontSize: 13, color: C.textMuted, marginBottom: 6 }}>{label}</label>
+      <label
+        style={{
+          display: "block",
+          fontSize: 13,
+          color: C.textMuted,
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </label>
       {children}
-      {error && <p style={{ fontSize: 11, color: C.error, marginTop: 4 }}>{error}</p>}
+      {error && (
+        <p style={{ fontSize: 11, color: C.error, marginTop: 4 }}>{error}</p>
+      )}
     </div>
   );
 }
@@ -646,9 +819,24 @@ function LegCard({
   console.log("LegCard", index, leg.id, leg); // TEMP — remove after checking
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+    <div
+      style={{
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+      }}
+    >
       {isTour && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
           <span style={{ fontSize: 13, fontWeight: 600, color: C.textMuted }}>
             Leg {index + 1}
           </span>
@@ -656,7 +844,11 @@ function LegCard({
             {leg.id && (
               <a
                 href={route("admin.event-legs.seats.edit", leg.id)}
-                style={{ fontSize: 11, color: C.textMuted, textDecoration: "underline" }}
+                style={{
+                  fontSize: 11,
+                  color: C.textMuted,
+                  textDecoration: "underline",
+                }}
               >
                 Manage seats
               </a>
@@ -665,7 +857,13 @@ function LegCard({
               <button
                 type="button"
                 onClick={onRemove}
-                style={{ background: "none", border: "none", color: C.textFaint, fontSize: 11, cursor: "pointer" }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: C.textFaint,
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
               >
                 Remove
               </button>
@@ -674,14 +872,21 @@ function LegCard({
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 8,
+          marginBottom: 12,
+        }}
+      >
         <select
           value={leg.venue_id ?? ""}
           onChange={(e) => {
             const venueId = Number(e.target.value);
 
             const venue = venues.find((v) => v.id === venueId);
-
+            console.log("SELECTED VENUE:", venueId, venue); // TEMP
             if (!venue) {
               onChange({
                 venue_id: undefined,
@@ -738,111 +943,170 @@ function LegCard({
         <input
           type="number"
           value={leg.capacity || ""}
-          onChange={(e) =>
+          readOnly={leg.seating_type === "reserved"}
+          onChange={(e) => {
+            if (leg.seating_type === "reserved") return;
             onChange({
               capacity: parseInt(e.target.value, 10) || 0,
-            })
-          }
+            });
+          }}
           placeholder="Capacity"
-          style={inputStyle}
+          title={
+            leg.seating_type === "reserved"
+              ? 'Managed by the seat map — edit seats in "Manage seats" instead.'
+              : undefined
+          }
+          style={{
+            ...inputStyle,
+            opacity: leg.seating_type === "reserved" ? 0.6 : 1,
+            cursor: leg.seating_type === "reserved" ? "not-allowed" : "text",
+          }}
         />
       </div>
+      {(() => {
+        const total = tierQuantityTotal(leg);
+        const overCapacity = leg.capacity > 0 && total > leg.capacity;
+        return overCapacity ? (
+          <p style={{ fontSize: 12, color: C.error, marginBottom: 12 }}>
+            Ticket quantities total {total}, which exceeds this leg's capacity
+            of {leg.capacity}.
+          </p>
+        ) : null;
+      })()}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        }}
+      >
         <span style={{ fontSize: 13, color: C.textMuted }}>Ticket tiers</span>
         <button
           type="button"
           onClick={onAddTier}
-          style={{ fontSize: 11, padding: "5px 10px", borderRadius: 8, border: `1px solid ${C.border}`, color: C.textMuted, background: "transparent", cursor: "pointer" }}
+          style={{
+            fontSize: 11,
+            padding: "5px 10px",
+            borderRadius: 8,
+            border: `1px solid ${C.border}`,
+            color: C.textMuted,
+            background: "transparent",
+            cursor: "pointer",
+          }}
         >
           + Add tier
         </button>
       </div>
 
-      {leg.tiers.map((tier, tierIndex) => (
-        <div key={tierIndex} style={{ borderTop: `1px dashed ${C.borderDashed}`, paddingTop: 12, marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.7fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-            <input
-              type="text"
-              value={tier.name}
-              onChange={(e) =>
-                onUpdateTier(tierIndex, { name: e.target.value })
-              }
-              placeholder="Tier name"
-              style={inputStyle}
-            />
-            <div style={{ position: 'relative' }}>
-  <span
-    style={{
-      position: 'absolute',
-      left: 12,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: C.textMuted,
-      pointerEvents: 'none',
-    }}
-  >
-    $
-  </span>
+            {leg.tiers.map((tier, tierIndex) => {
+        const isLocked = (tier.sold_count ?? 0) > 0;
 
-  <input
-    type="number"
-    step="0.01"
-    value={tier.price || ""}
-    onChange={(e) =>
-      onUpdateTier(tierIndex, {
-        price: parseFloat(e.target.value) || 0,
-      })
-    }
-    placeholder="Price"
-    style={{
-      ...inputStyle,
-      paddingLeft: 26,
-    }}
-  />
-</div>
-            <input
-              type="number"
-              value={tier.quantity || ""}
-              onChange={(e) =>
-                onUpdateTier(tierIndex, {
-                  quantity: parseInt(e.target.value, 10) || 0,
-                })
-              }
-              placeholder="Qty"
-              style={inputStyle}
-            />
-            {leg.tiers.length > 1 && (
-              <button
-                type="button"
-                onClick={() => onRemoveTier(tierIndex)}
-                style={{ background: "none", border: "none", color: C.textFaint, fontSize: 13, padding: "0 4px", cursor: "pointer" }}
-                aria-label="Remove tier"
-              >
-                ×
-              </button>
+        return (
+          <div key={tierIndex} style={{ borderTop: `1px dashed ${C.borderDashed}`, paddingTop: 12, marginTop: 12 }}>
+            {isLocked && (
+              <p style={{ fontSize: 11, color: C.textFaint, marginBottom: 6 }}>
+                {tier.sold_count} ticket(s) sold — this tier is locked and can't be edited or removed.
+              </p>
             )}
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.7fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                value={tier.name}
+                readOnly={isLocked}
+                onChange={(e) =>
+                  !isLocked && onUpdateTier(tierIndex, { name: e.target.value })
+                }
+                placeholder="Tier name"
+                style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
+              />
+              <div style={{ position: "relative" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: C.textMuted,
+                    pointerEvents: "none",
+                  }}
+                >
+                  $
+                </span>
+
+                <input
+                  type="number"
+                  step="0.01"
+                  value={tier.price || ""}
+                  readOnly={isLocked}
+                  onChange={(e) =>
+                    !isLocked &&
+                    onUpdateTier(tierIndex, {
+                      price: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="Price"
+                  style={{
+                    ...inputStyle,
+                    paddingLeft: 26,
+                    opacity: isLocked ? 0.6 : 1,
+                  }}
+                />
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={leg.capacity || undefined}
+                value={tier.quantity || ""}
+                readOnly={isLocked}
+                onChange={(e) => {
+                  if (isLocked) return;
+                  const raw = parseInt(e.target.value, 10) || 0;
+                  const otherTiersTotal =
+                    tierQuantityTotal(leg) - (tier.quantity || 0);
+                  const clamped = leg.capacity
+                    ? Math.min(raw, Math.max(leg.capacity - otherTiersTotal, 0))
+                    : raw;
+                  onUpdateTier(tierIndex, { quantity: clamped });
+                }}
+                placeholder="Qty"
+                style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
+              />
+              {leg.tiers.length > 1 && !isLocked && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveTier(tierIndex)}
+                  style={{ background: "none", border: "none", color: C.textFaint, fontSize: 13, padding: "0 4px", cursor: "pointer" }}
+                  aria-label="Remove tier"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <input
+                type="datetime-local"
+                value={tier.starts_at}
+                readOnly={isLocked}
+                onChange={(e) =>
+                  !isLocked && onUpdateTier(tierIndex, { starts_at: e.target.value })
+                }
+                style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
+              />
+              <input
+                type="datetime-local"
+                value={tier.ends_at}
+                readOnly={isLocked}
+                onChange={(e) =>
+                  !isLocked && onUpdateTier(tierIndex, { ends_at: e.target.value })
+                }
+                style={{ ...inputStyle, opacity: isLocked ? 0.6 : 1 }}
+              />
+            </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <input
-              type="datetime-local"
-              value={tier.starts_at}
-              onChange={(e) =>
-                onUpdateTier(tierIndex, { starts_at: e.target.value })
-              }
-              style={inputStyle}
-            />
-            <input
-              type="datetime-local"
-              value={tier.ends_at}
-              onChange={(e) =>
-                onUpdateTier(tierIndex, { ends_at: e.target.value })
-              }
-              style={inputStyle}
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -9,7 +9,19 @@ class GallerySeeder extends Seeder
 {
     public function run(): void
     {
-        // Each product image becomes its own gallery entry
+        // Use R2 only when it is actually configured.
+        // Otherwise fall back to the local public disk for development/seeding.
+        $disk = (
+            filled(config('filesystems.disks.r2.key')) &&
+            filled(config('filesystems.disks.r2.secret')) &&
+            filled(config('filesystems.disks.r2.bucket')) &&
+            filled(config('filesystems.disks.r2.endpoint'))
+        )
+            ? 'r2'
+            : 'public';
+
+        $this->command->line("Gallery media disk: {$disk}");
+
         $items = [
             ['title' => 'Keratin Treatment',     'image' => 'keratin-treatment.jpg'],
             ['title' => 'Brazilian Blowout',     'image' => 'brazilian-blowout.jpg'],
@@ -36,8 +48,9 @@ class GallerySeeder extends Seeder
                 continue;
             }
 
-            // Skip if a gallery with this title already has media attached
+            // Skip if a gallery with this title already has media attached.
             $existing = Gallery::where('title', $item['title'])->first();
+
             if ($existing && $existing->getMedia('gallery')->isNotEmpty()) {
                 $this->command->line("  ~ skipped (exists): {$item['title']}");
                 continue;
@@ -50,8 +63,8 @@ class GallerySeeder extends Seeder
 
             $gallery
                 ->addMedia($source)
-                ->preservingOriginal()   // don't delete the seed file
-                ->toMediaCollection('gallery');
+                ->preservingOriginal()
+                ->toMediaCollection('gallery', $disk);
 
             $this->command->line("  ✓ {$item['title']}");
         }

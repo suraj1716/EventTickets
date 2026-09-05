@@ -1,1039 +1,792 @@
-import React, { useState, useMemo } from "react";
-import { Head, router } from "@inertiajs/react";
+import React, { useState } from "react";
+import { Head, Link, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import ProductItem from "@/Components/App/ProductItem";
 import {
+  Vendor,
   PageProps,
   PaginationProps,
   Product,
   Department,
-  CategoryGroup,
-  ProductGroup,
 } from "@/types";
-import { CurrencyFormatter } from "@/utils/CurrencyFormatter";
-import { ChevronDown, ShoppingBag, Plus, Minus, Trash2 } from "lucide-react";
-import PageHero from "@/Components/Page/PageHero";
+import { Plus, Minus, X, SlidersHorizontal } from "lucide-react";
 
+const C = {
+  bg: "#0B0B10",
+  surface: "#15141B",
+  border: "#26232E",
+  borderDashed: "#33303C",
+  text: "#F7F5F2",
+  textMuted: "#9C97A8",
+  textFaint: "#6B6775",
+  textFainter: "#565262",
+  amber: "#FFB627",
+  amberHover: "#ffc75c",
+  overlay: "rgba(11,11,16,0.7)",
+};
+
+type VendorWrapper = {
+  data: Vendor;
+};
 type ProfileProps = PageProps<{
-  allProducts: PaginationProps<Product>;
+  vendor: VendorWrapper;
   products: PaginationProps<Product>;
-  searchedProducts?: PaginationProps<Product>;
-  categoryGroups: CategoryGroup[];
-  productGroups: ProductGroup[];
-  department: Department;
   departments: Department[];
   filters: {
     department_id: string | null;
     category_id: string | null;
     max_price: string | null;
     sort_by: string | null;
-    keyword?: string | null;
   };
 }>;
 
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
 export default function ListProducts({
-  allProducts,
-  searchedProducts,
+  vendor,
+  products,
   departments,
   filters,
 }: ProfileProps) {
-  // All categories open by default
-  const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
-  const [cart, setCart] = useState<Record<number, CartItem>>({});
-  const [trayOpen, setTrayOpen] = useState(false);
-
-  const uniqueProducts: Product[] = Array.from(
-    new Map((allProducts?.data ?? []).map((p) => [p.id, p])).values(),
+  const [expandedDepartments, setExpandedDepartments] = useState<string[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(
+    null
   );
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
-  const displayedProducts =
-    filters.keyword && searchedProducts?.data?.length
-      ? searchedProducts.data
-      : uniqueProducts;
-
-  // Group: dept → category → products
-  const grouped = useMemo<
-    Record<
-      string,
-      {
-        dept: Department;
-        storeName: string;
-        categories: Record<string, { catName: string; products: Product[] }>;
-      }
-    >
-  >(() => {
-    const map: Record<
-      string,
-      {
-        dept: Department;
-        storeName: string;
-        categories: Record<string, { catName: string; products: Product[] }>;
-      }
-    > = {};
-
-    displayedProducts.forEach((product) => {
-      const deptId = String(product.department?.id ?? "unknown");
-      const catId = String(product.category?.id ?? "unknown");
-
-      if (!map[deptId]) {
-        map[deptId] = {
-          dept: product.department,
-          storeName:
-            product.user?.store_name ??
-            product.user?.name ??
-            "Glamour Hair Salon",
-          categories: {},
-        };
-      }
-
-      if (!map[deptId].categories[catId]) {
-        map[deptId].categories[catId] = {
-          catName: product.category?.name ?? "Other",
-          products: [],
-        };
-      }
-
-      map[deptId].categories[catId].products.push(product);
-    });
-
-    return map;
-  }, [displayedProducts]);
-
-  const toggleCat = (key: string) => {
-    setOpenCats((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const isCatOpen = (key: string) => openCats[key] === true; //close by default
-
-  const toggleProduct = (product: Product) => {
-    setCart((prev) => {
-      if (prev[product.id]) {
-        const next = { ...prev };
-        delete next[product.id];
-        return next;
-      }
-      return { ...prev, [product.id]: { product, quantity: 1 } };
-    });
-  };
-
-  const changeQty = (id: number, delta: number) => {
-    setCart((prev) => {
-      const item = prev[id];
-      if (!item) return prev;
-      const newQty = item.quantity + delta;
-      if (newQty <= 0) {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      }
-      return { ...prev, [id]: { ...item, quantity: newQty } };
-    });
-  };
-
-  const removeFromCart = (id: number) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
-
-  const cartItems = Object.values(cart);
-  const cartCount = cartItems.reduce((s, i) => s + i.quantity, 0);
-  const cartTotal = cartItems.reduce(
-    (s, i) => s + (i.product.price ?? 0) * i.quantity,
-    0,
+  const [maxPrice, setMaxPrice] = useState<number>(
+    filters.max_price ? parseInt(filters.max_price) : 3000
   );
+  const [sortBy, setSortBy] = useState<string>(filters.sort_by || "default");
 
-  const handleAddAllToCart = () => {
-    cartItems.forEach((item) => {
-      router.post(
-        route("cart.store", item.product.id),
-        { product_id: item.product.id, quantity: item.quantity },
-        { preserveScroll: true },
-      );
+  const onDepartmentClick = (id: string) => {
+    setSelectedDepartment(id);
+    setSelectedCategory("");
+    setExpandedDepartments([id]);
+  };
+
+  const toggleDepartment = (id: string) => {
+    setExpandedDepartments((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((deptId) => deptId !== id);
+      } else {
+        return [...prev, id];
+      }
     });
-    setCart({});
-    setTrayOpen(false);
   };
 
-  const imageUrl = (product: Product) => {
-    const img = product.image;
-    if (!img) return "/placeholder.jpg";
-    return img.includes("conversions")
-      ? img.replace(/\/conversions\/(.+)-thumb\.(jpg|png|webp)/, "/$1.$2")
-      : img;
+  const handleFilterChange = () => {
+    router.get(
+      route("vendor.profile", { vendor: vendor.data.store_name }),
+      {
+        department_id: selectedDepartment,
+        category_id: selectedCategory,
+        max_price: maxPrice.toString(),
+        sort_by: sortBy,
+      },
+      { preserveState: true, preserveScroll: true }
+    );
   };
 
-  const HIGHLIGHT_COLORS: Record<string, string> = {
-    sale: "#C0392B",
-    hot: "#C9650A",
-    trending: "var(--color-primary)",
-    new: "var(--color-accent-dark)",
+  const handleResetFilters = () => {
+    setSelectedDepartment(null);
+    setSelectedCategory("");
+    setExpandedDepartments([]);
+    setMaxPrice(3000);
+    setSortBy("default");
+
+    router.get(
+      route("vendor.profile", { vendor: vendor.data.store_name }),
+      {
+        department_id: null,
+        category_id: null,
+        max_price: "3",
+        sort_by: "default",
+      },
+      { preserveState: true, preserveScroll: true }
+    );
+  };
+
+  const DEFAULT_MAX_PRICE = 5000;
+  const ShowAllProducts = () => {
+    setSelectedDepartment(null);
+    setSelectedCategory("");
+    setExpandedDepartments([]);
+    setMaxPrice(DEFAULT_MAX_PRICE);
+    setSortBy("default");
+
+    router.get(route("shop.search"), {}, { preserveState: true, preserveScroll: true });
   };
 
   return (
     <AuthenticatedLayout>
-      <Head title="Services" />
+      <Head title={`${vendor.data.store_name} Profile Page`}>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
 
       <style>{`
-        /* PAGE */
-        .sp-page { background: var(--color-bg); min-height: 100vh; }
+        .vp-page {
+          background: ${C.bg};
+          color: ${C.text};
+          font-family: 'Manrope', sans-serif;
+          min-height: 100%;
+        }
 
-        /* HERO */
-        .sp-hero {
-          background: var(--color-bg-dark);
-          padding: 52px 0 44px;
+        .vp-hero {
+          background: ${C.surface};
+          border-bottom: 1px solid ${C.border};
+          padding: 4rem 24px 3rem;
           text-align: center;
-          position: relative;
-          overflow: hidden;
-          z-index:1
         }
-        .sp-hero::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(ellipse 70% 100% at 50% 110%, rgba(201,169,110,0.15), transparent);
-          pointer-events: none;
-        }
-        .sp-hero-eyebrow {
-          display: block;
-          font-family: var(--font-body);
-          font-size: 10px;
-          font-weight: 500;
-          letter-spacing: 0.28em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          margin-bottom: 10px;
-        }
-        .sp-hero-title {
-          font-family: var(--font-display);
-          font-size: clamp(2.2rem, 5vw, 3.5rem);
-          font-weight: 300;
-          color: white;
-          line-height: 1.08;
-          margin-bottom: 10px;
-        }
-        .sp-hero-title em { font-style: italic; color: var(--color-accent-light); }
-        .sp-hero-sub {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: rgba(255,255,255,0.4);
-          letter-spacing: 0.06em;
-        }
-
-        /* BODY */
-        .sp-body {
-          max-width: 860px;
-          margin: 0 auto;
-          padding: 40px 24px 120px;
-        }
-
-        /* SEARCH BANNER */
-        .sp-search-banner {
-          background: var(--color-bg-alt);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 12px 18px;
-          margin-bottom: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-        }
-        .sp-search-banner strong { color: var(--color-text); }
-
-        /* DEPT BLOCK */
-        .sp-dept {
-          margin-bottom: 32px;
-        }
-
-        /* DEPT HEADER — store name banner */
-        .sp-dept-header {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          margin-bottom: 16px;
-          padding-bottom: 14px;
-          border-bottom: 1px solid var(--color-border);
-        }
-        .sp-dept-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: var(--color-primary);
+        .vp-eyebrow {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
-        }
-        .sp-dept-icon svg {
-          width: 18px;
-          height: 18px;
-          stroke: white;
-          fill: none;
-          stroke-width: 1.6;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-        }
-        .sp-dept-meta {}
-        .sp-dept-name {
-          font-family: var(--font-display);
-          font-size: var(--text-2xl);
-          font-weight: 400;
-          color: var(--color-text);
-          line-height: 1.1;
-          letter-spacing: 0.01em;
-        }
-        .sp-dept-store {
-          font-family: var(--font-body);
+          gap: 8px;
+          font-family: 'IBM Plex Mono', monospace;
           font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.18em;
+          letter-spacing: 0.3em;
           text-transform: uppercase;
-          color: var(--color-accent);
-          margin-top: 2px;
-        }
-
-        /* CATEGORY ACCORDION */
-        .sp-cat {
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          overflow: hidden;
-          margin-bottom: 10px;
-          background: var(--color-surface);
-        }
-
-        .sp-cat-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 20px;
-          cursor: pointer;
-          user-select: none;
-          transition: background var(--transition-fast);
-        }
-        .sp-cat-header:hover { background: var(--color-surface-warm); }
-
-        .sp-cat-header-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .sp-cat-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: var(--color-accent);
-          flex-shrink: 0;
-        }
-        .sp-cat-name {
-          font-family: var(--font-body);
-          font-size: var(--text-base);
-          font-weight: 500;
-          color: var(--color-text);
-          letter-spacing: 0.01em;
-        }
-        .sp-cat-count {
-          font-family: var(--font-body);
-          font-size: 11px;
-          color: var(--color-text);
-          background: var(--color-bg-alt);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-full);
-          padding: 1px 8px;
-        }
-        .sp-chevron {
-          color: var(--color-text-muted);
-          transition: transform var(--transition-base);
-          flex-shrink: 0;
-        }
-        .sp-chevron.open { transform: rotate(180deg); }
-
-        /* PRODUCT LIST */
-        .sp-products {
-          border-top: 1px solid var(--color-border);
-        }
-
-        .sp-product-row {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 13px 20px;
-          border-bottom: 1px solid var(--color-border);
-          cursor: pointer;
-          transition: background var(--transition-fast);
-          position: relative;
-        }
-        .sp-product-row:last-child { border-bottom: none; }
-        .sp-product-row:hover { background: var(--color-bg-alt); }
-        .sp-product-row.selected { background: rgba(45,80,22,0.05); }
-
-        /* Checkbox */
-        .sp-checkbox {
-          flex-shrink: 0;
-          width: 20px;
-          height: 20px;
-          border-radius: 5px;
-          border: 1.5px solid var(--color-border-dark);
-          background: var(--color-surface);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all var(--transition-fast);
-        }
-        .sp-checkbox.checked {
-          background: var(--color-primary);
-          border-color: var(--color-primary);
-        }
-        .sp-check-icon {
-          color: white;
-          width: 11px;
-          height: 11px;
-          stroke-width: 3;
-        }
-
-        /* Thumbnail */
-        .sp-thumb {
-          width: 52px;
-          height: 52px;
-          border-radius: var(--radius-sm);
-          overflow: hidden;
-          flex-shrink: 0;
-          background: var(--color-bg-alt);
-          border: 1px solid var(--color-border);
-        }
-        .sp-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform var(--transition-slow);
-        }
-        .sp-product-row:hover .sp-thumb img { transform: scale(1.07); }
-
-        /* Info */
-        .sp-info { flex: 1; min-width: 0; }
-        .sp-info-name {
-          font-family: var(--font-body);
-          font-size: var(--text-base);
-          font-weight: 500;
-          color: var(--color-text);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.3;
-        }
-        .sp-info-desc {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-light);
-          margin-top: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .sp-badge {
-          display: inline-flex;
-          padding: 2px 7px;
-          border-radius: var(--radius-full);
-          font-family: var(--font-body);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: white;
-          margin-top: 4px;
-        }
-
-        /* Price */
-        .sp-price {
-          font-family: var(--font-body);
-          font-size: var(--text-lg);
-          font-weight: 600;
-          color: var(--color-primary);
-          flex-shrink: 0;
-          text-align: right;
-          min-width: 68px;
-        }
-
-        /* EMPTY */
-        .sp-empty {
-          text-align: center;
-          padding: 80px 20px;
-        }
-        .sp-empty-glyph {
-          font-family: var(--font-display);
-          font-size: 56px;
-          color: var(--color-border-dark);
+          color: ${C.amber};
           margin-bottom: 14px;
         }
-        .sp-empty-title {
-          font-family: var(--font-display);
-          font-size: var(--text-2xl);
-          font-weight: 300;
-          color: var(--color-text-muted);
-        }
-
-        /* TRAY */
-        .sp-tray {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 20000;
-        }
-        .sp-tray-bar {
-          background: var(--color-bg-dark);
-          padding: 13px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          cursor: pointer;
-          box-shadow: 0 -4px 24px rgba(0,0,0,0.28);
-        }
-        .sp-tray-bar-left { display: flex; align-items: center; gap: 12px; }
-        .sp-tray-icon-wrap { position: relative; display: inline-flex; }
-        .sp-tray-badge {
-          position: absolute;
-          top: -6px;
-          right: -7px;
-          width: 18px;
-          height: 18px;
+        .vp-eyebrow-dot {
+          display: inline-block;
+          height: 6px;
+          width: 6px;
           border-radius: 50%;
-          background: var(--color-accent);
-          color: var(--color-bg-dark);
-          font-family: var(--font-body);
-          font-size: 10px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          background: ${C.amber};
         }
-        .sp-tray-label {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: rgba(255,255,255,0.65);
+        .vp-store-name {
+          font-family: 'Anton', sans-serif;
+          text-transform: uppercase;
+          font-size: 2.25rem;
+          line-height: 1.15;
+          letter-spacing: 0.01em;
+          color: ${C.text};
+          margin: 0;
         }
-        .sp-tray-label strong { color: white; font-weight: 500; }
-        .sp-tray-total {
-          font-family: var(--font-display);
-          font-size: var(--text-2xl);
-          font-weight: 300;
-          color: var(--color-accent-light);
+        .vp-ornament {
+          margin: 18px auto 0;
+          width: 48px;
+          height: 2px;
+          background: ${C.amber};
         }
 
-        /* Tray expanded */
-        .sp-tray-panel {
-          background: var(--color-surface);
-          border-top: 1px solid var(--color-border);
-          box-shadow: 0 -8px 32px rgba(0,0,0,0.14);
-          max-height: 58vh;
-          overflow-y: auto;
+        .vp-layout {
+          display: flex;
+          gap: 2rem;
+          padding: 2.5rem 24px;
+          max-width: 1280px;
+          margin: 0 auto;
+          align-items: flex-start;
         }
-        .sp-tray-panel-header {
+
+        /* ── Sidebar (desktop) ── */
+        .vp-sidebar {
+          display: none;
+          width: 280px;
+          flex-shrink: 0;
+          background: ${C.surface};
+          border: 1px solid ${C.border};
+          border-radius: 14px;
+          padding: 1.75rem;
+          position: sticky;
+          top: 1.5rem;
+        }
+        .vp-sidebar-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 24px;
-          border-bottom: 1px solid var(--color-border);
-          position: sticky;
-          top: 0;
-          background: var(--color-surface);
-          z-index: 1;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid ${C.border};
         }
-        .sp-tray-panel-title {
-          font-family: var(--font-display);
-          font-size: var(--text-xl);
-          font-weight: 400;
-          color: var(--color-text);
+        .vp-sidebar-title {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: ${C.text};
         }
-        .sp-tray-close-btn {
+        .vp-chip-btn {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.62rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: ${C.amber};
+          background: rgba(255,182,39,0.06);
+          border: 1px solid rgba(255,182,39,0.3);
+          border-radius: 999px;
+          padding: 6px 12px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .vp-chip-btn:hover {
+          background: ${C.amber};
+          color: ${C.bg};
+        }
+
+        .vp-section-label {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: ${C.textFaint};
+          margin-bottom: 0.9rem;
+          display: block;
+        }
+
+        .vp-dept-list { list-style: none; margin: 0; padding: 0; }
+        .vp-dept-item { border-bottom: 1px solid ${C.border}; }
+        .vp-dept-item:last-child { border-bottom: none; }
+        .vp-dept-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.75rem 0;
+        }
+        .vp-dept-name-btn {
+          font-family: 'Manrope', sans-serif;
+          font-size: 0.82rem;
+          letter-spacing: 0.02em;
+          color: ${C.text};
+          background: none;
+          border: none;
+          text-align: left;
+          cursor: pointer;
+          padding: 0;
+          flex: 1;
+          transition: color 0.15s ease;
+        }
+        .vp-dept-name-btn:hover { color: ${C.amber}; }
+        .vp-dept-toggle {
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--color-text-muted);
+          color: ${C.amber};
           display: flex;
           align-items: center;
-          padding: 4px;
-          border-radius: var(--radius-sm);
-          transition: color var(--transition-fast);
-        }
-        .sp-tray-close-btn:hover { color: var(--color-text); }
-
-        .sp-tray-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 11px 24px;
-          border-bottom: 1px solid var(--color-border);
-        }
-        .sp-tray-item-thumb {
-          width: 40px;
-          height: 40px;
-          border-radius: var(--radius-sm);
-          overflow: hidden;
+          justify-content: center;
+          padding: 2px;
           flex-shrink: 0;
-          background: var(--color-bg-alt);
         }
-        .sp-tray-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .sp-tray-item-name {
-          font-family: var(--font-body);
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--color-text);
-          flex: 1;
-          min-width: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .sp-qty {
+
+        .vp-cat-list { list-style: none; margin: 0.4rem 0 0.75rem 0.9rem; padding: 0; }
+        .vp-cat-item { padding: 0.4rem 0; }
+        .vp-cat-label {
           display: flex;
           align-items: center;
           gap: 8px;
-          flex-shrink: 0;
+          font-family: 'Manrope', sans-serif;
+          font-size: 0.78rem;
+          color: ${C.textMuted};
+          cursor: pointer;
         }
-        .sp-qty-btn {
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
-          border: 1px solid var(--color-border-dark);
+        .vp-cat-label:hover { color: ${C.text}; }
+        .vp-radio { accent-color: ${C.amber}; width: 14px; height: 14px; flex-shrink: 0; }
+
+        .vp-price-slider { width: 100%; accent-color: ${C.amber}; }
+        .vp-price-value {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.75rem;
+          color: ${C.textMuted};
+          margin-top: 0.5rem;
+        }
+
+        .vp-select {
+          width: 100%;
+          font-family: 'Manrope', sans-serif;
+          font-size: 0.82rem;
+          color: ${C.text};
+          background: ${C.bg};
+          border: 1px solid ${C.border};
+          border-radius: 8px;
+          padding: 9px 10px;
+          outline: none;
+        }
+        .vp-select:focus { border-color: ${C.amberHover}; }
+        .vp-select option { background: ${C.bg}; color: ${C.text}; }
+
+        .vp-btn-primary {
+          width: 100%;
+          padding: 12px 0;
+          background: ${C.amber};
+          color: ${C.bg};
+          border: none;
+          border-radius: 10px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .vp-btn-primary:hover { background: ${C.amberHover}; }
+
+        .vp-btn-ghost {
+          width: 100%;
+          padding: 12px 0;
           background: transparent;
+          color: ${C.textMuted};
+          border: 1px solid ${C.border};
+          border-radius: 10px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: border-color 0.15s ease, color 0.15s ease;
+        }
+        .vp-btn-ghost:hover { border-color: rgba(255,182,39,0.5); color: ${C.text}; }
+
+        .vp-filter-block { margin-bottom: 1.75rem; }
+        .vp-filter-block:last-of-type { margin-bottom: 1.5rem; }
+        .vp-btn-stack { display: flex; flex-direction: column; gap: 8px; }
+
+        /* ── Mobile trigger ── */
+        .vp-mobile-trigger-wrap { display: block; padding: 0 24px 1.25rem; }
+        .vp-mobile-trigger {
+          width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
+          gap: 8px;
+          padding: 13px 0;
+          background: ${C.surface};
+          border: 1px solid ${C.border};
+          border-radius: 10px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: ${C.text};
           cursor: pointer;
-          color: var(--color-text-muted);
-          transition: all var(--transition-fast);
         }
-        .sp-qty-btn:hover { background: var(--color-bg-alt); color: var(--color-text); }
-        .sp-qty-num {
-          font-family: var(--font-body);
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--color-text);
-          min-width: 18px;
-          text-align: center;
+        .vp-mobile-trigger:hover { border-color: rgba(255,182,39,0.5); color: ${C.amber}; }
+
+        /* ── Mobile filter modal ── */
+        .vp-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: ${C.overlay};
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
         }
-        .sp-tray-item-price {
-          font-family: var(--font-body);
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--color-primary);
-          min-width: 54px;
-          text-align: right;
-          flex-shrink: 0;
+        .vp-modal-card {
+          width: 100%;
+          max-height: 88vh;
+          overflow-y: auto;
+          background: ${C.surface};
+          border-top: 1px solid ${C.border};
+          border-radius: 16px 16px 0 0;
+          padding: 1.5rem 1.5rem 2rem;
+          position: relative;
         }
-        .sp-tray-item-del {
+        .vp-modal-close {
+          position: absolute;
+          top: 1rem;
+          right: 1.25rem;
           background: none;
           border: none;
+          color: ${C.textMuted};
           cursor: pointer;
-          color: var(--color-text-light);
           display: flex;
-          align-items: center;
-          padding: 4px;
-          transition: color var(--transition-fast);
-          flex-shrink: 0;
         }
-        .sp-tray-item-del:hover { color: var(--color-error); }
+        .vp-modal-close:hover { color: ${C.amber}; }
+        .vp-modal-title {
+          font-family: 'Anton', sans-serif;
+          text-transform: uppercase;
+          font-size: 1.3rem;
+          color: ${C.text};
+          margin: 0 0 1.25rem;
+        }
 
-        .sp-tray-footer {
-          padding: 14px 24px;
+        /* ── Product grid ── */
+        .vp-main { flex: 1; min-width: 0; }
+        .vp-toolbar {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 14px;
-          background: var(--color-surface-warm);
-          border-top: 1px solid var(--color-border);
-          position: sticky;
-          bottom: 0;
+          margin-bottom: 1.5rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
         }
-        .sp-tray-footer-total {
-          font-family: var(--font-display);
-          font-size: var(--text-2xl);
-          font-weight: 300;
-          color: var(--color-text);
+        .vp-result-count {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: ${C.textFaint};
         }
-        .sp-tray-footer-total span { color: var(--color-primary); font-weight: 400; }
+        .vp-empty {
+          text-align: center;
+          padding: 5rem 1rem;
+          font-family: 'Manrope', sans-serif;
+          font-size: 0.85rem;
+          letter-spacing: 0.02em;
+          color: ${C.textMuted};
+          border: 1px dashed ${C.borderDashed};
+          border-radius: 14px;
+        }
+        .vp-product-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1.5rem;
+        }
 
+        /* ── Pagination ── */
+        .vp-pagination {
+          margin-top: 3rem;
+          display: flex;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .vp-page-link {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11.5px;
+          letter-spacing: 0.05em;
+          padding: 8px 13px;
+          border: 1px solid ${C.border};
+          border-radius: 8px;
+          color: ${C.textMuted};
+          text-decoration: none;
+          transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .vp-page-link:hover { border-color: rgba(255,182,39,0.5); color: ${C.text}; }
+        .vp-page-link.active {
+          background: ${C.amber};
+          border-color: ${C.amber};
+          color: ${C.bg};
+          font-weight: 700;
+        }
+        .vp-page-link.disabled {
+          color: ${C.textFainter};
+          cursor: not-allowed;
+        }
 
+        @media (min-width: 1025px) {
+          .vp-sidebar { display: block; }
+          .vp-mobile-trigger-wrap { display: none; }
+          .vp-layout { padding: 3rem 40px; }
+          .vp-hero { padding: 5rem 40px 3.5rem; }
+          .vp-product-grid { grid-template-columns: repeat(3, 1fr); gap: 1.75rem; }
+        }
 
-/* Checkbox */
-.sp-checkbox {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  border: 1.5px solid var(--color-border-dark);
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-}
-.sp-checkbox.checked {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-.sp-check-icon {
-  color: white;
-  width: 11px;
-  height: 11px;
-  stroke-width: 3;
-}
+        @media (min-width: 640px) and (max-width: 1024px) {
+          .vp-product-grid { grid-template-columns: repeat(2, 1fr); }
+        }
 
-/* Radio (product selection) */
-.sp-radio {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border-dark);
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast);
-}
-.sp-radio.checked {
-  border-color: var(--color-primary);
-}
-.sp-radio-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
-
-
-        /* RESPONSIVE */
-       @media (max-width: 640px) {
-  .sp-body { padding: 24px 14px 120px; }
-  .sp-info-desc { display: none; }
-  .sp-cat-header { padding: 12px 14px; }
-  .sp-product-row { padding: 11px 14px; gap: 10px; }
-  .sp-thumb { width: 42px; height: 42px; }
-  .sp-tray-bar { padding: 11px 14px; }
-  .sp-tray-item { padding: 10px 14px; }
-  .sp-tray-panel-header { padding: 13px 14px; }
-
-  .sp-tray-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 14px;
-  }
-  .sp-tray-footer-total {
-    text-align: right;
-     padding-right: 35px;
-
-  }
-  .sp-tray-footer-actions {
-    display: flex;
-    gap: 10px;
-  }
-  .sp-tray-footer-actions .btn {
-    flex: 1;
-    justify-content: center;
-    white-space: nowrap;
-  }
-
-}
+        @media (max-width: 1024px) {
+          .vp-layout { flex-direction: column; padding: 2rem 20px; }
+        }
       `}</style>
 
-      <div className="sp-page">
-        {/* Hero */}
+      <div className="vp-page">
+        {/* ── Hero ── */}
+        <div className="vp-hero">
+          <div className="vp-eyebrow">
+            <span className="vp-eyebrow-dot" />
+            Shop the Collection
+          </div>
+          <h1 className="vp-store-name">{vendor.data.store_name}</h1>
+          <div className="vp-ornament" />
+        </div>
 
-        <PageHero
-          eyebrow="Our Services"
-          title={
-            <>
-              Book <em>Services</em>
-            </>
-          }
-          subtitle="  Select services below, then add your entire selection to cart at once."
-          breadcrumbs={[
-            { label: "Home", href: route("home") },
-            { label: "Shop" },
-          ]}
-        />
-        <div className="sp-body">
-          {/* Search banner */}
-          {filters.keyword && searchedProducts?.data?.length ? (
-            <div className="sp-search-banner">
-              <span>
-                Showing <strong>{searchedProducts.data.length}</strong> results
-                for "<strong>{filters.keyword}</strong>"
-              </span>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() =>
-                  router.get(route("shop.search"), {}, { preserveState: true })
-                }
-              >
-                Clear search
+        {/* ── Mobile filter trigger ── */}
+        <div className="vp-mobile-trigger-wrap">
+          <button
+            className="vp-mobile-trigger"
+            onClick={() => setShowFilterModal(true)}
+          >
+            <SlidersHorizontal size={14} strokeWidth={1.5} />
+            Filter &amp; Sort
+          </button>
+        </div>
+
+        <div className="vp-layout">
+          {/* ── Sidebar (desktop) ── */}
+          <aside className="vp-sidebar">
+            <div className="vp-sidebar-header">
+              <span className="vp-sidebar-title">Filters</span>
+              <button className="vp-chip-btn" onClick={ShowAllProducts}>
+                All Products
               </button>
             </div>
-          ) : null}
 
-          {/* Departments */}
-          {Object.keys(grouped).length === 0 ? (
-            <div className="sp-empty">
-              <div className="sp-empty-glyph">✦</div>
-              <p className="sp-empty-title">No services available</p>
+            {/* Department filter */}
+            <div className="vp-filter-block">
+              <span className="vp-section-label">Departments &amp; Categories</span>
+              <ul className="vp-dept-list">
+                {departments.map((department) => {
+                  const isExpanded = expandedDepartments.includes(
+                    department.id.toString()
+                  );
+
+                  return (
+                    <li key={department.id} className="vp-dept-item">
+                      <div className="vp-dept-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            toggleDepartment(department.id.toString());
+                            setSelectedDepartment(department.id.toString());
+                            setSelectedCategory("");
+                          }}
+                          className="vp-dept-name-btn"
+                        >
+                          {department.name}
+                        </button>
+                        <button
+                          type="button"
+                          className="vp-dept-toggle"
+                          onClick={() => toggleDepartment(department.id.toString())}
+                          aria-label={
+                            isExpanded ? "Collapse department" : "Expand department"
+                          }
+                        >
+                          {isExpanded ? <Minus size={15} /> : <Plus size={15} />}
+                        </button>
+                      </div>
+
+                      {isExpanded && (
+                        <ul className="vp-cat-list">
+                          {department.categories.map((category) => (
+                            <li key={category.id} className="vp-cat-item">
+                              <label className="vp-cat-label">
+                                <input
+                                  type="radio"
+                                  name="category"
+                                  className="vp-radio"
+                                  value={category.id}
+                                  checked={selectedCategory === category.id.toString()}
+                                  onChange={() =>
+                                    setSelectedCategory(category.id.toString())
+                                  }
+                                />
+                                <span>{category.name}</span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          ) : (
-            Object.entries(grouped).map(
-              ([deptId, { dept, storeName, categories }]) => {
-                const totalProducts = Object.values(categories).reduce(
-                  (s, c) => s + c.products.length,
-                  0,
-                );
 
-                return (
-                  <div className="sp-dept" key={deptId}>
-                    {/* Dept header: store name + dept name */}
-                    <div className="sp-dept-header">
-                      <div className="sp-dept-icon">
-                        {/* scissors icon */}
-                        <svg viewBox="0 0 24 24">
-                          <circle cx="6" cy="6" r="3" />
-                          <circle cx="6" cy="18" r="3" />
-                          <line x1="20" y1="4" x2="8.12" y2="15.88" />
-                          <line x1="14.47" y1="14.48" x2="20" y2="20" />
-                          <line x1="8.12" y1="8.12" x2="12" y2="12" />
-                        </svg>
-                      </div>
-                      <div className="sp-dept-meta">
-                        <div className="sp-dept-store">{storeName}</div>
-                        <div className="sp-dept-name">
-                          {dept?.name ?? "Services"}
-                        </div>
-                      </div>
-                    </div>
+            {/* Price */}
+            <div className="vp-filter-block">
+              <span className="vp-section-label">Price Range</span>
+              <input
+                type="range"
+                min={0}
+                max={6000}
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                className="vp-price-slider"
+              />
+              <p className="vp-price-value">Up to ${maxPrice}</p>
+            </div>
 
-                    {/* Categories — each is a collapsible accordion */}
-                    {Object.entries(categories).map(
-                      ([catId, { catName, products: catProducts }]) => {
-                        const catKey = `cat-${deptId}-${catId}`;
-                        const isOpen = isCatOpen(catKey);
+            {/* Sort */}
+            <div className="vp-filter-block">
+              <span className="vp-section-label">Sort By</span>
+              <select
+                className="vp-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="default">Default</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="newest">Newest</option>
+              </select>
+            </div>
 
-                        return (
-                          <div className="sp-cat" key={catId}>
-                            {/* Category header */}
-                            <div
-                              className="sp-cat-header"
-                              onClick={() => toggleCat(catKey)}
-                              role="button"
-                              aria-expanded={isOpen}
+            {/* Actions */}
+            <div className="vp-btn-stack">
+              <button className="vp-btn-primary" onClick={handleFilterChange}>
+                Apply Filters
+              </button>
+              <button className="vp-btn-ghost" onClick={handleResetFilters}>
+                Reset Filters
+              </button>
+            </div>
+          </aside>
+
+          {/* ── Mobile filter modal ── */}
+          {showFilterModal && (
+            <div
+              className="vp-modal-overlay"
+              onClick={() => setShowFilterModal(false)}
+            >
+              <div className="vp-modal-card" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="vp-modal-close"
+                  onClick={() => setShowFilterModal(false)}
+                  aria-label="Close filters"
+                >
+                  <X size={20} strokeWidth={1.5} />
+                </button>
+
+                <h2 className="vp-modal-title">Filters</h2>
+
+                <div className="vp-filter-block">
+                  <span className="vp-section-label">Departments &amp; Categories</span>
+                  <ul className="vp-dept-list">
+                    {departments.map((department) => {
+                      const idStr = department.id.toString();
+                      const isExpanded = expandedDepartments.includes(idStr);
+                      return (
+                        <li key={idStr} className="vp-dept-item">
+                          <div className="vp-dept-row">
+                            <button
+                              className="vp-dept-name-btn"
+                              onClick={() => onDepartmentClick(idStr)}
                             >
-                              <div className="sp-cat-header-left">
-                                <span className="sp-cat-dot" />
-                                <span className="sp-cat-name">{catName}</span>
-                                <span className="sp-cat-count">
-                                  {catProducts.length}
-                                </span>
-                              </div>
-                              <ChevronDown
-                                size={16}
-                                className={`sp-chevron${isOpen ? " open" : ""}`}
-                              />
-                            </div>
-
-                            {/* Products */}
-                            {isOpen && (
-                              <div className="sp-products">
-                              {catProducts.map((product) => {
-  const isSelected = !!cart[product.id];
-  return (
-    <div
-      key={product.id}
-      className={`sp-product-row${isSelected ? " selected" : ""}`}
-      onClick={() => {
-        // Deselect any other product in this category first
-        catProducts.forEach((p) => {
-          if (p.id !== product.id && cart[p.id]) {
-            toggleProduct(p);
-          }
-        });
-        toggleProduct(product);
-      }}
-    >
-      {/* Radio dot */}
-      <div className={`sp-radio${isSelected ? " checked" : ""}`}>
-        {isSelected && <div className="sp-radio-dot" />}
-      </div>
-
-      {/* Thumb */}
-      <div className="sp-thumb">
-        <img
-          src={imageUrl(product)}
-          alt={product.title}
-          onError={(e) => (e.currentTarget.src = "/placeholder.jpg")}
-        />
-      </div>
-
-      {/* Info */}
-      <div className="sp-info">
-        <div className="sp-info-name">{product.title}</div>
-        <div className="sp-info-desc">
-          {product.description.replace(/<[^>]+>/g, "")}
-        </div>
-        {product.highlight && (
-          <span
-            className="sp-badge"
-            style={{
-              background: HIGHLIGHT_COLORS[product.highlight] ?? "var(--color-primary)",
-            }}
-          >
-            {product.highlight}
-          </span>
-        )}
-      </div>
-
-      {/* Price */}
-      <div className="sp-price">
-        <CurrencyFormatter amount={product.price ?? 0} currency="AUD" />
-      </div>
-    </div>
-  );
-})}
-                              </div>
-                            )}
+                              {department.name}
+                            </button>
+                            <button
+                              type="button"
+                              className="vp-dept-toggle"
+                              onClick={() => toggleDepartment(idStr)}
+                              aria-label={
+                                isExpanded ? "Collapse department" : "Expand department"
+                              }
+                            >
+                              {isExpanded ? <Minus size={15} /> : <Plus size={15} />}
+                            </button>
                           </div>
-                        );
-                      },
-                    )}
-                  </div>
-                );
-              },
-            )
-          )}
-        </div>
 
-        {/* TRAY */}
-        {cartCount > 0 && (
-          <div className="sp-tray">
-            {trayOpen ? (
-              <div className="sp-tray-panel">
-                <div className="sp-tray-panel-header">
-                  <span className="sp-tray-panel-title">Your Selection</span>
-                  <button
-                    className="sp-tray-close-btn"
-                    onClick={() => setTrayOpen(false)}
+                          {isExpanded && (
+                            <ul className="vp-cat-list">
+                              {department.categories.map((category) => {
+                                const catIdStr = category.id.toString();
+                                return (
+                                  <li key={catIdStr} className="vp-cat-item">
+                                    <label className="vp-cat-label">
+                                      <input
+                                        key={catIdStr + selectedCategory}
+                                        type="radio"
+                                        name="category"
+                                        className="vp-radio"
+                                        value={catIdStr}
+                                        checked={selectedCategory === catIdStr}
+                                        onChange={() => setSelectedCategory(catIdStr)}
+                                      />
+                                      <span>{category.name}</span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="vp-filter-block">
+                  <span className="vp-section-label">Price Range</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={6000}
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(Number(e.target.value))}
+                    className="vp-price-slider"
+                  />
+                  <p className="vp-price-value">Up to ${maxPrice}</p>
+                </div>
+
+                <div className="vp-filter-block">
+                  <span className="vp-section-label">Sort By</span>
+                  <select
+                    className="vp-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
                   >
-                    <ChevronDown size={18} />
+                    <option value="default">Default</option>
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
+                    <option value="newest">Newest</option>
+                  </select>
+                </div>
+
+                <div className="vp-btn-stack" style={{ flexDirection: "row" }}>
+                  <button
+                    className="vp-btn-primary"
+                    onClick={() => {
+                      handleFilterChange();
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    className="vp-btn-ghost"
+                    onClick={() => {
+                      handleResetFilters();
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    Reset
                   </button>
                 </div>
-
-                {cartItems.map((item) => (
-                  <div className="sp-tray-item" key={item.product.id}>
-                    <div className="sp-tray-item-thumb">
-                      <img
-                        src={imageUrl(item.product)}
-                        alt={item.product.title}
-                        onError={(e) =>
-                          (e.currentTarget.src = "/placeholder.jpg")
-                        }
-                      />
-                    </div>
-                    <span className="sp-tray-item-name">
-                      {item.product.title}
-                    </span>
-                    {/* <div className="sp-qty">
-                      <button className="sp-qty-btn" onClick={(e) => { e.stopPropagation(); changeQty(item.product.id, -1); }}>
-                        <Minus size={11} />
-                      </button>
-                      <span className="sp-qty-num">{item.quantity}</span>
-                      <button className="sp-qty-btn" onClick={(e) => { e.stopPropagation(); changeQty(item.product.id, 1); }}>
-                        <Plus size={11} />
-                      </button>
-                    </div> */}
-                    <span className="sp-tray-item-price">
-                      <CurrencyFormatter
-                        amount={(item.product.price ?? 0) * item.quantity}
-                        currency="AUD"
-                      />
-                    </span>
-                    <button
-                      className="sp-tray-item-del"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFromCart(item.product.id);
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-
-                <div className="sp-tray-footer">
-                  <div className="sp-tray-footer-total">
-                    Total&nbsp;&nbsp;
-                    <span>
-                      <CurrencyFormatter amount={cartTotal} currency="AUD" />
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: "24px" }}>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setCart({});
-                        setTrayOpen(false);
-                      }}
-                    >
-                      Clear all
-                    </button>
-                    <button
-                      className="btn btn-accent"
-                      onClick={handleAddAllToCart}
-                      style={{ gap: "8px" }}
-                    >
-                      <ShoppingBag size={15} />
-                      Add {cartCount} item{cartCount !== 1 ? "s" : ""} to Cart
-                    </button>
-                  </div>
-                </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Product list ── */}
+          <main className="vp-main">
+            <div className="vp-toolbar">
+              <span className="vp-result-count">
+                {products.meta?.total ?? products.data.length} Results
+              </span>
+            </div>
+
+            {products.data.length === 0 ? (
+              <div className="vp-empty">No products found.</div>
             ) : (
-              <div className="sp-tray-bar" onClick={() => setTrayOpen(true)}>
-                <div className="sp-tray-bar-left">
-                  <div className="sp-tray-icon-wrap">
-                    <ShoppingBag size={22} color="white" />
-                    <span className="sp-tray-badge">{cartCount}</span>
-                  </div>
-                  <span className="sp-tray-label">
-                    <strong>
-                      {cartCount} service{cartCount !== 1 ? "s" : ""}
-                    </strong>{" "}
-                    selected — tap to review
-                  </span>
-                </div>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "14px" }}
-                >
-                  <span className="sp-tray-total">
-                    <CurrencyFormatter amount={cartTotal} currency="AUD" />
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    color="rgba(255,255,255,0.4)"
-                    style={{ transform: "rotate(180deg)" }}
-                  />
-                </div>
+              <div className="vp-product-grid">
+                {products.data.map((product) => (
+                  <ProductItem key={product.id} product={product} />
+                ))}
               </div>
             )}
-          </div>
-        )}
+
+            {/* Pagination */}
+            <div className="vp-pagination">
+              {products.meta.links.map((link, index) =>
+                link.url ? (
+                  <Link
+                    key={index}
+                    href={link.url}
+                    className={`vp-page-link${link.active ? " active" : ""}`}
+                  >
+                    {link.label.replace("&laquo;", "«").replace("&raquo;", "»")}
+                  </Link>
+                ) : (
+                  <span
+                    key={index}
+                    className="vp-page-link disabled"
+                    dangerouslySetInnerHTML={{ __html: link.label }}
+                  />
+                )
+              )}
+            </div>
+          </main>
+        </div>
       </div>
     </AuthenticatedLayout>
   );

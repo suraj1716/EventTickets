@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             OrderAndBookingSeeder::class,
  ResaleSeeder::class,
 
+
             VoucherSeeder::class,
         ]);
     }

@@ -22,6 +22,7 @@ class AuthUserResource extends JsonResource
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,
             'name' => $this->name,
+            'phone' => $this->phone,
             'avatar' => $this->avatar, // from Google
             'permissions' => $this->getAllPermissions()->map(function ($permission) {
                 return $permission->name;

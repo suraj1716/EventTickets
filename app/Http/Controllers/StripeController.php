@@ -482,7 +482,238 @@ class StripeController extends Controller
 
                 break;
 
-            case 'refund.created':
+                        case 'payment_intent.succeeded':
+                if (\App\Models\ProcessedStripeEvent::where('stripe_event_id', $event->id)->exists()) {
+                    Log::info("Stripe event {$event->id} already processed — skipping");
+                    break;
+                }
+                \App\Models\ProcessedStripeEvent::create(['stripe_event_id' => $event->id]);
+
+                $paymentIntentObj = $event->data->object;
+                $paymentIntent    = $paymentIntentObj['id'];
+                $paymentMethodType = null;
+                $chargeId          = null;
+
+                try {
+                    $paymentIntentObj = $stripe->paymentIntents->retrieve($paymentIntent, [
+                        'expand' => ['payment_method', 'latest_charge'],
+                    ]);
+                    $paymentMethodType = $paymentIntentObj->payment_method->type ?? null;
+                    $chargeId          = $paymentIntentObj->latest_charge->id ?? null;
+                } catch (\Exception $e) {
+                    Log::warning('Could not retrieve payment method type: ' . $e->getMessage());
+                }
+
+                $orders = Order::with('orderItems')
+                    ->where('payment_intent', $paymentIntent)
+                    ->get();
+
+                if ($orders->isEmpty()) {
+                    Log::warning("No orders found for payment_intent: $paymentIntent");
+                    break;
+                }
+
+                $productsToDeleteFromCart = [];
+                $userId = null;
+                $fulfillmentFailures = [];
+                $successfulOrderIds = [];
+
+                foreach ($orders as $order) {
+                    try {
+                        DB::transaction(function () use (
+                            $order,
+                            $paymentIntent,
+                            $paymentMethodType,
+                            $chargeId,
+                            &$productsToDeleteFromCart,
+                            &$userId,
+                            &$successfulOrderIds
+                        ) {
+                            // ---- 1. Validate seat availability BEFORE any money/status/stock change ----
+                            $seatIds = $order->orderItems
+                                ->flatMap(fn($item) => $item->seat_ids ?? [])
+                                ->filter()
+                                ->unique()
+                                ->values();
+
+                            if ($seatIds->isNotEmpty()) {
+                                $lockedSeats = \App\Models\EventSeat::whereIn('id', $seatIds)
+                                    ->lockForUpdate()
+                                    ->get();
+
+                                $unavailable = $lockedSeats->firstWhere('status', '!=', 'available');
+
+                                if ($unavailable) {
+                                    Log::error('Seat already unavailable at payment confirmation', [
+                                        'order_id' => $order->id,
+                                        'seat_id' => $unavailable->id,
+                                        'seat_status' => $unavailable->status,
+                                    ]);
+
+                                    $order->status = \App\Enums\OrderStatusEnum::PaidFulfillmentFailed->value;
+                                    $order->is_paid = true; // money was actually captured
+                                    $order->payment_intent = $paymentIntent;
+                                    $order->paid_at = now();
+                                    $order->fulfillment_error = 'Seat already sold: seat #' . $unavailable->id;
+                                    $order->save();
+
+                                    throw new \RuntimeException(
+                                        'Seat ' . $unavailable->id . ' is no longer available.'
+                                    );
+                                }
+                            }
+
+                            // ---- 2. Reserve tier stock (locked) — safe now that seats are confirmed ----
+                            foreach ($order->orderItems as $orderItem) {
+                                if ($orderItem->ticket_tier_id) {
+                                    $tier = \App\Models\TicketTier::lockForUpdate()->find($orderItem->ticket_tier_id);
+
+                                    if (! $tier || ! $tier->reserve($orderItem->quantity)) {
+                                        Log::error('Ticket tier oversold on payment confirmation', [
+                                            'order_id' => $order->id,
+                                            'ticket_tier_id' => $orderItem->ticket_tier_id,
+                                        ]);
+
+                                        $order->status = \App\Enums\OrderStatusEnum::PaidFulfillmentFailed->value;
+                                        $order->is_paid = true;
+                                        $order->payment_intent = $paymentIntent;
+                                        $order->paid_at = now();
+                                        $order->fulfillment_error = 'Ticket tier oversold at payment confirmation';
+                                        $order->save();
+
+                                        throw new \RuntimeException(
+                                            "Ticket tier {$tier->id} is sold out."
+                                        );
+                                    }
+                                }
+                            }
+
+                            // ---- 3. Everything validated — safe to mark Paid ----
+                            $order->payment_intent   = $paymentIntent;
+                            $order->payment_method   = $paymentMethodType;
+                            $order->stripe_charge_id = $chargeId;
+                            $order->status           = OrderStatusEnum::Paid->value;
+                            $order->is_paid          = true;
+                            $order->paid_at          = now();
+                            $order->save();
+
+                            // Redeem voucher only now that payment is confirmed
+                            if ($order->voucher_id && $order->voucher_discount > 0) {
+                                $orderVoucher = Voucher::lockForUpdate()->find($order->voucher_id);
+                                if ($orderVoucher) {
+                                    $alreadyRedeemed = VoucherUsage::where('order_id', $order->id)
+                                        ->where('voucher_id', $orderVoucher->id)
+                                        ->exists();
+
+                                    if (!$alreadyRedeemed) {
+                                        VoucherUsage::create([
+                                            'voucher_id'  => $orderVoucher->id,
+                                            'user_id'     => $order->user_id,
+                                            'order_id'    => $order->id,
+                                            'amount_used' => $order->voucher_discount,
+                                        ]);
+
+                                        if ($orderVoucher->type === 'gift') {
+                                            $orderVoucher->remaining_amount = max(0, ($orderVoucher->remaining_amount ?? 0) - $order->voucher_discount);
+                                            if ($orderVoucher->remaining_amount <= 0) {
+                                                $orderVoucher->remaining_amount = 0;
+                                                $orderVoucher->active = false;
+                                            }
+                                        } elseif ($orderVoucher->type === 'promo') {
+                                            $orderVoucher->used_count += 1;
+                                            if ($orderVoucher->max_uses && $orderVoucher->used_count >= $orderVoucher->max_uses) {
+                                                $orderVoucher->active = false;
+                                            }
+                                        }
+
+                                        $orderVoucher->save();
+                                    }
+                                }
+                            }
+
+                            $userId = $order->user_id;
+
+                            $productsToDeleteFromCart = array_merge(
+                                $productsToDeleteFromCart,
+                                $order->orderItems->pluck('product_id')->toArray()
+                            );
+
+                            foreach ($order->orderItems as $orderItem) {
+                                $options = $orderItem->variation_type_option_ids;
+                                $product = $orderItem->product;
+
+                                if ($orderItem->ticket_tier_id) {
+                                    continue; // reserved above; tickets generated below
+                                }
+
+                                if (! $product) {
+                                    continue; // gift-card / non-product line items have no stock to decrement
+                                }
+
+                                if (!$options && $product->quantity !== null) {
+                                    $product->quantity -= $orderItem->quantity;
+                                    $product->save();
+                                }
+                            }
+
+                            // ---- 4. Generate tickets — inside the same transaction, so a failure here
+                            // rolls back the Paid status + tier reserve + voucher redemption together ----
+                            if ($order->orderItems->contains(fn($item) => $item->ticket_tier_id !== null)) {
+                                try {
+                                    app(\App\Services\TicketGenerationService::class)->generate($order);
+                                } catch (\Throwable $e) {
+                                    Log::error('Ticket generation failed after payment confirmed', [
+                                        'order_id' => $order->id,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                    throw $e;
+                                }
+                            }
+
+                            $successfulOrderIds[] = $order->id;
+                        });
+                    } catch (\Throwable $e) {
+                        $order->refresh();
+
+                        $order->status = OrderStatusEnum::PaidFulfillmentFailed->value;
+                        $order->is_paid = true;
+                        $order->payment_intent = $paymentIntent;
+                        $order->paid_at = now();
+                        $order->fulfillment_error = $order->fulfillment_error ?? $e->getMessage();
+                        $order->save();
+
+                        $fulfillmentFailures[] = $order->id;
+
+                        Log::error('Order fulfillment failed on payment_intent.succeeded', [
+                            'order_id' => $order->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                if ($userId && !empty($productsToDeleteFromCart)) {
+                    CartItem::where('user_id', $userId)
+                        ->whereIn('product_id', $productsToDeleteFromCart)
+                        ->where('saved_for_later', false)
+                        ->delete();
+                }
+
+                if (!empty($successfulOrderIds)) {
+                    $paidOrders = Order::with(['user', 'vendorUser'])
+                        ->whereIn('id', $successfulOrderIds)
+                        ->get();
+
+                    if ($userId && $paidOrders->isNotEmpty()) {
+                        $buyer = $paidOrders->first()->user;
+                        if ($buyer) {
+                            Mail::to($buyer)->queue(new CheckoutCompleted($paidOrders));
+                        }
+                    }
+                }
+
+                break;
+
+                case 'refund.created':
                 $refund = $event->data->object;
                 $paymentIntent = $refund['payment_intent'] ?? null;
 

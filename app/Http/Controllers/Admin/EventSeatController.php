@@ -77,11 +77,12 @@ class EventSeatController extends Controller
 
         $this->assertNoSoldOrHeldSeats($eventLeg);
 
-        DB::transaction(function () use ($eventLeg) {
+                DB::transaction(function () use ($eventLeg) {
             $eventLeg->seats()->delete();
 
             $eventLeg->update([
                 'seating_type' => 'general',
+                'capacity' => $eventLeg->venue?->capacity ?? $eventLeg->capacity,
             ]);
         });
 
@@ -114,7 +115,11 @@ class EventSeatController extends Controller
             'Cannot remove a seat that is held or sold.'
         );
 
-        $seat->delete();
+         $seat->delete();
+
+        $eventLeg->update([
+            'capacity' => $eventLeg->seats()->count(),
+        ]);
 
         return back()->with('success', "Seat {$seat->label} removed.");
     }
@@ -224,8 +229,9 @@ class EventSeatController extends Controller
 ]);
             }
 
-            $eventLeg->update([
+                       $eventLeg->update([
                 'seating_type' => 'reserved',
+                'capacity' => $venueSeats->count(),
             ]);
         });
 

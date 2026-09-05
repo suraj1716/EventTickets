@@ -103,7 +103,7 @@ export interface TicketTier {
 
   quantity: number;
   remaining: number;
-
+sold_count?: number;
   starts_at: string;
   ends_at: string;
 
@@ -441,6 +441,7 @@ export interface TicketTierFormInput {
   starts_at: string;
 
   ends_at: string;
+    sold_count?: number;
 }
 
 

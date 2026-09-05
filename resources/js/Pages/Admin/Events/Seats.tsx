@@ -226,6 +226,28 @@ export default function Seats({ eventLeg, venue, seats }: Props) {
       return;
     }
 
+    // Any section left unassigned imports with ticket_tier_id = null,
+    // which the buyer-facing seat chart treats as unsellable/unavailable.
+    // Warn with real seat counts before that happens silently.
+    const sectionsWithoutTier = (venue?.sections ?? []).filter(
+      (section) => !sectionAssignments[section.id]
+    );
+
+    if (sectionsWithoutTier.length > 0) {
+      const details = sectionsWithoutTier
+        .map((section) => {
+          const seatCount = section.seats.filter((s) => s.is_active).length;
+          return `${section.name} (${seatCount} seats)`;
+        })
+        .join(', ');
+
+      const confirmed = confirm(
+        `These sections have no ticket tier assigned and will NOT be sellable to buyers: ${details}. Import anyway?`
+      );
+
+      if (!confirmed) return;
+    }
+
     if (seats.length > 0) {
       const confirmed = confirm(
         'Re-importing the venue layout will replace the current event seat inventory. Continue?'

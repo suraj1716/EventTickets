@@ -23,27 +23,16 @@ class EventController extends Controller
 
     public function index(Request $request)
     {
-        $events = Event::where(
-                'vendor_user_id',
-                $request->user()->id
-            )
-            ->with([
-                'media',
-                'legs.ticketTiers',
-                'artists',
-                'categories',
-            ])
+        $events = Event::where('vendor_user_id', $request->user()->id)
+            ->with(['media', 'legs.ticketTiers', 'artists', 'categories'])
             ->withCount('watchlist')
             ->when(
                 $request->filled('status'),
-                fn ($q) => $q->where(
-                    'status',
-                    $request->input('status')
-                )
+                fn($q) => $q->where('status', $request->input('status'))
             )
             ->when(
                 $request->filled('search'),
-                fn ($q) => $q->where(
+                fn($q) => $q->where(
                     'name',
                     'like',
                     '%' . $request->input('search') . '%'
@@ -56,46 +45,29 @@ class EventController extends Controller
         return Inertia::render('Admin/Events/Index', [
             'events' => [
                 'data' => $events->items(),
-
                 'links' => [
                     'first' => $events->url(1),
-                    'last' => $events->url(
-                        $events->lastPage()
-                    ),
+                    'last' => $events->url($events->lastPage()),
                     'prev' => $events->previousPageUrl(),
                     'next' => $events->nextPageUrl(),
                 ],
-
                 'meta' => [
                     'current_page' => $events->currentPage(),
-
                     'from' => $events->firstItem(),
-
                     'last_page' => $events->lastPage(),
-
-                    'links' => collect(
-                        range(1, $events->lastPage())
-                    )
-                        ->map(fn ($page) => [
-                            'url' =>
-                                $page === $events->currentPage()
-                                    ? null
-                                    : $events->url($page),
-
+                    'links' => collect(range(1, $events->lastPage()))
+                        ->map(fn($page) => [
+                            'url' => $page === $events->currentPage()
+                                ? null
+                                : $events->url($page),
                             'label' => (string) $page,
-
-                            'active' =>
-                                $page === $events->currentPage(),
+                            'active' => $page === $events->currentPage(),
                         ])
                         ->values()
                         ->all(),
-
                     'path' => $events->path(),
-
                     'per_page' => $events->perPage(),
-
                     'to' => $events->lastItem(),
-
                     'total' => $events->total(),
                 ],
             ],
@@ -111,9 +83,7 @@ class EventController extends Controller
     public function create(Request $request)
     {
         return Inertia::render('Admin/Events/Form', [
-            'categories' => \App\Models\Category::orderBy('name')
-                ->get(),
-
+            'categories' => \App\Models\Category::orderBy('name')->get(),
             'venues' => Venue::where('is_active', true)
                 ->orderBy('name')
                 ->get(),
@@ -126,26 +96,22 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function edit(
-        Request $request,
-        Event $event
-    ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+    public function edit(Request $request, Event $event)
+    {
+        $this->authorizeVendorOwnsEvent($request, $event);
 
         return Inertia::render('Admin/Events/Form', [
             'event' => $event->load([
-                'legs.ticketTiers',
+                'legs.ticketTiers' => function ($query) {
+                    $query->withCount([
+                        'tickets as sold_count' => fn($q) => $q->whereIn('status', ['valid', 'used']),
+                    ]);
+                },
                 'artists',
                 'categories',
                 'media',
             ]),
-
-            'categories' =>
-                \App\Models\Category::orderBy('name')->get(),
-
+            'categories' => \App\Models\Category::orderBy('name')->get(),
             'venues' => Venue::where('is_active', true)
                 ->orderBy('name')
                 ->get(),
@@ -162,73 +128,29 @@ class EventController extends Controller
     {
         $data = $this->validateEvent($request);
 
-        $event = DB::transaction(function () use (
-            $data,
-            $request
-        ) {
+        $event = DB::transaction(function () use ($data, $request) {
             $event = Event::create([
-                'vendor_user_id' =>
-                    $request->user()->id,
-
-                'name' =>
-                    $data['name'],
-
-                'description' =>
-                    $data['description'] ?? null,
-
-                'type' =>
-                    $data['type'],
-
-                'status' =>
-                    $data['status'] ?? 'draft',
-
-                'languages' =>
-                    $data['languages'] ?? [],
+                'vendor_user_id' => $request->user()->id,
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'type' => $data['type'],
+                'status' => $data['status'] ?? 'draft',
+                'languages' => $data['languages'] ?? [],
             ]);
 
-            /*
-             * Categories
-             */
-            $event->categories()->sync(
-                $data['category_ids'] ?? []
-            );
+            $event->categories()->sync($data['category_ids'] ?? []);
 
-            /*
-             * Artists
-             */
-            $this->syncArtists(
-                $event,
-                $data['artists'] ?? []
-            );
-
-            /*
-             * Legs + ticket tiers
-             */
-            $this->syncLegs(
-                $event,
-                $data['legs']
-            );
+            $this->syncArtists($event, $data['artists'] ?? []);
+            $this->syncLegs($event, $data['legs']);
 
             return $event;
         });
 
-        /*
-         * Media needs the event ID.
-         */
-        $this->handleMediaUpload(
-            $request,
-            $event
-        );
+        $this->handleMediaUpload($request, $event);
 
         return redirect()
-            ->route(
-                'admin.events.edit',
-                $event
-            )
-            ->with(
-                'success',
-                "Event \"{$event->name}\" saved."
-            );
+            ->route('admin.events.edit', $event)
+            ->with('success', "Event \"{$event->name}\" saved.");
     }
 
     /*
@@ -251,65 +173,137 @@ class EventController extends Controller
             $event
         );
 
-        DB::transaction(function () use (
-            $data,
-            $event
-        ) {
+        $this->assertLegAndTierEditsAreSafe($event, $data['legs']);
+
+        DB::transaction(function () use ($data, $event) {
             $event->update([
-                'name' =>
-                    $data['name'],
-
-                'description' =>
-                    $data['description'] ?? null,
-
-                'type' =>
-                    $data['type'],
-
-                'status' =>
-                    $data['status'] ?? $event->status,
-
-                'languages' =>
-                    $data['languages'] ?? [],
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'type' => $data['type'],
+                'status' => $data['status'] ?? $event->status,
+                'languages' => $data['languages'] ?? [],
             ]);
 
-            /*
-             * Categories
-             */
-            $event->categories()->sync(
-                $data['category_ids'] ?? []
-            );
+            $event->categories()->sync($data['category_ids'] ?? []);
 
-            /*
-             * Artists
-             */
-            $this->syncArtists(
-                $event,
-                $data['artists'] ?? []
-            );
-
-            /*
-             * Legs + ticket tiers
-             */
-            $this->syncLegs(
-                $event,
-                $data['legs']
-            );
+            $this->syncArtists($event, $data['artists'] ?? []);
+            $this->syncLegs($event, $data['legs']);
         });
 
-        /*
-         * Delete selected media and upload new media.
-         */
-        $this->handleMediaUpload(
-            $request,
-            $event
-        );
+        $this->handleMediaUpload($request, $event);
 
-        return redirect()
-            ->back()
-            ->with(
-                'success',
-                'Event updated.'
-            );
+        return redirect()->back()->with('success', 'Event updated.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sold-ticket protection
+    |--------------------------------------------------------------------------
+    |
+    | syncLegs()/syncTiers() below delete any leg/tier missing from the
+    | incoming payload, and ticket_tiers.id cascadeOnDelete()s into the
+    | tickets table (see 2026_08_10_000006_create_tickets_table.php).
+    | Without this guard, removing a leg or tier — or shrinking its
+    | capacity/quantity — after tickets have sold would silently delete
+    | those buyers' tickets. This runs BEFORE syncLegs() touches anything.
+    */
+    protected function assertLegAndTierEditsAreSafe(
+        Event $event,
+        array $incomingLegs
+    ): void {
+        $event->load('legs.ticketTiers');
+
+        // Sold/issued ticket counts, keyed by leg id and by tier id.
+        // 'void' tickets are refunded/cancelled — they don't block edits.
+        $soldByLeg = \App\Models\Ticket::whereIn(
+            'event_leg_id',
+            $event->legs->pluck('id')
+        )
+            ->whereIn('status', ['valid', 'used'])
+            ->selectRaw('event_leg_id, ticket_tier_id, COUNT(*) as total')
+            ->groupBy('event_leg_id', 'ticket_tier_id')
+            ->get();
+
+        $soldPerLeg = $soldByLeg
+            ->groupBy('event_leg_id')
+            ->map(fn($rows) => $rows->sum('total'));
+
+        $soldPerTier = $soldByLeg->keyBy('ticket_tier_id')
+            ->map(fn($row) => $row->total);
+
+        $incomingLegIds = collect($incomingLegs)->pluck('id')->filter()->all();
+
+        foreach ($event->legs as $leg) {
+            $legSoldCount = (int) ($soldPerLeg[$leg->id] ?? 0);
+
+            // Leg removed entirely.
+            if (!in_array($leg->id, $incomingLegIds, true)) {
+                if ($legSoldCount > 0) {
+                    throw ValidationException::withMessages([
+                        'legs' => "\"{$leg->venue_name}\" has {$legSoldCount} sold ticket(s) and can't be removed.",
+                    ]);
+                }
+                continue;
+            }
+
+            $incomingLeg = collect($incomingLegs)->firstWhere('id', $leg->id);
+
+            // Venue swapped after tickets sold — the seats/venue those
+            // tickets refer to would no longer make sense.
+            if (
+                $legSoldCount > 0
+                && (int) ($incomingLeg['venue_id'] ?? 0) !== (int) $leg->venue_id
+            ) {
+                throw ValidationException::withMessages([
+                    'legs' => "\"{$leg->venue_name}\" has sold tickets and its venue can't be changed.",
+                ]);
+            }
+
+            // Capacity dropped below tickets already sold.
+            if ($legSoldCount > 0 && (int) $incomingLeg['capacity'] < $legSoldCount) {
+                throw ValidationException::withMessages([
+                    'legs' => "\"{$leg->venue_name}\" has {$legSoldCount} sold ticket(s) — capacity can't go below that.",
+                ]);
+            }
+
+            $incomingTierIds = collect($incomingLeg['tiers'])->pluck('id')->filter()->all();
+
+            foreach ($leg->ticketTiers as $tier) {
+                $tierSoldCount = (int) ($soldPerTier[$tier->id] ?? 0);
+
+                // Tier removed entirely.
+                if (!in_array($tier->id, $incomingTierIds, true)) {
+                    if ($tierSoldCount > 0) {
+                        throw ValidationException::withMessages([
+                            'legs' => "Tier \"{$tier->name}\" has {$tierSoldCount} sold ticket(s) and can't be removed.",
+                        ]);
+                    }
+                    continue;
+                }
+
+                $incomingTier = collect($incomingLeg['tiers'])->firstWhere('id', $tier->id);
+
+                // Once a tier has sold tickets, it's frozen entirely.
+                // Changing price after some buyers already paid a
+                // different price is unfair to those customers, so name,
+                // price, quantity, and the sale window all get locked —
+                // not just quantity.
+                if ($tierSoldCount > 0) {
+                    $changed =
+                        $incomingTier['name'] !== $tier->name
+                        || (float) $incomingTier['price'] !== (float) $tier->price
+                        || (int) $incomingTier['quantity'] !== (int) $tier->quantity
+                        || \Illuminate\Support\Carbon::parse($incomingTier['starts_at'])->ne($tier->starts_at)
+                        || \Illuminate\Support\Carbon::parse($incomingTier['ends_at'])->ne($tier->ends_at);
+
+                    if ($changed) {
+                        throw ValidationException::withMessages([
+                            'legs' => "Tier \"{$tier->name}\" has {$tierSoldCount} sold ticket(s) and can no longer be edited.",
+                        ]);
+                    }
+                }
+            }
+        }
     }
 
     /*
@@ -323,366 +317,220 @@ class EventController extends Controller
         ?Event $event = null
     ): array {
         $data = $request->validate([
-            /*
-             * Event
-             */
-            'name' => [
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'type' => ['required', 'in:standalone,tour'],
+            'status' => [
                 'required',
-                'string',
-                'max:255',
+                $event
+                    ? 'in:draft,proposed,published'
+                    : 'in:draft,proposed',
             ],
+            'languages' => ['nullable', 'array'],
+            'languages.*' => ['string'],
 
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
-            'type' => [
-                'required',
-                'in:standalone,tour',
-            ],
-
-           'status' => [
-    'required',
-    $event
-        ? 'in:draft,proposed,published'
-        : 'in:draft,proposed',
-],
-
-            'languages' => [
-                'nullable',
-                'array',
-            ],
-
-            'languages.*' => [
-                'string',
-            ],
-
-            /*
-             * Categories
-             */
-            'category_ids' => [
-                'nullable',
-                'array',
-            ],
-
+            'category_ids' => ['nullable', 'array'],
             'category_ids.*' => [
                 'integer',
                 'exists:categories,id',
             ],
 
-            /*
-             * Artists
-             */
-            'artists' => [
-                'nullable',
-                'array',
-            ],
+            'artists' => ['nullable', 'array'],
+            'artists.*' => ['string', 'max:255'],
 
-            'artists.*' => [
-                'string',
-                'max:255',
-            ],
-
-            /*
-             * Event legs
-             */
-            'legs' => [
-                'required',
-                'array',
-                'min:1',
-            ],
-
+            'legs' => ['required', 'array', 'min:1'],
             'legs.*.id' => [
                 'nullable',
                 'integer',
                 'exists:event_legs,id',
             ],
-
             'legs.*.venue_id' => [
                 'nullable',
                 'integer',
                 'exists:venues,id',
             ],
-
             'legs.*.venue_name' => [
                 'required',
                 'string',
                 'max:255',
             ],
-
             'legs.*.address' => [
                 'nullable',
                 'string',
                 'max:255',
             ],
-
             'legs.*.city' => [
                 'nullable',
                 'string',
                 'max:255',
             ],
+            'legs.*.latitude' => ['nullable', 'numeric'],
+            'legs.*.longitude' => ['nullable', 'numeric'],
+            'legs.*.event_date' => ['required', 'date'],
+            'legs.*.capacity' => ['required', 'integer', 'min:1'],
 
-            'legs.*.latitude' => [
-                'nullable',
-                'numeric',
-            ],
-
-            'legs.*.longitude' => [
-                'nullable',
-                'numeric',
-            ],
-
-            'legs.*.event_date' => [
-                'required',
-                'date',
-            ],
-
-            'legs.*.capacity' => [
-                'required',
-                'integer',
-                'min:1',
-            ],
-
-            /*
-             * Ticket tiers
-             */
             'legs.*.tiers' => [
                 'required',
                 'array',
                 'min:1',
             ],
-
             'legs.*.tiers.*.id' => [
                 'nullable',
                 'integer',
                 'exists:ticket_tiers,id',
             ],
-
             'legs.*.tiers.*.name' => [
                 'required',
                 'string',
                 'max:255',
             ],
-
             'legs.*.tiers.*.price' => [
                 'required',
                 'numeric',
                 'min:0',
             ],
-
             'legs.*.tiers.*.quantity' => [
                 'required',
                 'integer',
                 'min:1',
             ],
-
             'legs.*.tiers.*.starts_at' => [
                 'required',
                 'date',
             ],
-
             'legs.*.tiers.*.ends_at' => [
                 'required',
                 'date',
                 'after:legs.*.tiers.*.starts_at',
             ],
 
-            /*
-             * Event media
-             *
-             * Maximum 2 new files in one request.
-             */
             'media' => [
                 'sometimes',
                 'array',
                 'max:2',
             ],
-
             'media.*' => [
                 'file',
+                function ($attribute, $file, $fail) {
+                    $mimeType = $file->getMimeType();
+                    $isImage = str_starts_with($mimeType, 'image/');
+                    $isVideo = str_starts_with($mimeType, 'video/');
 
-                function (
-                    $attribute,
-                    $file,
-                    $fail
-                ) {
-                    $mimeType =
-                        $file->getMimeType();
-
-                    $isImage =
-                        str_starts_with(
-                            $mimeType,
-                            'image/'
-                        );
-
-                    $isVideo =
-                        str_starts_with(
-                            $mimeType,
-                            'video/'
-                        );
-
-                    /*
-                     * Must be image or video.
-                     */
-                    if (
-                        !$isImage &&
-                        !$isVideo
-                    ) {
-                        $fail(
-                            'Each file must be an image or a video.'
-                        );
-
+                    if (!$isImage && !$isVideo) {
+                        $fail('Each file must be an image or a video.');
                         return;
                     }
 
-                    /*
-                     * Size limits.
-                     *
-                     * Images: 5 MB
-                     * Videos: 50 MB
-                     */
-                    $maxKb = $isImage
-                        ? 5120
-                        : 51200;
+                    $maxKb = $isImage ? 5120 : 51200;
 
-                    if (
-                        $file->getSize() / 1024
-                        > $maxKb
-                    ) {
+                    if ($file->getSize() / 1024 > $maxKb) {
                         $fail(
                             $isImage
                                 ? 'Images must be 5MB or smaller.'
                                 : 'Videos must be 50MB or smaller.'
                         );
-
                         return;
                     }
 
-                    /*
-                     * Allowed image MIME types.
-                     */
                     $okImage = in_array(
                         $mimeType,
-                        [
-                            'image/jpeg',
-                            'image/png',
-                            'image/webp',
-                        ],
+                        ['image/jpeg', 'image/png', 'image/webp'],
                         true
                     );
 
-                    /*
-                     * Allowed video MIME types.
-                     */
                     $okVideo = in_array(
                         $mimeType,
-                        [
-                            'video/mp4',
-                            'video/webm',
-                            'video/quicktime',
-                        ],
+                        ['video/mp4', 'video/webm', 'video/quicktime'],
                         true
                     );
 
-                    if (
-                        $isImage &&
-                        !$okImage
-                    ) {
-                        $fail(
-                            'Images must be JPG, PNG, or WEBP.'
-                        );
+                    if ($isImage && !$okImage) {
+                        $fail('Images must be JPG, PNG, or WEBP.');
                     }
 
-                    if (
-                        $isVideo &&
-                        !$okVideo
-                    ) {
-                        $fail(
-                            'Videos must be MP4, WEBM, or MOV.'
-                        );
+                    if ($isVideo && !$okVideo) {
+                        $fail('Videos must be MP4, WEBM, or MOV.');
                     }
                 },
             ],
 
-            /*
-             * Existing media selected for deletion.
-             */
             'remove_media_ids' => [
                 'sometimes',
                 'array',
             ],
-
             'remove_media_ids.*' => [
                 'integer',
                 'exists:event_media,id',
             ],
         ]);
 
+        foreach ($data['legs'] as $legIndex => $legData) {
+            $capacity = (int) $legData['capacity'];
+
+            // Reserved-seating legs get their capacity from the seat map
+            // (see EventSeatController::import/destroySeat/destroy) — the
+            // form must not be able to override it.
+            if (($legData['id'] ?? null)) {
+                $existingLeg = EventLeg::find($legData['id']);
+
+                if (
+                    $existingLeg && $existingLeg->seating_type === 'reserved'
+                    && $capacity !== $existingLeg->capacity
+                ) {
+                    $capacity = $existingLeg->capacity;
+                    $data['legs'][$legIndex]['capacity'] = $capacity;
+                }
+            }
+
+            $totalTierQuantity = collect($legData['tiers'])
+                ->sum(fn($tier) => (int) $tier['quantity']);
+
+            if ($totalTierQuantity > $capacity) {
+                throw ValidationException::withMessages([
+                    "legs.{$legIndex}.capacity" =>
+                    "Total ticket quantity ({$totalTierQuantity}) exceeds venue capacity ({$capacity}) for this leg.",
+                ]);
+            }
+        }
+
+
+
         /*
         |--------------------------------------------------------------------------
         | Maximum 2 media files TOTAL
         |--------------------------------------------------------------------------
-        |
-        | Laravel's "max:2" above only limits the number of NEW
-        | files being uploaded in this request.
-        |
-        | We also need to account for media already attached
-        | to the event.
-        |
         */
 
         if ($event) {
-            $existingCount = $event
-                ->media()
-                ->count();
-
-            $removeIds =
-                $data['remove_media_ids'] ?? [];
+            $existingCount = $event->media()->count();
+            $removeIds = $data['remove_media_ids'] ?? [];
 
             $removedExistingCount = empty($removeIds)
                 ? 0
-                : $event
-                    ->media()
-                    ->whereIn(
-                        'id',
-                        $removeIds
-                    )
-                    ->count();
+                : $event->media()
+                ->whereIn('id', $removeIds)
+                ->count();
 
             $remainingExistingCount =
-                $existingCount
-                - $removedExistingCount;
+                $existingCount - $removedExistingCount;
 
-            $newMediaCount =
-                isset($data['media'])
-                    ? count($data['media'])
-                    : 0;
+            $newMediaCount = isset($data['media'])
+                ? count($data['media'])
+                : 0;
 
-            if (
-                $remainingExistingCount
-                + $newMediaCount
-                > 2
-            ) {
+            if ($remainingExistingCount + $newMediaCount > 2) {
                 throw ValidationException::withMessages([
-                    'media' =>
-                        'An event can have a maximum of 2 media files.',
+                    'media' => 'An event can have a maximum of 2 media files.',
                 ]);
             }
         } else {
-            /*
-             * Create:
-             * maximum 2 uploaded files.
-             */
-            $newMediaCount =
-                isset($data['media'])
-                    ? count($data['media'])
-                    : 0;
+            $newMediaCount = isset($data['media'])
+                ? count($data['media'])
+                : 0;
 
             if ($newMediaCount > 2) {
                 throw ValidationException::withMessages([
-                    'media' =>
-                        'An event can have a maximum of 2 media files.',
+                    'media' => 'An event can have a maximum of 2 media files.',
                 ]);
             }
         }
@@ -700,125 +548,50 @@ class EventController extends Controller
         Request $request,
         Event $event
     ): void {
-        /*
-         * --------------------------------------------------------------
-         * Remove existing media
-         * --------------------------------------------------------------
-         */
-
         if ($request->filled('remove_media_ids')) {
-            $event
-                ->media()
-                ->whereIn(
-                    'id',
-                    $request->input(
-                        'remove_media_ids'
-                    )
-                )
+            $event->media()
+                ->whereIn('id', $request->input('remove_media_ids'))
                 ->get()
-                ->each(
-                    function (
-                        EventMedia $media
-                    ) {
-                        /*
-                         * Delete physical file.
-                         */
-                        Storage::disk('public')->delete(
-                            $media->path
-                        );
-
-                        /*
-                         * Delete database record.
-                         */
-                        $media->delete();
-                    }
-                );
+                ->each(function (EventMedia $media) {
+                    Storage::disk('public')->delete($media->path);
+                    $media->delete();
+                });
         }
-
-        /*
-         * --------------------------------------------------------------
-         * Upload new media
-         * --------------------------------------------------------------
-         */
 
         if (!$request->hasFile('media')) {
             return;
         }
 
-        /*
-         * Safety check:
-         *
-         * Never allow more than 2 media records.
-         */
-        $currentCount = $event
-            ->media()
-            ->count();
-
+        $currentCount = $event->media()->count();
         $newFiles = $request->file('media');
 
         if (!is_array($newFiles)) {
             $newFiles = [$newFiles];
         }
 
-        if (
-            $currentCount + count($newFiles)
-            > 2
-        ) {
+        if ($currentCount + count($newFiles) > 2) {
             throw ValidationException::withMessages([
-                'media' =>
-                    'An event can have a maximum of 2 media files.',
+                'media' => 'An event can have a maximum of 2 media files.',
             ]);
         }
 
-        /*
-         * Start position after existing media.
-         */
-        $position = (int) $event
-            ->media()
-            ->max('position') + 1;
+        $position = (int) $event->media()->max('position') + 1;
 
-        foreach (
-            $newFiles as $file
-        ) {
-            $mimeType =
-                $file->getMimeType();
+        foreach ($newFiles as $file) {
+            $mimeType = $file->getMimeType();
+            $isVideo = str_starts_with($mimeType, 'video/');
 
-            $isVideo =
-                str_starts_with(
-                    $mimeType,
-                    'video/'
-                );
-
-            /*
-             * Store:
-             *
-             * storage/app/public/events/{event_id}/
-             */
             $path = $file->store(
                 "events/{$event->id}",
                 'public'
             );
 
-            /*
-             * Create media record.
-             */
             $event->media()->create([
-                'type' =>
-                    $isVideo
-                        ? 'video'
-                        : 'image',
-
-                'path' =>
-                    $path,
-
-                'mime_type' =>
-                    $mimeType,
-
-                'size' =>
-                    $file->getSize(),
-
-                'position' =>
-                    $position++,
+                'type' => $isVideo ? 'video' : 'image',
+                'path' => $path,
+                'mime_type' => $mimeType,
+                'size' => $file->getSize(),
+                'position' => $position++,
             ]);
         }
     }
@@ -829,30 +602,20 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function publish(
-        Request $request,
-        Event $event
-    ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+    public function publish(Request $request, Event $event)
+    {
+        $this->authorizeVendorOwnsEvent($request, $event);
 
-        /*
-         * Every leg must have at least
-         * one ticket tier.
-         */
         if (
-            $event
-                ->legs()
-                ->doesntHave('ticketTiers')
-                ->exists()
+            $event->legs()
+            ->doesntHave('ticketTiers')
+            ->exists()
         ) {
             return redirect()
                 ->back()
                 ->withErrors([
                     'event' =>
-                        'Every location needs at least one ticket tier before publishing.',
+                    'Every location needs at least one ticket tier before publishing.',
                 ]);
         }
 
@@ -872,36 +635,21 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function destroy(
-        Request $request,
-        Event $event
-    ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+    public function destroy(Request $request, Event $event)
+    {
+        $this->authorizeVendorOwnsEvent($request, $event);
 
-        /*
-         * Load media before deleting event.
-         */
         $event->load('media');
 
-        foreach (
-            $event->media as $media
-        ) {
-            Storage::disk('public')->delete(
-                $media->path
-            );
+        foreach ($event->media as $media) {
+            Storage::disk('public')->delete($media->path);
         }
 
         $event->delete();
 
         return redirect()
             ->back()
-            ->with(
-                'success',
-                'Event deleted.'
-            );
+            ->with('success', 'Event deleted.');
     }
 
     /*
@@ -910,19 +658,14 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    protected function syncArtists(
-        Event $event,
-        array $names
-    ): void {
+    protected function syncArtists(Event $event, array $names): void
+    {
         $ids = collect($names)
             ->map(
-                function (
-                    string $name
-                ) {
-                    return \App\Models\Artist::firstOrCreate([
-                        'name' => $name,
-                    ])->id;
-                }
+                fn(string $name) =>
+                \App\Models\Artist::firstOrCreate([
+                    'name' => $name,
+                ])->id
             );
 
         $event->artists()->sync($ids);
@@ -934,130 +677,54 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    protected function syncLegs(
-        Event $event,
-        array $legs
-    ): void {
-        /*
-         * Existing leg IDs.
-         */
-        $existingLegIds = $event
-            ->legs()
-            ->pluck('id')
-            ->all();
+    protected function syncLegs(Event $event, array $legs): void
+    {
+        $existingLegIds = $event->legs()->pluck('id')->all();
 
-        /*
-         * Incoming leg IDs.
-         */
         $incomingLegIds = collect($legs)
             ->pluck('id')
             ->filter()
             ->all();
 
-        /*
-         * Delete removed legs.
-         */
         $legIdsToDelete = array_diff(
             $existingLegIds,
             $incomingLegIds
         );
 
-        if (
-            !empty($legIdsToDelete)
-        ) {
-            EventLeg::whereIn(
-                'id',
-                $legIdsToDelete
-            )->each(
-                function (
-                    EventLeg $leg
-                ) {
-                    /*
-                     * Delete ticket tiers first.
-                     */
-                    $leg
-                        ->ticketTiers()
-                        ->delete();
-
-                    /*
-                     * Delete leg.
-                     */
+        if (!empty($legIdsToDelete)) {
+            EventLeg::whereIn('id', $legIdsToDelete)
+                ->each(function (EventLeg $leg) {
+                    $leg->ticketTiers()->delete();
                     $leg->delete();
-                }
-            );
+                });
         }
 
-        /*
-         * Create / update legs.
-         */
-        foreach (
-            $legs as $sequence => $legData
-        ) {
-            $legId =
-                $legData['id'] ?? null;
+        foreach ($legs as $sequence => $legData) {
+            $legId = $legData['id'] ?? null;
 
             $leg = $legId
-                ? $event
-                    ->legs()
-                    ->find($legId)
+                ? $event->legs()->find($legId)
                 : null;
 
             $attributes = [
-                'venue_id' =>
-                    $legData['venue_id'] ?? null,
-
-                'venue_name' =>
-                    $legData['venue_name'],
-
-                'address' =>
-                    $legData['address'] ?? null,
-
-                'city' =>
-                    $legData['city'] ?? null,
-
-                'latitude' =>
-                    $legData['latitude'] ?? null,
-
-                'longitude' =>
-                    $legData['longitude'] ?? null,
-
-                'event_date' =>
-                    $legData['event_date'],
-
-                'capacity' =>
-                    $legData['capacity'],
-
-                'sequence' =>
-                    $sequence + 1,
+                'venue_id' => $legData['venue_id'] ?? null,
+                'venue_name' => $legData['venue_name'],
+                'address' => $legData['address'] ?? null,
+                'city' => $legData['city'] ?? null,
+                'latitude' => $legData['latitude'] ?? null,
+                'longitude' => $legData['longitude'] ?? null,
+                'event_date' => $legData['event_date'],
+                'capacity' => $legData['capacity'],
+                'sequence' => $sequence + 1,
             ];
 
-            /*
-             * Update existing leg.
-             */
             if ($leg) {
-                $leg->update(
-                    $attributes
-                );
+                $leg->update($attributes);
+            } else {
+                $leg = $event->legs()->create($attributes);
             }
 
-            /*
-             * Create new leg.
-             */
-            else {
-                $leg = $event
-                    ->legs()
-                    ->create(
-                        $attributes
-                    );
-            }
-
-            /*
-             * Sync ticket tiers.
-             */
-            $this->syncTiers(
-                $leg,
-                $legData['tiers']
-            );
+            $this->syncTiers($leg, $legData['tiers']);
         }
     }
 
@@ -1067,120 +734,55 @@ class EventController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    protected function syncTiers(
-        EventLeg $leg,
-        array $tiers
-    ): void {
-        /*
-         * Existing tier IDs.
-         */
-        $existingTierIds = $leg
-            ->ticketTiers()
-            ->pluck('id')
-            ->all();
+    protected function syncTiers(EventLeg $leg, array $tiers): void
+    {
+        $existingTierIds = $leg->ticketTiers()->pluck('id')->all();
 
-        /*
-         * Incoming tier IDs.
-         */
         $incomingTierIds = collect($tiers)
             ->pluck('id')
             ->filter()
             ->all();
 
-        /*
-         * Delete removed tiers.
-         */
         $tierIdsToDelete = array_diff(
             $existingTierIds,
             $incomingTierIds
         );
 
-        if (
-            !empty($tierIdsToDelete)
-        ) {
-            TicketTier::whereIn(
-                'id',
-                $tierIdsToDelete
-            )->delete();
+        if (!empty($tierIdsToDelete)) {
+            TicketTier::whereIn('id', $tierIdsToDelete)->delete();
         }
 
-        /*
-         * Create / update tiers.
-         */
-        foreach (
-            $tiers as $tierData
-        ) {
-            $tierId =
-                $tierData['id'] ?? null;
+        foreach ($tiers as $tierData) {
+            $tierId = $tierData['id'] ?? null;
 
             $tier = $tierId
-                ? $leg
-                    ->ticketTiers()
-                    ->find($tierId)
+                ? $leg->ticketTiers()->find($tierId)
                 : null;
 
-            /*
-             * Existing tier.
-             */
             if ($tier) {
-                /*
-                 * Adjust remaining by
-                 * quantity difference.
-                 */
                 $quantityDelta =
-                    $tierData['quantity']
-                    - $tier->quantity;
+                    $tierData['quantity'] - $tier->quantity;
 
                 $tier->update([
-                    'name' =>
-                        $tierData['name'],
-
-                    'price' =>
-                        $tierData['price'],
-
-                    'quantity' =>
-                        $tierData['quantity'],
-
-                    'remaining' =>
-                        max(
-                            0,
-                            $tier->remaining
-                            + $quantityDelta
-                        ),
-
-                    'starts_at' =>
-                        $tierData['starts_at'],
-
-                    'ends_at' =>
-                        $tierData['ends_at'],
+                    'name' => $tierData['name'],
+                    'price' => $tierData['price'],
+                    'quantity' => $tierData['quantity'],
+                    'remaining' => max(
+                        0,
+                        $tier->remaining + $quantityDelta
+                    ),
+                    'starts_at' => $tierData['starts_at'],
+                    'ends_at' => $tierData['ends_at'],
                 ]);
-            }
-
-            /*
-             * New tier.
-             */
-            else {
-                $leg
-                    ->ticketTiers()
-                    ->create([
-                        'name' =>
-                            $tierData['name'],
-
-                        'price' =>
-                            $tierData['price'],
-
-                        'quantity' =>
-                            $tierData['quantity'],
-
-                        'remaining' =>
-                            $tierData['quantity'],
-
-                        'starts_at' =>
-                            $tierData['starts_at'],
-
-                        'ends_at' =>
-                            $tierData['ends_at'],
-                    ]);
+            } else {
+                $leg->ticketTiers()->create([
+                    'name' => $tierData['name'],
+                    'price' => $tierData['price'],
+                    'quantity' => $tierData['quantity'],
+                    'remaining' => $tierData['quantity'],
+                    'starts_at' => $tierData['starts_at'],
+                    'ends_at' => $tierData['ends_at'],
+                ]);
             }
         }
     }
@@ -1196,8 +798,7 @@ class EventController extends Controller
         Event $event
     ): void {
         abort_unless(
-            $event->vendor_user_id ===
-                $request->user()->id,
+            $event->vendor_user_id === $request->user()->id,
             403
         );
     }

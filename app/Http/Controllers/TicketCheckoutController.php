@@ -136,12 +136,18 @@ class TicketCheckoutController extends Controller
         // twice meant briefly releasing and re-acquiring the same seat
         // between the two calls — a needless race window against a
         // concurrent buyer, on top of doing the DB work twice for nothing.
-        $ticketItems = $cartService->setTicketCartItems($ticketLines);
-        $productItemIds = $cartService->setEventMerchCartItems($event->id, $productLines);
+             $ticketItems = $cartService->setTicketCartItems($ticketLines);
 
+        // CHECKPOINT 4 — what actually got written to cart_items
         Log::info('CHECKPOINT 4 - AFTER WRITE', [
             'ticketItemIds' => collect($ticketItems)->pluck('id')->all(),
+            'rows' => \App\Models\CartItem::whereIn('id', collect($ticketItems)->pluck('id')->all())
+                ->get(['id', 'ticket_tier_id', 'seat_ids'])
+                ->map(fn($r) => $r->only(['id', 'ticket_tier_id', 'seat_ids']))
+                ->toArray(),
         ]);
+
+        $productItemIds = $cartService->setEventMerchCartItems($event->id, $productLines);
 
         $cartItemIds = array_merge(
             collect($ticketItems)->pluck('id')->all(),
