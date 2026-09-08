@@ -110,7 +110,21 @@ class OrderViewResource extends JsonResource
                         : [],
 
                     'vouchers' => $item->gift_card_template_id
-                        ? \App\Models\Voucher::where('stripe_session_id', $this->stripe_session_id)
+                        ? \App\Models\Voucher::where(function ($q) {
+                                // stripe_session_id: legacy hosted-Checkout gift
+                                // card purchases. stripe_payment_intent: current
+                                // embedded PaymentElement flow (see
+                                // VoucherController::purchase()). Only add a
+                                // clause for whichever the Order actually has,
+                                // so an OR against a null column doesn't match
+                                // every voucher with a null value there too.
+                                if ($this->stripe_session_id) {
+                                    $q->orWhere('stripe_session_id', $this->stripe_session_id);
+                                }
+                                if ($this->payment_intent) {
+                                    $q->orWhere('stripe_payment_intent', $this->payment_intent);
+                                }
+                            })
                             ->get()
                             ->map(fn($v) => [
                                 'code'             => $v->code,

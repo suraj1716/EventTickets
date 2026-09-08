@@ -1303,31 +1303,46 @@ export default function EventShow({
                         >
                           {/* Price legend */}
 
-                          <div className="space-y-2">
-                            {(activeLeg?.ticket_tiers ?? []).map((tier, i) => (
-                              <div
-                                key={tier.id}
-                                className="flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2"
-                              >
-                                <span className="flex items-center gap-2 text-sm text-white">
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-sm shrink-0"
-                                    style={{
-                                      background:
-                                        SEAT_TIER_COLORS[
-                                          i % SEAT_TIER_COLORS.length
-                                        ],
-                                    }}
-                                  />
+                                               <div className="space-y-2">
+                            {(activeLeg?.ticket_tiers ?? []).map((tier, i) => {
+                              const legendStatus = tierStatus(tier);
+                              const legendUnavailable = legendStatus !== "open";
+                              const legendLabel = {
+                                open: null,
+                                upcoming: "Not on sale yet",
+                                closed: "Pricing window closed",
+                                sold_out: "Sold out",
+                              }[legendStatus];
 
-                                  {tier.name}
-                                </span>
+                              return (
+                                <div
+                                  key={tier.id}
+                                  className={`flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2 ${
+                                    legendUnavailable ? "opacity-55" : ""
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2 text-sm text-white">
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-sm shrink-0"
+                                      style={{
+                                        background:
+                                          SEAT_TIER_COLORS[
+                                            i % SEAT_TIER_COLORS.length
+                                          ],
+                                      }}
+                                    />
 
-                                <span className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
-                                  ${parseFloat(tier.price).toFixed(2)}
-                                </span>
-                              </div>
-                            ))}
+                                    {tier.name}
+                                  </span>
+
+                                  <span className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
+                                    {legendUnavailable
+                                      ? legendLabel
+                                      : `$${parseFloat(tier.price).toFixed(2)}`}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
 
                           {/* Selected seats */}
@@ -1825,10 +1840,26 @@ function SeatChart({
   selectedSeatIds: number[];
   onToggleSeat: (seat: Seat) => void;
 }) {
-  const tiers = leg.ticket_tiers ?? [];
+
+   const tiers = leg.ticket_tiers ?? [];
 
   const tierColorIndex = new Map(
     tiers.map((tier, i) => [tier.id, i % SEAT_TIER_COLORS.length]),
+  );
+
+  // Seats linked to a tier outside its sale window (not started yet,
+  // already ended, or sold out) must not be selectable — this mirrors
+  // tierStatus() used for GA legs, which SeatChart never applied.
+  const now = new Date();
+  const openTierIds = new Set(
+    tiers
+      .filter(
+        (tier) =>
+          tier.remaining > 0 &&
+          now >= new Date(tier.starts_at) &&
+          now <= new Date(tier.ends_at),
+      )
+      .map((tier) => tier.id),
   );
 
   const rows = useMemo(() => {
@@ -1895,8 +1926,10 @@ function SeatChart({
               .sort((a, b) => a.seat_number - b.seat_number)
               .map((seat, i, arr) => {
                 const isSelected = selectedSeatIds.includes(seat.id);
-                const isUnavailable =
-                  seat.status !== "available" || seat.ticket_tier_id == null;
+                                const isUnavailable =
+                  seat.status !== "available" ||
+                  seat.ticket_tier_id == null ||
+                  !openTierIds.has(seat.ticket_tier_id);
                 const colorIdx =
                   seat.ticket_tier_id != null
                     ? (tierColorIndex.get(seat.ticket_tier_id) ?? 0)

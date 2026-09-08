@@ -25,10 +25,11 @@ import { StatusBadge, Icons } from '../../../Components/Admin/AdminComponents';
 
 interface Props {
   events: Paginated<Event>;
-  filters?: {
-    status?: EventStatus;
-    search?: string;
-  };
+filters?: {
+  status?: EventStatus;
+  search?: string;
+  type?: string;
+};
 }
 
 const C = {
@@ -115,29 +116,36 @@ function needsAttention(event: Event): { flag: boolean; reason: string } {
 function CardMenu({
   event,
   onPublish,
+  onCancel,
   onDelete,
 }: {
   event: Event;
   onPublish: () => void;
+  onCancel: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const canPublish = event.status === 'draft' || event.status === 'proposed';
+  const canCancel = event.status === 'published';
+  const canDelete = event.status === 'draft' || event.status === 'proposed';
+
 
   return (
     <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
       <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          color: C.textFainter,
-          cursor: 'pointer',
-          padding: 4,
-          display: 'flex',
-        }}
-        title="Actions"
-      >
+  onClick={() => setOpen((v) => !v)}
+  style={{
+    background: open ? 'rgba(255,182,39,0.16)' : 'rgba(11,11,13,0.55)',
+    border: `1px solid ${open ? C.amber : 'rgba(255,255,255,0.14)'}`,
+    color: open ? C.amber : C.text,
+    cursor: 'pointer',
+    padding: 6,
+    borderRadius: 6,
+    display: 'flex',
+    transition: 'all 0.15s ease',
+  }}
+  title="Actions"
+>
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
           <circle cx="4" cy="10" r="1.4" fill="currentColor" />
           <circle cx="10" cy="10" r="1.4" fill="currentColor" />
@@ -202,26 +210,50 @@ function CardMenu({
                 <Icons.Check /> Publish
               </button>
             )}
-            <button
-              onClick={() => { setOpen(false); onDelete(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                padding: '10px 14px',
-                background: 'transparent',
-                border: 'none',
-                borderTop: `1px dashed ${C.borderDashed}`,
-                fontFamily: fontBody,
-                fontSize: 12.5,
-                color: C.hot,
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <Icons.Delete /> Delete
-            </button>
+            {canCancel && (
+              <button
+                onClick={() => { setOpen(false); onCancel(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderTop: `1px dashed ${C.borderDashed}`,
+                  fontFamily: fontBody,
+                  fontSize: 12.5,
+                  color: C.error,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <Icons.Delete /> Cancel Event
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => { setOpen(false); onDelete(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderTop: `1px dashed ${C.borderDashed}`,
+                  fontFamily: fontBody,
+                  fontSize: 12.5,
+                  color: C.hot,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <Icons.Delete /> Delete
+              </button>
+            )}
           </div>
         </>
       )}
@@ -233,6 +265,7 @@ export default function EventsIndex({ events, filters }: Props) {
   const [search, setSearch] = useState(filters?.search ?? '');
   const [statusChip, setStatusChip] = useState<EventStatus | 'all' | 'tour' | 'attention'>(filters?.status ?? 'all');
   const [vendorFilter, setVendorFilter] = useState('all');
+const [typeFilter, setTypeFilter] = useState(filters?.type ?? 'all');
   const [sort, setSort] = useState<'attention' | 'newest' | 'name' | 'sold' | 'watch'>('attention');
   const [view, setView] = useState<'grid' | 'list'>('grid');
 
@@ -243,16 +276,51 @@ export default function EventsIndex({ events, filters }: Props) {
       { preserveState: true, replace: true }
     );
   }
+console.log('events:', events);
+console.log('events.data:', events.data);
+console.log('first event:', events.data?.[0]);
+console.log('status:', events.data?.[0]?.status);
 
-  function handleChip(k: typeof statusChip) {
+function handleChip(k: typeof statusChip) {
     setStatusChip(k);
-    if (k === 'all' || k === 'tour' || k === 'attention') {
-      // client-side only chips — clear server status filter if it was set
-      if (filters?.status) applyServerFilters({ status: undefined });
-    } else {
-      applyServerFilters({ status: k });
+
+    if (k === 'tour') {
+        setTypeFilter('tour');
+
+        applyServerFilters({
+            type: 'tour',
+            status: undefined,
+        });
+
+        return;
     }
-  }
+
+    setTypeFilter('all');
+
+    if (k === 'all') {
+        applyServerFilters({
+            type: undefined,
+            status: undefined,
+        });
+
+        return;
+    }
+
+    if (k === 'attention') {
+        // Keep this client-side for now
+        applyServerFilters({
+            type: undefined,
+            status: undefined,
+        });
+
+        return;
+    }
+
+    applyServerFilters({
+        type: undefined,
+        status: k,
+    });
+}
 
   function handlePublish(event: Event) {
     if (event.legs?.some((leg) => !leg.ticket_tiers?.length)) {
@@ -265,6 +333,18 @@ export default function EventsIndex({ events, filters }: Props) {
   function handleDelete(event: Event) {
     if (!confirm(`Delete "${event.name}"? This can't be undone.`)) return;
     router.delete(route('vendor.events.destroy', event.id));
+  }
+
+  function handleCancel(event: Event) {
+    if (
+      !confirm(
+        `Cancel "${event.name}"? This refunds every current ticket holder ` +
+          `(each for what they actually paid — including resale buyers) and ` +
+          `voids all their tickets. This can't be undone.`
+      )
+    )
+      return;
+    router.post(route('admin.events.cancel', event.id), {}, { preserveScroll: true });
   }
 
   const vendors = useMemo(() => {
@@ -286,7 +366,6 @@ export default function EventsIndex({ events, filters }: Props) {
 
   const filteredSorted = useMemo(() => {
     let list = events.data.filter((e) => {
-      if (statusChip === 'tour' && e.type !== 'tour') return false;
       if (statusChip === 'attention' && !needsAttention(e).flag) return false;
       if (vendorFilter !== 'all' && e.vendor?.name !== vendorFilter) return false;
       if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -474,111 +553,566 @@ export default function EventsIndex({ events, filters }: Props) {
         {`Showing ${filteredSorted.length} of ${events.data.length} events on this page`}
       </div>
 
-      {/* ── Grid view ── */}
-      {view === 'grid' && (
-        filteredSorted.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(268px,1fr))', gap: 18 }}>
-            {filteredSorted.map((event) => {
-              const attn = needsAttention(event);
-              const t = tierTotals(event);
-              const { date, venue } = primaryLegSummary(event);
-              return (
-                <div
-                  key={event.id}
-                  onClick={() => router.visit(route('admin.events.edit', event.id))}
+
+{/* ── Grid view ── */}
+{view === 'grid' && (
+  filteredSorted.length === 0 ? (
+    <EmptyState />
+  ) : (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(268px, 1fr))',
+        gap: 18,
+      }}
+    >
+      {filteredSorted.map((event) => {
+        const attn = needsAttention(event);
+        const t = tierTotals(event);
+        const { date, venue } = primaryLegSummary(event);
+
+        // Get the first image from event.media
+        const imageMedia = event.media?.find(
+          (media) => media.type === 'image'
+        );
+
+        const imageUrl = imageMedia?.url ?? null;
+
+        return (
+          <div
+            key={event.id}
+            onClick={() =>
+              router.visit(route('admin.events.edit', event.id))
+            }
+            style={{
+              position: 'relative',
+              background: C.surface,
+              border: `1px solid ${
+                attn.flag
+                  ? 'rgba(255,182,39,0.5)'
+                  : C.border
+              }`,
+              borderRadius: 12,
+              cursor: 'pointer',
+              overflow: 'hidden',
+              transition:
+                'border-color 0.2s ease, transform 0.2s ease',
+            }}
+          >
+            {/* ── Attention flag ── */}
+            {attn.flag && (
+              <div
+                title={attn.reason}
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 44,
+                  zIndex: 4,
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  background: 'rgba(11,11,13,0.55)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: C.amber,
+                  fontSize: 12,
+                }}
+              >
+                ⚑
+              </div>
+            )}
+
+            {/* ── Card menu ── */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 5,
+              }}
+            >
+              <CardMenu
+                event={event}
+                onPublish={() => handlePublish(event)}
+                onCancel={() => handleCancel(event)}
+                onDelete={() => handleDelete(event)}
+              />
+            </div>
+
+            {/* ── Image header ── */}
+            <div
+              style={{
+                height: 130,
+                position: 'relative',
+                overflow: 'hidden',
+                background: gradientFor(event.id),
+              }}
+            >
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt={event.name}
+                  loading="lazy"
                   style={{
-                    position: 'relative',
-                    background: C.surface,
-                    border: `1px solid ${attn.flag ? 'rgba(255,182,39,0.5)' : C.border}`,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.2s ease, transform 0.2s ease',
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              )}
+
+              {/* Image overlay */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background:
+                    'linear-gradient(180deg, rgba(11,11,13,0.18) 0%, rgba(11,11,13,0.1) 40%, rgba(11,11,13,0.6) 100%)',
+                }}
+              />
+
+              {/* Status badge */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  zIndex: 2,
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    background: 'rgba(11,11,13,0.55)',
+                    borderRadius: 999,
+                    padding: 2,
                   }}
                 >
-                  {attn.flag && (
-                    <div title={attn.reason} style={{ position: 'absolute', top: 12, right: 44, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'rgba(11,11,13,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.amber, fontSize: 12 }}>⚑</div>
-                  )}
-                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 3 }}>
-                    <CardMenu event={event} onPublish={() => handlePublish(event)} onDelete={() => handleDelete(event)} />
-                  </div>
-                  <div style={{ height: 118, position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: 12, background: gradientFor(event.id) }}>
-                    <StatusBadge status={STATUS_LABEL[event.status]} />
-                    <span style={{ fontFamily: fontMono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(245,243,239,0.75)', background: 'rgba(11,11,13,0.4)', padding: '4px 9px', borderRadius: 999 }}>
-                      {kindLabel(event)}
-                    </span>
-                  </div>
-                  <div style={{ padding: 16 }}>
-                    <div style={{ fontFamily: fontDisplay, textTransform: 'uppercase', fontSize: 17, letterSpacing: '0.01em', marginBottom: 4, color: C.text }}>{event.name}</div>
-                    <div style={{ fontFamily: fontMono, fontSize: 11, color: C.textMuted, marginBottom: 2 }}>{date} · {venue}</div>
-                    <div style={{ fontFamily: fontMono, fontSize: 10.5, color: C.textFainter, marginBottom: 12 }}>{event.vendor?.name ?? '—'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
-                      <span>Tickets sold</span><span>{t.pct}% ({t.sold.toLocaleString()}/{t.cap.toLocaleString()})</span>
-                    </div>
-                    <div style={{ height: 5, borderRadius: 3, background: C.surface2, overflow: 'hidden', marginBottom: 14 }}>
-                      <span style={{ display: 'block', height: '100%', width: `${t.pct}%`, background: `linear-gradient(90deg,${C.hot},${C.amber})` }} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: fontMono, fontSize: 11, color: C.amber }}>
-                        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6" /><path d="M10 6v4l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-                        {event.watchlist_count ?? 0}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
+                  <StatusBadge
+                    status={STATUS_LABEL[event.status]}
+                  />
+                </span>
+              </div>
 
-      {/* ── List view ── */}
-      {view === 'list' && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.1fr 1fr .9fr 1fr 1.2fr .8fr 32px', gap: 12, padding: '12px 18px', fontFamily: fontMono, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.textFainter }}>
-            <span>Event</span><span>Vendor</span><span>Type</span><span>Status</span><span>Tickets sold</span><span>Watching</span><span></span>
-          </div>
-          {filteredSorted.length === 0 ? (
-            <EmptyState />
-          ) : (
-            filteredSorted.map((event) => {
-              const t = tierTotals(event);
-              const attn = needsAttention(event);
-              const { date, venue } = primaryLegSummary(event);
-              return (
-                <div
-                  key={event.id}
-                  onClick={() => router.visit(route('admin.events.edit', event.id))}
-                  style={{ display: 'grid', gridTemplateColumns: '2.1fr 1fr .9fr 1fr 1.2fr .8fr 32px', alignItems: 'center', gap: 12, padding: '13px 18px', borderTop: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer' }}
+              {/* Event type */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 10,
+                  right: 12,
+                  zIndex: 2,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: fontMono,
+                    fontSize: 10,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(245,243,239,0.9)',
+                    background: 'rgba(11,11,13,0.5)',
+                    padding: '4px 9px',
+                    borderRadius: 999,
+                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, position: 'relative', background: gradientFor(event.id) }}>
-                      {attn.flag && <div title={attn.reason} style={{ position: 'absolute', top: -4, right: -4, width: 13, height: 13, borderRadius: '50%', background: C.amber, border: `2px solid ${C.surface}` }} />}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: C.text }}>{event.name}</div>
-                      <div style={{ fontFamily: fontMono, fontSize: 10.5, color: C.textMuted, marginTop: 2 }}>{date} · {venue}</div>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: fontMono, fontSize: 11, color: C.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.vendor?.name ?? '—'}</div>
-                  <div style={{ fontFamily: fontMono, fontSize: 11, color: C.textMuted }}>{kindLabel(event)}</div>
-                  <div><StatusBadge status={STATUS_LABEL[event.status]} /></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.surface2, overflow: 'hidden' }}>
-                      <span style={{ display: 'block', height: '100%', width: `${t.pct}%`, background: `linear-gradient(90deg,${C.hot},${C.amber})` }} />
-                    </div>
-                    <div style={{ fontFamily: fontMono, fontSize: 10.5, color: C.textMuted, width: 32, textAlign: 'right' }}>{t.pct}%</div>
-                  </div>
-                  <div style={{ fontFamily: fontMono, fontSize: 11, color: C.amber }}>{event.watchlist_count ?? 0}</div>
-                  <CardMenu event={event} onPublish={() => handlePublish(event)} onDelete={() => handleDelete(event)} />
+                  {kindLabel(event)}
+                </span>
+              </div>
+            </div>
+
+            {/* ── Card content ── */}
+            <div style={{ padding: 16 }}>
+              {/* Event name */}
+              <div
+                style={{
+                  fontFamily: fontDisplay,
+                  textTransform: 'uppercase',
+                  fontSize: 17,
+                  letterSpacing: '0.01em',
+                  marginBottom: 4,
+                  color: C.text,
+                }}
+              >
+                {event.name}
+              </div>
+
+              {/* Date + venue */}
+              <div
+                style={{
+                  fontFamily: fontMono,
+                  fontSize: 11,
+                  color: C.textMuted,
+                  marginBottom: 2,
+                }}
+              >
+                {date} · {venue}
+              </div>
+
+              {/* Vendor */}
+              <div
+                style={{
+                  fontFamily: fontMono,
+                  fontSize: 10.5,
+                  color: C.textFainter,
+                  marginBottom: 12,
+                }}
+              >
+                {event.vendor?.name ?? '—'}
+              </div>
+
+              {/* Tickets sold */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: 11,
+                  color: C.textMuted,
+                  marginBottom: 6,
+                }}
+              >
+                <span>Tickets sold</span>
+
+                <span>
+                  {t.pct}% ({t.sold.toLocaleString()}/
+                  {t.cap.toLocaleString()})
+                </span>
+              </div>
+
+              {/* Ticket progress */}
+              <div
+                style={{
+                  height: 5,
+                  borderRadius: 3,
+                  background: C.surface2,
+                  overflow: 'hidden',
+                  marginBottom: 14,
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    height: '100%',
+                    width: `${Math.min(t.pct, 100)}%`,
+                    background: `linear-gradient(90deg, ${C.hot}, ${C.amber})`,
+                  }}
+                />
+              </div>
+
+              {/* Watchlist */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    fontFamily: fontMono,
+                    fontSize: 11,
+                    color: C.amber,
+                  }}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                    <path
+                      d="M10 6v4l3 2"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+
+                  {event.watchlist_count ?? 0}
                 </div>
-              );
-            })
-          )}
-        </div>
-      )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )
+)}
+
+
+  {/* ── List view ── */}
+{view === 'list' && (
+  <div
+    style={{
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 12,
+      overflow: 'hidden',
+    }}
+  >
+    {/* ── Table header ── */}
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '2.1fr 1fr .9fr 1fr 1.2fr .8fr 32px',
+        gap: 12,
+        padding: '12px 18px',
+        fontFamily: fontMono,
+        fontSize: 10.5,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: C.textFainter,
+      }}
+    >
+      <span>Event</span>
+      <span>Vendor</span>
+      <span>Type</span>
+      <span>Status</span>
+      <span>Tickets sold</span>
+      <span>Watching</span>
+      <span>Actions</span>
+    </div>
+
+    {/* ── Empty state ── */}
+    {filteredSorted.length === 0 ? (
+      <EmptyState />
+    ) : (
+      filteredSorted.map((event) => {
+        const t = tierTotals(event);
+        const attn = needsAttention(event);
+        const { date, venue } = primaryLegSummary(event);
+
+        // Get the first image from event.media
+        const imageMedia = event.media?.find(
+          (media) => media.type === 'image'
+        );
+
+        const imageUrl = imageMedia?.url ?? null;
+
+        return (
+          <div
+            key={event.id}
+            onClick={() =>
+              router.visit(route('admin.events.edit', event.id))
+            }
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                '2.1fr 1fr .9fr 1fr 1.2fr .8fr 32px',
+              alignItems: 'center',
+              gap: 12,
+              padding: '13px 18px',
+              borderTop: `1px solid ${C.border}`,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            {/* ── Event ── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                minWidth: 0,
+              }}
+            >
+              {/* Thumbnail */}
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 7,
+                  flexShrink: 0,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: gradientFor(event.id),
+                }}
+              >
+                {imageUrl && (
+                  <img
+                    src={imageUrl}
+                    alt={event.name}
+                    loading="lazy"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                )}
+
+                {/* Attention indicator */}
+                {attn.flag && (
+                  <div
+                    title={attn.reason}
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      width: 13,
+                      height: 13,
+                      borderRadius: '50%',
+                      background: C.amber,
+                      border: `2px solid ${C.surface}`,
+                      zIndex: 2,
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Event information */}
+              <div
+                style={{
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 13.5,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: C.text,
+                  }}
+                >
+                  {event.name}
+                </div>
+
+                <div
+                  style={{
+                    fontFamily: fontMono,
+                    fontSize: 10.5,
+                    color: C.textMuted,
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {date} · {venue}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Vendor ── */}
+            <div
+              style={{
+                fontFamily: fontMono,
+                fontSize: 11,
+                color: C.textMuted,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {event.vendor?.name ?? '—'}
+            </div>
+
+            {/* ── Type ── */}
+            <div
+              style={{
+                fontFamily: fontMono,
+                fontSize: 11,
+                color: C.textMuted,
+              }}
+            >
+              {kindLabel(event)}
+            </div>
+
+            {/* ── Status ── */}
+            <div>
+              <StatusBadge
+                status={STATUS_LABEL[event.status]}
+              />
+            </div>
+
+            {/* ── Tickets sold ── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  height: 5,
+                  borderRadius: 3,
+                  background: C.surface2,
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    height: '100%',
+                    width: `${Math.min(t.pct, 100)}%`,
+                    background: `linear-gradient(90deg, ${C.hot}, ${C.amber})`,
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  fontFamily: fontMono,
+                  fontSize: 10.5,
+                  color: C.textMuted,
+                  width: 32,
+                  textAlign: 'right',
+                }}
+              >
+                {t.pct}%
+              </div>
+            </div>
+
+            {/* ── Watching ── */}
+            <div
+              style={{
+                fontFamily: fontMono,
+                fontSize: 11,
+                color: C.amber,
+              }}
+            >
+              {event.watchlist_count ?? 0}
+            </div>
+
+            {/* ── Actions ── */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardMenu
+                event={event}
+                onPublish={() => handlePublish(event)}
+                onCancel={() => handleCancel(event)}
+                onDelete={() => handleDelete(event)}
+              />
+            </div>
+          </div>
+        );
+      })
+    )}
+  </div>
+)}
+
 
       {events.meta.last_page > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 28, flexWrap: 'wrap' }}>

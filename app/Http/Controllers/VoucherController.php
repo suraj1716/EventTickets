@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\Voucher;
 use App\Models\VoucherUsage;
 use App\Services\CartService;
+use App\Services\StripeCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -66,9 +67,13 @@ class VoucherController extends Controller
     }
 
     /**
-     * Direct Stripe purchase (bypasses cart — used from gift card shop "Buy Now").
+     * Direct Stripe purchase (bypasses cart — used from gift card shop
+     * "Buy Now"). Same StripeCheckoutService/PaymentIntent engine as
+     * the main cart checkout and resale checkout — the buyer pays on
+     * an embedded <Elements><PaymentElement/></Elements> form on our
+     * own page instead of being redirected to checkout.stripe.com.
      */
-        public function purchase(Request $request)
+        public function purchase(Request $request, StripeCheckoutService $stripeCheckoutService)
         {
             $request->validate([
                 'gift_card_template_id' => 'required|exists:gift_card_templates,id',
@@ -82,8 +87,6 @@ class VoucherController extends Controller
 
             $qty  = $request->input('quantity', 1);
             $user = Auth::user();
-
-            Stripe::setApiKey(config('app.stripe_secret_key'));
 
             DB::beginTransaction();
             try {
@@ -102,20 +105,18 @@ class VoucherController extends Controller
 
                 $voucherIds = $vouchers->pluck('id')->implode(',');
 
-                $session = StripeSession::create([
-                    'customer_email' => $user->email,
-                    'line_items' => [[
-                        'price_data' => [
-                            'currency'     => config('app.currency', 'aud'),
-                            'product_data' => ['name' => $template->title],
-                            'unit_amount'  => intval($template->amount * 100),
-                        ],
-                        'quantity' => $qty,
-                    ]],
-                    'mode'        => 'payment',
-                    'success_url' => route('stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
-                    'cancel_url'  => route('gift-voucher.shop'),
-                    'metadata'    => [
+                $paymentIntent = $stripeCheckoutService->createPaymentIntent([
+                    'amount' => (int) round($template->amount * 100 * $qty),
+                    'currency' => config('app.currency', 'aud'),
+                    'receipt_email' => $user->email,
+                    'payment_method_types' => ['card'],
+                    // voucher_ids + gift_card_template_id is how
+                    // StripeController::handle() branches
+                    // payment_intent.succeeded to gift card
+                    // fulfillment instead of the normal Order-based
+                    // path — same metadata keys the old
+                    // checkout.session.completed branch used.
+                    'metadata' => [
                         'voucher_ids'            => $voucherIds,
                         'gift_card_template_id'  => $template->id,
                         'purchased_by'           => $user->id,
@@ -124,10 +125,15 @@ class VoucherController extends Controller
                     ],
                 ]);
 
-                $vouchers->each(fn($v) => $v->update(['stripe_session_id' => $session->id]));
+                $vouchers->each(fn($v) => $v->update(['stripe_payment_intent' => $paymentIntent->id]));
 
                 DB::commit();
-                return Inertia::location($session->url);
+
+                return response()->json([
+                    'clientSecret' => $paymentIntent->client_secret,
+                    'stripeKey' => config('services.stripe.key'),
+                    'totalDue' => $template->amount * $qty,
+                ]);
             } catch (\Exception $e) {
                 DB::rollBack();
                 Log::error('Gift card purchase failed: ' . $e->getMessage());

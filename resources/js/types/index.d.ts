@@ -174,6 +174,7 @@ export interface VenueSeat {
 // ---------- Event Seat ----------
 
 export interface EventSeat {
+  sort_order: any;
   id: number;
 
   event_leg_id: number;

@@ -25,12 +25,14 @@ class Event extends Model
         'languages',
         'watchlist_enabled',
         'published_at',
+        'cancelled_at',
     ];
 
     protected $casts = [
         'languages' => 'array',
         'watchlist_enabled' => 'boolean',
         'published_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     protected static function booted(): void

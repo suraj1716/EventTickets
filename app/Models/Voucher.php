@@ -22,6 +22,7 @@ class Voucher extends Model
     'gift_card_template_id',
     'gift_card_product_id',
     'stripe_session_id',
+    'stripe_payment_intent',
     'stripe_coupon_id',
     'expires_at',
     'active',

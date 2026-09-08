@@ -4,10 +4,18 @@
 // (handled by resale.checkout's auth middleware) — browsing doesn't,
 // so anyone can see what's available before signing up.
 
-import { Head, Link, router } from "@inertiajs/react";
+import { useMemo, useState, FormEvent } from "react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import toast from "react-hot-toast";
 import PageHero from "@/Components/Page/PageHero";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 
 interface Listing {
   id: number;
@@ -44,31 +52,150 @@ interface Props {
   };
 }
 
-export default function ResaleIndex({ listings }: Props) {
-function buy(listingId: number) {
-  router.post(
-    route("resale.checkout", listingId),
-    {},
-    {
-      preserveScroll: true,
+// Embedded payment form for a single resale listing — same
+// PaymentElement pattern as Checkout/Payment.tsx, just rendered
+// inline in a modal instead of a full page, since a resale purchase
+// is always exactly one ticket with no cart/order summary needed.
+function ResalePaymentForm({
+  listing,
+  onDone,
+}: {
+  listing: Listing;
+  onDone: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-      onError: (errors) => {
-        console.log("RESALE CHECKOUT ERRORS:", errors);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-        if (errors.resale) {
-          toast.error(errors.resale);
-          return;
-        }
+    if (!stripe || !elements || submitting) return;
 
-        toast.error("Unable to purchase this ticket.");
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/stripe/success?payment_intent={PAYMENT_INTENT_ID}`,
       },
+    });
 
-      onFinish: () => {
-        console.log("Resale checkout request finished");
-      },
+    if (error) {
+      setErrorMessage(
+        error.message ?? "Payment failed. Please check your payment details."
+      );
+      setSubmitting(false);
     }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement />
+
+      {errorMessage && (
+        <div className="mt-3 rounded-lg border border-red-800/40 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={submitting}
+          className="flex-1 rounded-lg border border-[#26232E] py-2.5 text-sm font-semibold text-[#9C97A8] hover:text-white transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!stripe || !elements || submitting}
+          className="flex-1 rounded-lg bg-[#FFB627] py-2.5 text-sm font-bold text-[#0B0B10] hover:bg-[#ffc75c] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Processing…" : `Pay $${listing.price}`}
+        </button>
+      </div>
+    </form>
   );
 }
+
+function ResaleCheckoutModal({
+  listing,
+  clientSecret,
+  stripeKey,
+  onClose,
+}: {
+  listing: Listing;
+  clientSecret: string;
+  stripeKey: string;
+  onClose: () => void;
+}) {
+  const stripePromise = useMemo(() => loadStripe(stripeKey), [stripeKey]);
+  const options = useMemo(() => ({ clientSecret }), [clientSecret]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-[#26232E] bg-[#15141B] p-6">
+        <h3 className="font-semibold text-white mb-1">
+          {listing.ticket.event_leg?.event?.name ?? "Resale ticket"}
+        </h3>
+        <p className="text-xs text-[#9C97A8] mb-4">
+          {listing.ticket.event_leg?.venue_name}
+          {listing.ticket.ticket_tier ? ` · ${listing.ticket.ticket_tier.name}` : ""}
+        </p>
+
+        <Elements stripe={stripePromise} options={options}>
+          <ResalePaymentForm listing={listing} onDone={onClose} />
+        </Elements>
+      </div>
+    </div>
+  );
+}
+
+export default function ResaleIndex({ listings }: Props) {
+  const { csrf_token } = usePage().props as { csrf_token: string };
+  const [checkout, setCheckout] = useState<{
+    listing: Listing;
+    clientSecret: string;
+    stripeKey: string;
+  } | null>(null);
+  const [buyingId, setBuyingId] = useState<number | null>(null);
+
+  async function buy(listing: Listing) {
+    setBuyingId(listing.id);
+    try {
+      const res = await fetch(route("resale.checkout", listing.id), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRF-TOKEN": csrf_token,
+        },
+        body: JSON.stringify({}),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.resale || data.message || "Unable to purchase this ticket.");
+        return;
+      }
+
+      setCheckout({
+        listing,
+        clientSecret: data.clientSecret,
+        stripeKey: data.stripeKey,
+      });
+    } catch {
+      toast.error("Unable to purchase this ticket.");
+    } finally {
+      setBuyingId(null);
+    }
+  }
+
   return (
     <AuthenticatedLayout>
       <Head title="Resale tickets" />
@@ -187,10 +314,11 @@ function buy(listingId: number) {
                     </p>
                     <button
                       type="button"
-                      onClick={() => buy(listing.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2"
+                      onClick={() => buy(listing)}
+                      disabled={buyingId === listing.id}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Buy
+                      {buyingId === listing.id ? "Please wait…" : "Buy"}
                     </button>
                   </div>
                 </div>
@@ -219,6 +347,15 @@ function buy(listingId: number) {
           )}
         </div>
       </div>
+
+      {checkout && (
+        <ResaleCheckoutModal
+          listing={checkout.listing}
+          clientSecret={checkout.clientSecret}
+          stripeKey={checkout.stripeKey}
+          onClose={() => setCheckout(null)}
+        />
+      )}
     </AuthenticatedLayout>
   );
 }

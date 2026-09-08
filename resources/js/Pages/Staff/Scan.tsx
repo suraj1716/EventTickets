@@ -54,6 +54,12 @@ export default function Scan() {
     };
   }, []);
 
+function qrboxFunction(viewfinderWidth: number, viewfinderHeight: number) {
+  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+  const size = Math.floor(minEdge * 0.75); // 75% of the smaller video dimension
+  return { width: size, height: size };
+}
+
   async function startCamera() {
     setCameraError(null);
 
@@ -66,33 +72,30 @@ export default function Scan() {
 
       scannerRef.current = scanner;
 
-      await scanner.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: {
-            width: 250,
-            height: 250,
-          },
-          aspectRatio: 1,
-        },
-        async (decodedText) => {
-          if (scanningRef.current || submitting) return;
-
-          scanningRef.current = true;
-
-          const value = decodedText.trim().toUpperCase();
-
-          setCode(value);
-
-          await stopCamera();
-
-          submitCode(value);
-        },
-        () => {
-          // Ignore individual frame decode failures.
-        }
-      );
+     await scanner.start(
+  { facingMode: 'environment' },
+  {
+    fps: 10,
+    qrbox: qrboxFunction, // was: { width: 250, height: 250 }
+    aspectRatio: 1,
+  },
+  async (decodedText) => {
+    if (scanningRef.current || submitting) return;
+    scanningRef.current = true;
+    const value = decodedText.trim().toUpperCase();
+    setCode(value);
+    await stopCamera();
+    submitCode(value);
+  },
+  (errorMessage) => {
+    // Temporarily log this instead of ignoring it — if you see a
+    // stream of "No MultiFormat Readers were able to detect the code"
+    // messages, the scanner IS running and just isn't finding a code
+    // in frame (aim/distance/lighting). If you see nothing at all,
+    // the decode loop itself isn't running.
+    console.debug('QR frame miss:', errorMessage);
+  }
+);
 
       setCameraActive(true);
     } catch (error) {

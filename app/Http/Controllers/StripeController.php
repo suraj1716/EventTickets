@@ -14,9 +14,11 @@ use App\Models\CartItem;
 use App\Models\GiftCardTemplate;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\TicketResaleListing;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherUsage;
+use App\Services\TicketResaleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -482,7 +484,7 @@ class StripeController extends Controller
 
                 break;
 
-                        case 'payment_intent.succeeded':
+            case 'payment_intent.succeeded':
                 if (\App\Models\ProcessedStripeEvent::where('stripe_event_id', $event->id)->exists()) {
                     Log::info("Stripe event {$event->id} already processed — skipping");
                     break;
@@ -493,6 +495,59 @@ class StripeController extends Controller
                 $paymentIntent    = $paymentIntentObj['id'];
                 $paymentMethodType = null;
                 $chargeId          = null;
+
+                // ── Ticket resale / gift-card-shop purchases now create a
+                // PaymentIntent directly (TicketResaleCheckoutController,
+                // VoucherController::purchase()) instead of a Checkout
+                // Session, so they're fulfilled here rather than in
+                // checkout.session.completed. Same metadata-based routing
+                // as that handler — branch and return before falling
+                // through to the Order-based lookup below, since neither
+                // of these has an Order row keyed on this payment_intent.
+                $earlyMetadata = $paymentIntentObj->metadata ? $paymentIntentObj->metadata->toArray() : [];
+
+                if (!empty($earlyMetadata['resale_listing_id'])) {
+                    try {
+                        $listing = \App\Models\TicketResaleListing::findOrFail($earlyMetadata['resale_listing_id']);
+                        $buyer = \App\Models\User::findOrFail($earlyMetadata['buyer_user_id']);
+
+                        app(\App\Services\TicketResaleService::class)->completeSale(
+                            $listing,
+                            $buyer,
+                            null,
+                            $paymentIntent,
+                        );
+
+                        Log::info('Resale ticket transfer completed via payment_intent.succeeded webhook', [
+                            'listing_id' => $listing->id,
+                            'payment_intent' => $paymentIntent,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Resale fulfillment failed: ' . $e->getMessage(), [
+                            'payment_intent' => $paymentIntent,
+                            'metadata' => $earlyMetadata,
+                        ]);
+                    }
+
+                    break;
+                }
+
+                if (!empty($earlyMetadata['voucher_ids']) && !empty($earlyMetadata['gift_card_template_id'])) {
+                    try {
+                        $this->fulfillGiftCardOrderFromPaymentIntent($paymentIntent, $earlyMetadata);
+
+                        Log::info('Gift card order fulfilled via payment_intent.succeeded webhook', [
+                            'payment_intent' => $paymentIntent,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Gift card fulfillment failed: ' . $e->getMessage(), [
+                            'payment_intent' => $paymentIntent,
+                            'metadata' => $earlyMetadata,
+                        ]);
+                    }
+
+                    break;
+                }
 
                 try {
                     $paymentIntentObj = $stripe->paymentIntents->retrieve($paymentIntent, [
@@ -541,12 +596,12 @@ class StripeController extends Controller
                                     ->lockForUpdate()
                                     ->get();
 
-                               // 'reserved' is the expected state for a seat this same buyer
-// holds via their cart (see CartService::setTicketCartItems).
-// Only 'sold' or 'blocked' mean it's genuinely gone.
-$unavailable = $lockedSeats->first(
-    fn($seat) => in_array($seat->status, ['sold', 'blocked'], true)
-);
+                                // 'reserved' is the expected state for a seat this same buyer
+                                // holds via their cart (see CartService::setTicketCartItems).
+                                // Only 'sold' or 'blocked' mean it's genuinely gone.
+                                $unavailable = $lockedSeats->first(
+                                    fn($seat) => in_array($seat->status, ['sold', 'blocked'], true)
+                                );
 
                                 if ($unavailable) {
                                     Log::error('Seat already unavailable at payment confirmation', [
@@ -696,7 +751,7 @@ $unavailable = $lockedSeats->first(
                     }
                 }
 
-                              if ($userId && !empty($productsToDeleteFromCart)) {
+                if ($userId && !empty($productsToDeleteFromCart)) {
                     CartItem::where('user_id', $userId)
                         ->whereIn('product_id', $productsToDeleteFromCart)
                         ->where('saved_for_later', false)
@@ -741,7 +796,7 @@ $unavailable = $lockedSeats->first(
                 break;
 
 
-                case 'refund.created':
+            case 'refund.created':
                 $refund = $event->data->object;
                 $paymentIntent = $refund['payment_intent'] ?? null;
 
@@ -837,79 +892,99 @@ $unavailable = $lockedSeats->first(
         return response('', 200);
     }
 
-public function success(Request $request)
-{
-    $user = Auth::user();
+    public function success(Request $request)
+    {
+        $user = Auth::user();
 
-    $paymentIntentId = $request->get('payment_intent');
+        /*
+    |--------------------------------------------------------------------------
+    | Resale purchases may come back as either ?session_id=... (hosted
+    | Checkout Session) or ?payment_intent=... (Payment Element). Handle
+    | the session_id shape first.
+    |--------------------------------------------------------------------------
+    */
 
-    if (!$paymentIntentId) {
-        Log::warning('Stripe success called without payment_intent', [
-            'user_id' => $user?->id,
-            'query' => $request->query(),
-        ]);
+        $sessionId = $request->get('session_id');
 
-        abort(404);
-    }
+        if ($sessionId) {
+            $listing = TicketResaleListing::where('stripe_session_id', $sessionId)->first();
 
-    Stripe::setApiKey(config('services.stripe.secret'));
+            if ($listing) {
+                return $this->resaleSuccess($user, $listing, $sessionId, null);
+            }
+            // Not a resale session we recognize — fall through to the
+            // normal payment_intent handling below in case it's needed.
+        }
 
-    try {
-        $paymentIntent = \Stripe\PaymentIntent::retrieve(
-            $paymentIntentId,
-            [
-                'expand' => ['payment_method', 'latest_charge'],
-            ]
-        );
-    } catch (\Exception $e) {
-        Log::error("Could not retrieve PaymentIntent {$paymentIntentId}: " . $e->getMessage());
+        $paymentIntentId = $request->get('payment_intent');
 
-        abort(404);
-    }
+        if (!$paymentIntentId) {
+            Log::warning('Stripe success called without payment_intent', [
+                'user_id' => $user?->id,
+                'query' => $request->query(),
+            ]);
 
-    /*
+            abort(404);
+        }
+
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        try {
+            $paymentIntent = \Stripe\PaymentIntent::retrieve(
+                $paymentIntentId,
+                [
+                    'expand' => ['payment_method', 'latest_charge'],
+                ]
+            );
+        } catch (\Exception $e) {
+            Log::error("Could not retrieve PaymentIntent {$paymentIntentId}: " . $e->getMessage());
+
+            abort(404);
+        }
+
+        /*
     |--------------------------------------------------------------------------
     | Payment must actually be successful
     |--------------------------------------------------------------------------
     */
 
-    if ($paymentIntent->status !== 'succeeded') {
-        Log::warning('Stripe success reached before PaymentIntent succeeded', [
-            'payment_intent' => $paymentIntentId,
-            'status' => $paymentIntent->status,
-            'user_id' => $user->id,
-        ]);
+        if ($paymentIntent->status !== 'succeeded') {
+            Log::warning('Stripe success reached before PaymentIntent succeeded', [
+                'payment_intent' => $paymentIntentId,
+                'status' => $paymentIntent->status,
+                'user_id' => $user->id,
+            ]);
 
-        return redirect()
-            ->route('stripe.failure')
-            ->with('error', 'Payment has not completed yet.');
-    }
+            return redirect()
+                ->route('stripe.failure')
+                ->with('error', 'Payment has not completed yet.');
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Find the orders using PaymentIntent
     |--------------------------------------------------------------------------
     */
 
-    $orders = Order::where('payment_intent', $paymentIntentId)
-        ->with('vendor', 'orderItems.product')
-        ->get();
+        $orders = Order::where('payment_intent', $paymentIntentId)
+            ->with('vendor', 'orderItems.product')
+            ->get();
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Security: only the owner can view these orders
     |--------------------------------------------------------------------------
     */
 
-    if ($orders->isNotEmpty()) {
-        foreach ($orders as $order) {
-            if ($order->user_id !== $user->id) {
-                abort(403);
+        if ($orders->isNotEmpty()) {
+            foreach ($orders as $order) {
+                if ($order->user_id !== $user->id) {
+                    abort(403);
+                }
             }
         }
-    }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | If webhook already fulfilled the orders, we're done.
     |
@@ -917,185 +992,253 @@ public function success(Request $request)
     |--------------------------------------------------------------------------
     */
 
-    if ($orders->isEmpty()) {
-        Log::warning('No orders found for successful PaymentIntent', [
-            'payment_intent' => $paymentIntentId,
-            'user_id' => $user->id,
-        ]);
+        if ($orders->isEmpty()) {
+            /*
+        |--------------------------------------------------------------------------
+        | This PaymentIntent isn't tied to any Order at all — check whether
+        | it's a resale purchase before falling back to the order_ids
+        | metadata lookup / 404. Resale purchases never create an Order,
+        | so this branch is what resolves them when the redirect carries
+        | payment_intent instead of session_id.
+        |--------------------------------------------------------------------------
+        */
 
-        /*
+            $resaleListingId = $paymentIntent->metadata->resale_listing_id ?? null;
+
+            if ($resaleListingId) {
+                $listing = TicketResaleListing::find($resaleListingId);
+
+                if ($listing) {
+                    return $this->resaleSuccess($user, $listing, $listing->stripe_session_id, $paymentIntentId);
+                }
+            }
+
+            Log::warning('No orders found for successful PaymentIntent', [
+                'payment_intent' => $paymentIntentId,
+                'user_id' => $user->id,
+            ]);
+
+            /*
         |--------------------------------------------------------------------------
         | Give webhook a moment / handle payment that succeeded but hasn't
         | created the order association yet.
         |--------------------------------------------------------------------------
         */
 
-        $metadata = $paymentIntent->metadata
-            ? $paymentIntent->metadata->toArray()
-            : [];
+            $metadata = $paymentIntent->metadata
+                ? $paymentIntent->metadata->toArray()
+                : [];
 
-        $orderIds = [];
+            $orderIds = [];
 
-        if (!empty($metadata['order_ids'])) {
-            $orderIds = collect(explode(',', $metadata['order_ids']))
-                ->map(fn ($id) => (int) trim($id))
-                ->filter()
-                ->values()
-                ->all();
+            if (!empty($metadata['order_ids'])) {
+                $orderIds = collect(explode(',', $metadata['order_ids']))
+                    ->map(fn($id) => (int) trim($id))
+                    ->filter()
+                    ->values()
+                    ->all();
+            }
+
+            if (!empty($orderIds)) {
+                $orders = Order::whereIn('id', $orderIds)
+                    ->where('user_id', $user->id)
+                    ->with('vendor', 'orderItems.product')
+                    ->get();
+            }
         }
 
-        if (!empty($orderIds)) {
-            $orders = Order::whereIn('id', $orderIds)
-                ->where('user_id', $user->id)
-                ->with('vendor', 'orderItems.product')
-                ->get();
-        }
-    }
-
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Still no orders
     |--------------------------------------------------------------------------
     */
 
-    if ($orders->isEmpty()) {
-        Log::error('Successful PaymentIntent has no associated orders', [
-            'payment_intent' => $paymentIntentId,
-            'user_id' => $user->id,
-            'metadata' => $paymentIntent->metadata
-                ? $paymentIntent->metadata->toArray()
-                : [],
-        ]);
+        if ($orders->isEmpty()) {
+            Log::error('Successful PaymentIntent has no associated orders', [
+                'payment_intent' => $paymentIntentId,
+                'user_id' => $user->id,
+                'metadata' => $paymentIntent->metadata
+                    ? $paymentIntent->metadata->toArray()
+                    : [],
+            ]);
 
-        abort(404);
-    }
+            abort(404);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Clear product cart items
     |--------------------------------------------------------------------------
     */
 
-    $productIds = $orders
-        ->flatMap(fn ($order) => $order->orderItems->pluck('product_id'))
-        ->filter()
-        ->unique()
-        ->values();
+        $productIds = $orders
+            ->flatMap(fn($order) => $order->orderItems->pluck('product_id'))
+            ->filter()
+            ->unique()
+            ->values();
 
-    if ($productIds->isNotEmpty()) {
-        CartItem::where('user_id', $user->id)
-            ->whereIn('product_id', $productIds)
-            ->where('saved_for_later', false)
-            ->delete();
-    }
+        if ($productIds->isNotEmpty()) {
+            CartItem::where('user_id', $user->id)
+                ->whereIn('product_id', $productIds)
+                ->where('saved_for_later', false)
+                ->delete();
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Clear ticket cart items
     |--------------------------------------------------------------------------
     */
 
-    $ticketTierIds = $orders
-        ->flatMap(fn ($order) => $order->orderItems->pluck('ticket_tier_id'))
-        ->filter()
-        ->unique()
-        ->values();
+        $ticketTierIds = $orders
+            ->flatMap(fn($order) => $order->orderItems->pluck('ticket_tier_id'))
+            ->filter()
+            ->unique()
+            ->values();
 
-    if ($ticketTierIds->isNotEmpty()) {
-        CartItem::whereIn('user_id', $orders->pluck('user_id')->unique())
-            ->whereIn('ticket_tier_id', $ticketTierIds)
-            ->where('saved_for_later', false)
-            ->delete();
-    }
+        if ($ticketTierIds->isNotEmpty()) {
+            CartItem::whereIn('user_id', $orders->pluck('user_id')->unique())
+                ->whereIn('ticket_tier_id', $ticketTierIds)
+                ->where('saved_for_later', false)
+                ->delete();
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Referral logic
     |--------------------------------------------------------------------------
     */
 
-    if ($user->referred_by && !$user->has_received_referral_bonus) {
-        $totalSpent = $user->orders()
-            ->where(function ($q) {
-                $q->where('status', 'Paid')
-                    ->orWhere('payment_status', 'paid');
-            })
-            ->sum('total_price');
+        if ($user->referred_by && !$user->has_received_referral_bonus) {
+            $totalSpent = $user->orders()
+                ->where(function ($q) {
+                    $q->where('status', 'Paid')
+                        ->orWhere('payment_status', 'paid');
+                })
+                ->sum('total_price');
 
-        if ($totalSpent >= 100) {
-            Voucher::create([
-                'code' => strtoupper(Str::random(10)),
-                'type' => 'gift',
-                'amount' => 30,
-                'discount_type' => 'fixed',
-                'remaining_amount' => 30,
-                'max_uses' => 1,
-                'used_count' => 0,
-                'user_id' => $user->referred_by,
-                'active' => true,
-                'expires_at' => now()->addDays(365),
-            ]);
+            if ($totalSpent >= 100) {
+                Voucher::create([
+                    'code' => strtoupper(Str::random(10)),
+                    'type' => 'gift',
+                    'amount' => 30,
+                    'discount_type' => 'fixed',
+                    'remaining_amount' => 30,
+                    'max_uses' => 1,
+                    'used_count' => 0,
+                    'user_id' => $user->referred_by,
+                    'active' => true,
+                    'expires_at' => now()->addDays(365),
+                ]);
 
-            Voucher::create([
-                'code' => strtoupper(Str::random(10)),
-                'type' => 'gift',
-                'amount' => 30,
-                'discount_type' => 'fixed',
-                'remaining_amount' => 30,
-                'max_uses' => 1,
-                'user_id' => $user->id,
-                'active' => true,
-                'expires_at' => now()->addDays(365),
-            ]);
+                Voucher::create([
+                    'code' => strtoupper(Str::random(10)),
+                    'type' => 'gift',
+                    'amount' => 30,
+                    'discount_type' => 'fixed',
+                    'remaining_amount' => 30,
+                    'max_uses' => 1,
+                    'user_id' => $user->id,
+                    'active' => true,
+                    'expires_at' => now()->addDays(365),
+                ]);
 
-            $user->update([
-                'has_received_referral_bonus' => true,
-            ]);
+                $user->update([
+                    'has_received_referral_bonus' => true,
+                ]);
+            }
         }
-    }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Generate vouchers for voucher products
     |--------------------------------------------------------------------------
     */
 
-    foreach ($orders as $order) {
-        foreach ($order->orderItems as $item) {
-            if (
-                $item->product &&
-                $item->product->product_type === 'voucher'
-            ) {
-                Voucher::create([
-                    'code' => strtoupper(Str::random(12)),
-                    'type' => 'gift',
-                    'amount' => $item->price,
-                    'discount_type' => 'fixed',
-                    'remaining_amount' => $item->price,
-                    'max_uses' => 1,
-                    'used_count' => 0,
-                    'user_id' => $user->id,
-                    'product_id' => $item->product_id,
-                    'active' => true,
-                    'expires_at' => now()->addDays(365),
-                ]);
+        foreach ($orders as $order) {
+            foreach ($order->orderItems as $item) {
+                if (
+                    $item->product &&
+                    $item->product->product_type === 'voucher'
+                ) {
+                    Voucher::create([
+                        'code' => strtoupper(Str::random(12)),
+                        'type' => 'gift',
+                        'amount' => $item->price,
+                        'discount_type' => 'fixed',
+                        'remaining_amount' => $item->price,
+                        'max_uses' => 1,
+                        'used_count' => 0,
+                        'user_id' => $user->id,
+                        'product_id' => $item->product_id,
+                        'active' => true,
+                        'expires_at' => now()->addDays(365),
+                    ]);
+                }
             }
         }
-    }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Success page
     |--------------------------------------------------------------------------
     */
 
-    return Inertia::render('Stripe/Success', [
-        'orders' => OrderViewResource::collection($orders)
-            ->collection
-            ->toArray(),
-    ]);
-}
+        return Inertia::render('Stripe/Success', [
+            'orders' => OrderViewResource::collection($orders)
+                ->collection
+                ->toArray(),
+        ]);
+    }
+   private function resaleSuccess($user, TicketResaleListing $listing, ?string $sessionId, ?string $paymentIntentId)
+{
+    if ($listing->buyer_user_id && $listing->buyer_user_id !== $user->id) {
+        abort(403);
+    }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Idempotent fallback — completeSale() no-ops if the webhook already
+    | fulfilled this (status !== 'active'), so it's safe to call again
+    | here even if the webhook beat us to it.
+    |--------------------------------------------------------------------------
+    */
+
+    if ($listing->status === 'active') {
+        $buyerId = $user->id;
+
+        if ($sessionId) {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            try {
+                $session = StripeSession::retrieve($sessionId);
+            } catch (\Exception $e) {
+                Log::error("Could not retrieve Checkout Session {$sessionId}: " . $e->getMessage());
+
+                abort(404);
+            }
+
+            if ($session->payment_status !== 'paid') {
+                return redirect()
+                    ->route('stripe.failure')
+                    ->with('error', 'Payment has not completed yet.');
+            }
+
+            $paymentIntentId = $paymentIntentId ?: $session->payment_intent;
+            $buyerId = $session->metadata->buyer_user_id ?? $buyerId;
+        }
+
+        $buyer = User::findOrFail($buyerId);
+
+        app(TicketResaleService::class)->completeSale($listing, $buyer, $sessionId, $paymentIntentId);
+
+        $listing->refresh();
+    }
+
+    return redirect()
+        ->route('tickets.index')
+        ->with('success', 'Ticket purchased — it\'s now in your account.');
+}
     private function fulfillGiftCardOrder(StripeSession $session): ?Order
     {
         // Idempotency guard — webhook and success() fallback can both call this
@@ -1144,6 +1287,88 @@ public function success(Request $request)
 
             return $order;
         });
+    }
+
+    /**
+     * Gift-card-shop fulfillment for the embedded PaymentIntent flow
+     * (VoucherController::purchase()). Mirrors fulfillGiftCardOrder()
+     * above, but keyed on payment_intent instead of a Checkout
+     * Session, and also does the voucher activation + recipient email
+     * steps that the old checkout.session.completed handler did
+     * later, further down in that same case block — this handler
+     * breaks immediately after calling this, so it doesn't fall
+     * through to that code.
+     */
+    private function fulfillGiftCardOrderFromPaymentIntent(string $paymentIntentId, array $metadata): ?Order
+    {
+        // Idempotency guard — webhook retries must not create duplicate orders.
+        $existing = Order::where('payment_intent', $paymentIntentId)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $vouchers = Voucher::where('stripe_payment_intent', $paymentIntentId)->get();
+        if ($vouchers->isEmpty()) {
+            Log::warning("No vouchers found for Stripe payment_intent {$paymentIntentId}");
+            return null;
+        }
+
+        $template = GiftCardTemplate::find($metadata['gift_card_template_id'] ?? null);
+        $userId   = $metadata['purchased_by'] ?? null;
+        $qty      = (int) ($metadata['quantity'] ?? $vouchers->count());
+        $total    = $vouchers->sum('amount');
+
+        $order = DB::transaction(function () use ($vouchers, $template, $userId, $qty, $total, $paymentIntentId) {
+            $order = Order::create([
+                'user_id'           => $userId,
+                'vendor_user_id'    => $template?->vendor_user_id,
+                'payment_method'    => 'card',
+                'total_price'       => $total,
+                'status'            => OrderStatusEnum::Paid->value,
+                'is_paid'           => true,
+                'payment_intent'    => $paymentIntentId,
+                'stripe_charge_id'  => $paymentIntentId,
+            ]);
+
+            OrderItem::create([
+                'order_id'              => $order->id,
+                'product_id'            => null,
+                'gift_card_template_id' => $template?->id,
+                'quantity'   => $qty,
+                'price'      => $template?->amount ?? ($total / max($qty, 1)),
+            ]);
+
+            Voucher::whereIn('id', $vouchers->pluck('id'))->update(['active' => true]);
+
+            Log::info("Gift card order #{$order->id} created for Stripe payment_intent {$paymentIntentId}");
+
+            return $order;
+        });
+
+        $buyer = $userId ? User::find($userId) : null;
+
+        foreach ($vouchers as $voucher) {
+            if (!empty($voucher->gifted_to_email) && !$voucher->sent_at) {
+                try {
+                    Mail::to($voucher->gifted_to_email)
+                        ->send(new GiftVoucherRecipientMail($voucher->fresh(), $buyer?->name));
+
+                    $voucher->update(['sent_at' => now()]);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send gift voucher email for voucher #{$voucher->id}: " . $e->getMessage());
+                }
+            }
+        }
+
+        if ($buyer) {
+            try {
+                Mail::to($buyer)->queue(new CheckoutCompleted(collect([$order])));
+            } catch (\Exception $e) {
+                Log::error('Failed to queue CheckoutCompleted for gift card order: ' . $e->getMessage());
+            }
+        }
+
+        return $order;
     }
 
 

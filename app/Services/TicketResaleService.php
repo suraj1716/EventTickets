@@ -273,7 +273,7 @@ class TicketResaleService
     protected function renderCodes(Ticket $ticket): array
     {
         $qrPath = "tickets/qr/{$ticket->code}.svg";
-        $qrSvg = QrCode::format('svg')->size(300)->generate($ticket->code);
+        $qrSvg = QrCode::format('svg')->size(300)->margin(2)->generate($ticket->code);
         Storage::disk('public')->put($qrPath, $qrSvg);
 
         $barcodePath = "tickets/barcode/{$ticket->code}.png";

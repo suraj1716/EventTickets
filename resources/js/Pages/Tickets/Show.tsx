@@ -41,6 +41,12 @@ interface Ticket {
     price: string;
   };
 
+  seat?: {
+    label: string;
+    row_label: string;
+    seat_number: number;
+  } | null;
+
   event_leg?: {
     venue_name: string;
     city?: string | null;
@@ -333,6 +339,7 @@ export default function TicketShow({ ticket }: Props) {
                   {ticket.ticket_tier.price
                     ? ` · $${ticket.ticket_tier.price}`
                     : ""}
+                  {ticket.seat?.label ? ` · Seat ${ticket.seat.label}` : ""}
                 </span>
               )}
             </div>
