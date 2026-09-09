@@ -18,15 +18,16 @@ class EventMedia extends Model
 
     public function getUrlAttribute(): string
     {
-        // Use the MEDIA_DISK env var so local uses 'public'
-        // and production uses 'r2' — same code, different .env
-        $disk = env('MEDIA_DISK', 'public');
-
         // If path already starts with http (e.g. already a full URL stored
         // in image_url column from old data) — return as-is
         if (str_starts_with($this->path, 'http')) {
             return $this->path;
         }
+
+        // Resolve the disk via config (not env()) so it stays correct even
+        // after `php artisan config:cache`, and lowercase it so a stray
+        // MEDIA_DISK=R2 in production doesn't miss the registered 'r2' disk.
+        $disk = strtolower(config('media-library.disk_name', 'public'));
 
         return Storage::disk($disk)->url($this->path);
     }
