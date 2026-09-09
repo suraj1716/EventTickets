@@ -819,6 +819,44 @@ class StripeController extends Controller
 
                 // Fallback path: a refund that happened OUTSIDE the app
                 // (e.g. manually via the Stripe Dashboard). Handle it minimally.
+                //
+                // Check resale listings FIRST — a resale payment_intent belongs
+                // to TicketResaleListing, not to any Order directly, so looking
+                // up Order::where('payment_intent', ...) alone would miss it
+                // and silently fall through to the "no order found" warning.
+                $resaleListing = TicketResaleListing::where('stripe_payment_intent', $paymentIntent)
+                    ->with('ticket.order')
+                    ->first();
+
+                if ($resaleListing) {
+                    $order = $resaleListing->ticket?->order;
+
+                    if (!$order) {
+                        Log::warning("Resale listing {$resaleListing->id} refunded out-of-band but has no ticket/order to reconcile against");
+                        break;
+                    }
+
+                    try {
+                        $refundRecord = app(\App\Services\RefundService::class)->recordRefund(
+                            order: $order,
+                            type: 'ticket',
+                            amount: $refund['amount'] / 100,
+                            stripeRefundId: $refund['id'],
+                            reason: "Resale refund via Stripe Dashboard (resale_listing:{$resaleListing->id})",
+                            ticketId: $resaleListing->ticket_id,
+                        );
+
+                        Mail::to($order->user)->send(new RefundProcessedForUser($order, $refundRecord));
+                        if ($order->vendorUser) {
+                            Mail::to($order->vendorUser)->send(new RefundProcessedForVendor($order, $refundRecord));
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Failed to send resale refund emails: " . $e->getMessage());
+                    }
+
+                    break;
+                }
+
                 $order = Order::where('payment_intent', $paymentIntent)
                     ->with(['user', 'vendorUser'])
                     ->first();

@@ -196,6 +196,30 @@ export default function ResaleIndex({ listings }: Props) {
     }
   }
 
+  async function cancelCheckout() {
+    if (!checkout) return;
+    const listingId = checkout.listing.id;
+
+    // Close immediately for a snappy UI — the release call is
+    // fire-and-forget from the user's perspective; if it fails, the
+    // 15-minute staleness fallback in the backend still recovers it.
+    setCheckout(null);
+
+    try {
+      await fetch(route("resale.checkout.cancel", listingId), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRF-TOKEN": csrf_token,
+        },
+        body: JSON.stringify({}),
+      });
+    } catch {
+      // Non-fatal — see comment above.
+    }
+  }
+
   return (
     <AuthenticatedLayout>
       <Head title="Resale tickets" />
@@ -353,7 +377,7 @@ export default function ResaleIndex({ listings }: Props) {
           listing={checkout.listing}
           clientSecret={checkout.clientSecret}
           stripeKey={checkout.stripeKey}
-          onClose={() => setCheckout(null)}
+          onClose={cancelCheckout}
         />
       )}
     </AuthenticatedLayout>

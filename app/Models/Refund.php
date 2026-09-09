@@ -9,6 +9,7 @@ class Refund extends Model
 {
    protected $fillable = [
     'order_id',
+    'ticket_id',   // ← new column: which ticket this refund is for (null = order-level)
     'type',
     'amount',
     'stripe_refund_id',
@@ -32,5 +33,10 @@ protected $casts = [
     public function refundedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'refunded_by');
+    }
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
     }
 }

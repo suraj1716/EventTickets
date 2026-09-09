@@ -6,6 +6,7 @@ use App\Models\TicketResaleListing;
 use App\Services\StripeCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TicketResaleCheckoutController extends Controller
 {
@@ -38,11 +39,20 @@ class TicketResaleCheckoutController extends Controller
 
             abort_unless($listing->status === 'active', 422, 'This listing is no longer available.');
 
-            abort_if(
-                $listing->stripe_payment_intent,
-                422,
-                'A checkout is already in progress for this listing.'
-            );
+            // A lock is only a real "checkout in progress" while it's
+            // fresh. If stripe_payment_intent was stamped more than 15
+            // minutes ago and the listing never sold, the buyer almost
+            // certainly abandoned the page (closed tab, declined card,
+            // network drop) — nothing else ever clears this column, so
+            // without a staleness window an abandoned attempt locks the
+            // listing out for every future buyer forever.
+            $lockIsStale = $listing->stripe_payment_intent
+                && $listing->updated_at
+                && $listing->updated_at->lt(now()->subMinutes(15));
+
+            if ($listing->stripe_payment_intent && !$lockIsStale) {
+                abort(422, 'A checkout is already in progress for this listing.');
+            }
 
             $listing->update(['stripe_payment_intent' => 'pending']);
         });
@@ -77,5 +87,42 @@ class TicketResaleCheckoutController extends Controller
             'clientSecret' => $paymentIntent->client_secret,
             'stripeKey' => config('services.stripe.key'),
         ]);
+    }
+
+    // Releases the checkout lock when the buyer explicitly cancels out of
+    // the payment form, so the listing is immediately purchasable again —
+    // without this, only the 15-minute staleness fallback in store() would
+    // eventually free it, which is a bad experience for a deliberate cancel.
+    public function cancel(Request $request, TicketResaleListing $listing, StripeCheckoutService $stripeCheckoutService)
+    {
+        DB::transaction(function () use ($listing, $stripeCheckoutService) {
+            $listing = TicketResaleListing::where('id', $listing->id)->lockForUpdate()->firstOrFail();
+
+            // Already sold/cancelled, or no in-progress checkout to cancel —
+            // nothing to do, and we must never touch a listing that's already
+            // sold (a completed sale's stripe_payment_intent must stay intact
+            // as the payment record).
+            if ($listing->status !== 'active' || !$listing->stripe_payment_intent) {
+                return;
+            }
+
+            $piId = $listing->stripe_payment_intent;
+
+            $listing->update(['stripe_payment_intent' => null]);
+
+            if ($piId && $piId !== 'pending') {
+                try {
+                    $stripeCheckoutService->cancelPaymentIntent($piId);
+                } catch (\Exception $e) {
+                    // Non-fatal — the listing lock is already released above,
+                    // which is what actually unblocks the buyer. A PI left
+                    // in 'requires_payment_method' on Stripe's side with no
+                    // further action taken is harmless.
+                    Log::warning("Failed to cancel Stripe PaymentIntent {$piId}: " . $e->getMessage());
+                }
+            }
+        });
+
+        return response()->json(['status' => 'cancelled']);
     }
 }

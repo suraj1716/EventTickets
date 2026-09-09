@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Log;
 
 class TicketRefundService
 {
+    public function __construct(
+        private readonly RefundService $refundService
+    ) {
+    }
+
     /**
      * Refunds the CURRENT owner of a ticket the exact amount THEY paid —
      * not the original face value, not the full order. If the ticket was
@@ -26,6 +31,32 @@ class TicketRefundService
         $ticket->loadMissing(['order', 'resaleListings']);
 
         $ownerUserId = $ticket->owner_user_id;
+
+        // Idempotency guard: if we already recorded a refund for this
+        // ticket (e.g. a previous run partially succeeded, or this is
+        // being retried), don't call Stripe again. Without this, a retry
+        // of event cancellation would attempt a second refund on an
+        // already-refunded charge for every ticket that succeeded last
+        // time — Stripe rejects it, but only after a wasted API call and
+        // a confusing "failed" result for a ticket that was actually
+        // already refunded correctly.
+        $existing = \App\Models\Refund::where('ticket_id', $ticket->id)->first();
+
+        if ($existing) {
+            Log::info('Refund skipped — already recorded for this ticket', [
+                'ticket_id' => $ticket->id,
+                'existing_refund_id' => $existing->id,
+                'stripe_refund_id' => $existing->stripe_refund_id,
+            ]);
+
+            return [
+                'status' => 'skipped',
+                'reason' => 'already_refunded',
+                'ticket_id' => $ticket->id,
+                'stripe_refund_id' => $existing->stripe_refund_id,
+            ];
+        }
+
         [$amount, $paymentIntentId, $source] = $this->resolvePayment($ticket);
 
         if ($amount === null || $amount <= 0 || ! $paymentIntentId) {
@@ -56,6 +87,22 @@ class TicketRefundService
                 'source' => $source,
                 'stripe_refund_id' => $refund->id,
             ]);
+
+            if ($ticket->order) {
+                $this->refundService->recordRefund(
+                    order: $ticket->order,
+                    type: 'ticket',
+                    amount: $amount,
+                    stripeRefundId: $refund->id,
+                    reason: "Ticket refund ({$source})",
+                    ticketId: $ticket->id,
+                );
+            } else {
+                Log::warning('Ticket refund issued but no order to attach Refund record to', [
+                    'ticket_id' => $ticket->id,
+                    'stripe_refund_id' => $refund->id,
+                ]);
+            }
 
             return [
                 'status' => 'refunded',

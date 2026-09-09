@@ -55,6 +55,9 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/resale/{listing}/checkout', [TicketResaleCheckoutController::class, 'store'])
         ->name('resale.checkout');
+
+    Route::post('/resale/{listing}/checkout/cancel', [TicketResaleCheckoutController::class, 'cancel'])
+        ->name('resale.checkout.cancel');
 });
 
 
