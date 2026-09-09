@@ -36,11 +36,7 @@ export default function HeroMediaSlider({
             >
               {item.type === "video" ? (
                 <video
-                  src={
-                    item.path.startsWith("http")
-                      ? item.path
-                      : `/storage/${item.path}`
-                  }
+                  src={item.url}
                   autoPlay
                   muted
                   loop
@@ -49,11 +45,7 @@ export default function HeroMediaSlider({
                 />
               ) : (
                 <img
-                  src={
-                    item.path.startsWith("http")
-                      ? item.path
-                      : `/storage/${item.path}`
-                  }
+                  src={item.url}
                   alt={eventName}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
@@ -88,6 +80,37 @@ export default function HeroMediaSlider({
             aria-label="Next media"
             className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 backdrop-blur text-white/80 hover:text-white hover:border-white/30 transition-colors"
           >
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
+
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+            {items.map((item, i) => (
+              <button
+                key={item.id ?? i}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Go to media ${i + 1}`}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === index
+                    ? "w-6 bg-white"
+                    : "w-1.5 bg-white/40 hover:bg-white/60"
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}          >
             <svg
               className="w-4 h-4"
               viewBox="0 0 24 24"
