@@ -47,6 +47,11 @@ return new class extends Migration
                  DEFAULT 'valid'"
             );
         }
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check');
+            DB::statement("ALTER TABLE tickets ADD CONSTRAINT tickets_status_check CHECK (status IN ('valid', 'listed', 'used', 'void'))");
+        }
     }
 
     public function down(): void
@@ -57,6 +62,11 @@ return new class extends Migration
                  MODIFY status ENUM('valid', 'used', 'void')
                  DEFAULT 'valid'"
             );
+        }
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check');
+            DB::statement("ALTER TABLE tickets ADD CONSTRAINT tickets_status_check CHECK (status IN ('valid', 'used', 'void'))");
         }
 
         Schema::table('tickets', function (Blueprint $table) {
