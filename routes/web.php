@@ -38,12 +38,9 @@ Route::get('/emergency-reseed-9f2k', function () {
         abort(404);
     }
 
-    \Illuminate\Support\Facades\Artisan::call('db:seed', [
-        '--class' => 'EventSeeder',
-        '--force' => true,
-    ]);
+    \App\Jobs\RunEventSeederJob::dispatch();
 
-    return response(\Illuminate\Support\Facades\Artisan::output(), 200)
+    return response('Queued. Check the events count in Supabase in about 30-60 seconds.', 200)
         ->header('Content-Type', 'text/plain');
 });
 
