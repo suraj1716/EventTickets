@@ -25,6 +25,11 @@ return new class extends Migration
             );
         }
 
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE cart_items DROP CONSTRAINT IF EXISTS cart_items_item_type_check');
+            DB::statement("ALTER TABLE cart_items ADD CONSTRAINT cart_items_item_type_check CHECK (item_type IN ('product', 'gift_card', 'ticket'))");
+        }
+
         Schema::table('order_items', function (Blueprint $table) {
             $table->foreignId('ticket_tier_id')
                 ->nullable()
@@ -46,6 +51,11 @@ return new class extends Migration
                  MODIFY item_type ENUM('product', 'gift_card')
                  DEFAULT 'product'"
             );
+        }
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE cart_items DROP CONSTRAINT IF EXISTS cart_items_item_type_check');
+            DB::statement("ALTER TABLE cart_items ADD CONSTRAINT cart_items_item_type_check CHECK (item_type IN ('product', 'gift_card'))");
         }
 
         Schema::table('order_items', function (Blueprint $table) {
