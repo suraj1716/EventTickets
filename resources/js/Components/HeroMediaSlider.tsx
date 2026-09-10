@@ -36,11 +36,7 @@ export default function HeroMediaSlider({
             >
               {item.type === "video" ? (
                 <video
-                  src={
-                    item.path.startsWith("http")
-                      ? item.path
-                      : `/storage/${item.path}`
-                  }
+                  src={item.url}
                   autoPlay
                   muted
                   loop
@@ -49,11 +45,7 @@ export default function HeroMediaSlider({
                 />
               ) : (
                 <img
-                  src={
-                    item.path.startsWith("http")
-                      ? item.path
-                      : `/storage/${item.path}`
-                  }
+                  src={item.url}
                   alt={eventName}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
