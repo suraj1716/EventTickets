@@ -30,6 +30,26 @@ use App\Http\Controllers\StaffController;
 use App\Http\Controllers\VoucherController;
 
 
+
+// TEMPORARY — emergency reseed after events table data loss.
+// REMOVE THIS ROUTE IMMEDIATELY AFTER USE.
+Route::get('/emergency-reseed-9f2k', function () {
+    if (request('token') !== 'BL5tXhBsIf-mGKRuDvp7MqICsAMdG4QWsScAKawUUg') {
+        abort(404);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('db:seed', [
+        '--class' => 'EventSeeder',
+        '--force' => true,
+    ]);
+
+    return response(\Illuminate\Support\Facades\Artisan::output(), 200)
+        ->header('Content-Type', 'text/plain');
+});
+
+
+
+
 Route::get('/.well-known/appspecific/com.chrome.devtools.json', fn () => response()->noContent());
 // ── Public: storage file serving ────────────────────────────────────────────
 Route::get('/storage/{path}', function (string $path) {
