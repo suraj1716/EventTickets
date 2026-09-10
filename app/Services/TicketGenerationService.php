@@ -169,21 +169,24 @@ class TicketGenerationService
 
     /**
      * Renders a QR (encoding the ticket code) and a Code128 barcode
-     * of the same code, and stores both on the public disk.
+     * of the same code, and stores both on R2 — not the local disk,
+     * since local storage on Render is ephemeral and a redeploy or
+     * container restart would wipe already-issued tickets' codes.
      *
      * Requires: composer require simplesoftwareio/simple-qrcode picqer/php-barcode-generator
      */
     protected function renderCodes(Ticket $ticket): array
     {
+        $disk = strtolower(config('media-library.disk_name', 'public'));
+
         $qrPath = "tickets/qr/{$ticket->code}.svg";
-        // was: $qrSvg = QrCode::format('svg')->size(300)->generate($ticket->code);
-$qrSvg = QrCode::format('svg')->size(300)->margin(2)->generate($ticket->code);
-        Storage::disk('public')->put($qrPath, $qrSvg);
+        $qrSvg = QrCode::format('svg')->size(300)->margin(2)->generate($ticket->code);
+        Storage::disk($disk)->put($qrPath, $qrSvg);
 
         $barcodePath = "tickets/barcode/{$ticket->code}.png";
         $generator = new BarcodeGeneratorPNG();
         $barcodePng = $generator->getBarcode($ticket->code, $generator::TYPE_CODE_128);
-        Storage::disk('public')->put($barcodePath, $barcodePng);
+        Storage::disk($disk)->put($barcodePath, $barcodePng);
 
         return [$qrPath, $barcodePath];
     }

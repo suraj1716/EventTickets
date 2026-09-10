@@ -37,10 +37,8 @@ class EventSeatController extends Controller
 {
     $this->authorizeEventLeg($eventLeg);
 
-    $eventLeg->load([
-        'ticketTiers',
-        'venue.sections.seats',
-    ]);
+    $eventLeg->load(['ticketTiers']);
+    $venue = \App\Models\Venue::cachedLayout($eventLeg->venue_id);
 
     return \Inertia\Inertia::render('Admin/Events/Seats', [
         'eventLeg' => [
@@ -55,8 +53,10 @@ class EventSeatController extends Controller
             ])->values(),
         ],
 
-        'venue' => $eventLeg->venue,
+        'venue' => $venue,
 
+        // Live per-event seat status — deliberately NOT cached, changes
+        // on every booking and on the 5-min hold-expiry job.
         'seats' => $eventLeg->seats()
             ->with([
                 'ticketTier',

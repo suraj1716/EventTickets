@@ -25,6 +25,8 @@ interface Ticket {
   code: string;
   qr_path: string | null;
   barcode_path: string | null;
+  qr_url: string | null;
+  barcode_url: string | null;
 
   status: "valid" | "listed" | "used" | "void";
 
@@ -80,11 +82,8 @@ const STATUS_COLORS: Record<string, { fg: string; bg: string }> = {
 
 export default function TicketShow({ ticket }: Props) {
   const { auth } = usePage<PageProps>().props;
-  const storageUrl = (path: string | null) =>
-    path ? `/storage/${path}` : null;
-
-  const qrUrl = storageUrl(ticket.qr_path);
-  const barcodeUrl = storageUrl(ticket.barcode_path);
+  const qrUrl = ticket.qr_url;
+  const barcodeUrl = ticket.barcode_url;
 
   const statusKey = ticket.status?.toLowerCase?.() ?? "";
   const statusColor = STATUS_COLORS[statusKey] ?? {

@@ -502,7 +502,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                           >
                             {item.image ? (
                               <img
-                                src={`/storage/${item.image}`}
+                                src={item.image}
                                 alt={item.title}
                                 style={{
                                   width: "100%",

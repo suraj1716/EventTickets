@@ -272,14 +272,16 @@ class TicketResaleService
 
     protected function renderCodes(Ticket $ticket): array
     {
+        $disk = strtolower(config('media-library.disk_name', 'public'));
+
         $qrPath = "tickets/qr/{$ticket->code}.svg";
         $qrSvg = QrCode::format('svg')->size(300)->margin(2)->generate($ticket->code);
-        Storage::disk('public')->put($qrPath, $qrSvg);
+        Storage::disk($disk)->put($qrPath, $qrSvg);
 
         $barcodePath = "tickets/barcode/{$ticket->code}.png";
         $generator = new BarcodeGeneratorPNG();
         $barcodePng = $generator->getBarcode($ticket->code, $generator::TYPE_CODE_128);
-        Storage::disk('public')->put($barcodePath, $barcodePng);
+        Storage::disk($disk)->put($barcodePath, $barcodePng);
 
         return [$qrPath, $barcodePath];
     }

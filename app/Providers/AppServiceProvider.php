@@ -17,8 +17,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 use App\Models\Product;
 use App\Models\Vendor;
+use App\Models\TicketTier;
+use App\Models\VenueSection;
+use App\Models\VenueSeat;
 use App\Observers\ProductObserver;
 use App\Observers\VendorObserver;
+use App\Observers\TicketTierObserver;
+use App\Observers\VenueSectionObserver;
+use App\Observers\VenueSeatObserver;
 use Illuminate\Support\Facades\Mail;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
 
         Product::observe(ProductObserver::class);
         Vendor::observe(VendorObserver::class);
+        VenueSection::observe(VenueSectionObserver::class);
+        VenueSeat::observe(VenueSeatObserver::class);
+        TicketTier::observe(TicketTierObserver::class);
 
         Model::preventSilentlyDiscardingAttributes(true);
 

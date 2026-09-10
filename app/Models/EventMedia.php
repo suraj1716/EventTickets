@@ -18,6 +18,6 @@ class EventMedia extends Model
 
     public function getUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->path);
+        return Storage::disk('r2')->url($this->path);
     }
 }

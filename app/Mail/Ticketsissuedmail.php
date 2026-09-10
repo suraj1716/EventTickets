@@ -32,8 +32,9 @@ class TicketsIssuedMail extends Mailable implements ShouldQueue
     public function build(): self
     {
         // TODO: build resources/views/emails/tickets-issued.blade.php
-        // Needs: foreach ($tickets as $ticket), showing
-        // Storage::disk('public')->url($ticket->qr_path) as an <img>,
+        // Needs: foreach ($tickets as $ticket), showing $ticket->qr_url
+        // as an <img> (accessor on the Ticket model — already resolves
+        // the correct disk, don't rebuild the path/URL manually here),
         // plus $ticket->ticketTier->name and $event->name/legs for context.
         return $this->subject("Your tickets for {$this->event->name}")
             ->view('emails.tickets-issued')

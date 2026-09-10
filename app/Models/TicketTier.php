@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class TicketTier extends Model
 {
@@ -55,5 +56,26 @@ class TicketTier extends Model
             ->decrement('remaining', $qty);
 
         return $updated > 0;
+    }
+
+    /**
+     * Cached tier catalog (name/price/window) for an event leg — for
+     * display only. Deliberately excludes `remaining`: reserve() above
+     * decrements it via the query builder, which bypasses Eloquent's
+     * `saved` event, so observer-based cache invalidation would never
+     * fire for it and a cached count would silently go stale after the
+     * first sale. Always query `remaining` live, never from this cache.
+     */
+    public static function cachedTierList(int $eventLegId)
+    {
+        return Cache::remember("event_leg:{$eventLegId}:tier_catalog", 3600, function () use ($eventLegId) {
+            return static::where('event_leg_id', $eventLegId)
+                ->get(['id', 'event_leg_id', 'name', 'price', 'starts_at', 'ends_at']);
+        });
+    }
+
+    public static function forgetCachedTierList(int $eventLegId): void
+    {
+        Cache::forget("event_leg:{$eventLegId}:tier_catalog");
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Venue extends Model
 {
@@ -70,5 +71,26 @@ class Venue extends Model
     {
         return $this->hasMany(VenueSeat::class)
             ->where('is_active', true);
+    }
+
+    /**
+     * The venue's physical seating layout — sections and their seats.
+     * This is structural data that only changes when an admin edits
+     * the floor plan, so it's cached indefinitely and invalidated by
+     * VenueSectionObserver / VenueSeatObserver on save/delete.
+     *
+     * Do NOT use this for live seat availability/status — that's
+     * per-event data on EventSeat and must always be queried live.
+     */
+    public static function cachedLayout(int $venueId)
+    {
+        return Cache::rememberForever("venue:{$venueId}:layout", function () use ($venueId) {
+            return self::with('sections.seats')->findOrFail($venueId);
+        });
+    }
+
+    public static function forgetCachedLayout(int $venueId): void
+    {
+        Cache::forget("venue:{$venueId}:layout");
     }
 }

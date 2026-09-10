@@ -310,13 +310,7 @@ export default function TicketsIndex({ tickets }: Props) {
                     >
                       {ticket.event_leg?.event?.media?.length ? (
                         <img
-                          src={
-                            ticket.event_leg.event.media[0].path.startsWith(
-                              "http",
-                            )
-                              ? ticket.event_leg.event.media[0].path
-                              : `/storage/${ticket.event_leg.event.media[0].path}`
-                          }
+                          src={ticket.event_leg.event.media[0].url}
                           alt=""
                           className="h-full w-full object-cover  object-center"
                         />

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\EventSeat;
+use Illuminate\Support\Facades\Storage;
+
 class Ticket extends Model
 {
     use HasFactory;
@@ -30,6 +32,48 @@ class Ticket extends Model
     protected $casts = [
         'scanned_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'qr_url',
+        'barcode_url',
+    ];
+
+    /**
+     * Resolves via config (not env()) so it stays correct even after
+     * config:cache, and lowercased so a stray-cased MEDIA_DISK env
+     * var doesn't miss the registered disk key — same fix applied
+     * to EventMedia::getUrlAttribute().
+     */
+    protected function resolveMediaDisk(): string
+    {
+        return strtolower(config('media-library.disk_name', 'public'));
+    }
+
+    public function getQrUrlAttribute(): ?string
+    {
+        if (! $this->qr_path) {
+            return null;
+        }
+
+        if (str_starts_with($this->qr_path, 'http')) {
+            return $this->qr_path;
+        }
+
+        return Storage::disk($this->resolveMediaDisk())->url($this->qr_path);
+    }
+
+    public function getBarcodeUrlAttribute(): ?string
+    {
+        if (! $this->barcode_path) {
+            return null;
+        }
+
+        if (str_starts_with($this->barcode_path, 'http')) {
+            return $this->barcode_path;
+        }
+
+        return Storage::disk($this->resolveMediaDisk())->url($this->barcode_path);
+    }
 
     public function order(): BelongsTo
     {

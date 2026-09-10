@@ -130,7 +130,7 @@ class OrderController extends Controller
                 'items' => $order->orderItems->map(fn($i) => [
                     'id'       => $i->id,
                     'title'    => $i->product?->title ?? '—',
-                    'image'    => $i->product?->image,
+                    'image'    => $i->product?->getFirstMediaUrl('products'),
                     'quantity' => $i->quantity,
                     'price'    => $i->price,
                     'subtotal' => $i->quantity * $i->price,

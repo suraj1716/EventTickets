@@ -719,7 +719,7 @@ class EventController extends Controller
                         /*
                          * Delete physical file.
                          */
-                        Storage::disk('public')->delete(
+                        Storage::disk('r2')->delete(
                             $media->path
                         );
 
@@ -792,7 +792,7 @@ class EventController extends Controller
              */
             $path = $file->store(
                 "events/{$event->id}",
-                'public'
+                'r2'
             );
 
             /*
@@ -938,7 +938,7 @@ class EventController extends Controller
         foreach (
             $event->media as $media
         ) {
-            Storage::disk('public')->delete(
+            Storage::disk('r2')->delete(
                 $media->path
             );
         }

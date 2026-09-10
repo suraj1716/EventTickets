@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-namespace App\Http\Controllers;
-
 use App\Enums\OrderStatusEnum;
 use App\Http\Resources\OrderViewResource;
 use App\Models\Order;

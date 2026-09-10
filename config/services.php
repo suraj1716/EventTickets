@@ -14,18 +14,20 @@ return [
     |
     */
 
-
+    'pexels' => [
+        'key' => env('PEXELS_API_KEY'),
+    ],
     'stripe' => [
-    'secret' => env('STRIPE_SECRET'),
-    'key' => env('STRIPE_KEY'),
-     'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-],
+        'secret' => env('STRIPE_SECRET'),
+        'key' => env('STRIPE_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
 
-'google' => [
-    'client_id' => env('GOOGLE_CLIENT_ID'),
-    'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-    'redirect' => env('GOOGLE_REDIRECT_URI'),
-],
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
 
 
 
@@ -51,11 +53,11 @@ return [
         ],
     ],
 
-'brevo' => [
-    'api_key' => env('BREVO_API_KEY'),
-],
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+    ],
 
-   'vendor_owner_email'    => env('VENDOR_OWNER_EMAIL'),
-'vendor_owner_password' => env('VENDOR_OWNER_PASSWORD'),
+    'vendor_owner_email'    => env('VENDOR_OWNER_EMAIL'),
+    'vendor_owner_password' => env('VENDOR_OWNER_PASSWORD'),
 
 ];
