@@ -34,6 +34,17 @@ class RolesAndPermissionsSeeder extends Seeder
 
     public function run(): void
     {
+        // These are global role/permission *definitions*, not a per-vendor
+        // assignment — run under a null team regardless of whatever team
+        // context the caller (a request, a queued job) happens to be in.
+        // See app/Support/PermissionTeams.php.
+        \App\Support\PermissionTeams::asTeam(null, fn () => $this->seedRolesAndPermissions());
+
+        $this->command?->info('Roles & permissions seeded.');
+    }
+
+    protected function seedRolesAndPermissions(): void
+    {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach ($this->permissionMap as $resource => $abilities) {
@@ -77,7 +88,5 @@ class RolesAndPermissionsSeeder extends Seeder
             'orders.view',
             'tickets.view', 'tickets.scan',
         ]);
-
-        $this->command?->info('Roles & permissions seeded.');
     }
 }

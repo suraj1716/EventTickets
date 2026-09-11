@@ -1,4 +1,4 @@
-{{-- resources/views/mail/vendor-approved.blade.php --}}
+{{-- resources/views/mail/staff-invitation.blade.php --}}
 
 <!DOCTYPE html>
 
@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendor Application Approved</title>
+    <title>You've been invited to join {{ $vendorName }}</title>
 </head>
 
 <body style="margin:0; padding:0; background:#f5f5f5; font-family:Arial, Helvetica, sans-serif; color:#222;">
@@ -34,46 +34,37 @@
                     <td style="padding:36px 40px 40px;">
 
                         <h1 style="margin:0 0 20px; font-size:24px; line-height:1.3; font-weight:600; color:#222; text-align:left;">
-                            Vendor Application Approved
+                            You've been invited to join {{ $vendorName }}
                         </h1>
 
                         <p style="margin:0 0 18px; font-size:15px; line-height:1.7; color:#333;">
-                            Your vendor application has been approved!
+                            Hi {{ $staffName }},
                         </p>
 
                         <p style="margin:0 0 28px; font-size:15px; line-height:1.7; color:#555;">
-                            You can now complete your store details, including your
-                            business hours, booking fee, and social links, from your
-                            profile page.
+                            @if($needsPassword)
+                                {{ $vendorName }} has invited you to join their team on {{ config('app.name') }}. Set a password to activate your account and get started.
+                            @else
+                                {{ $vendorName }} has invited you to join their team on {{ config('app.name') }}. Accept the invitation below to get started.
+                            @endif
                         </p>
 
-                        {{-- Complete Store Details Button --}}
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
-                            <tr>
-                                <td style="background:#188533; border-radius:4px;">
-                                    <a
-                                        href="{{ $profileUrl }}"
-                                        style="display:inline-block; padding:13px 26px; color:#ffffff; text-decoration:none; font-size:14px; font-weight:600; line-height:1.2;"
-                                    >
-                                        Complete Store Details
-                                    </a>
-                                </td>
-                            </tr>
-                        </table>
-
-                        {{-- Dashboard Button --}}
                         <table cellpadding="0" cellspacing="0" border="0">
                             <tr>
                                 <td style="background:#188533; border-radius:4px;">
                                     <a
-                                        href="{{ $dashboardUrl }}"
+                                        href="{{ $acceptUrl }}"
                                         style="display:inline-block; padding:13px 26px; color:#ffffff; text-decoration:none; font-size:14px; font-weight:600; line-height:1.2;"
                                     >
-                                        Go to Dashboard
+                                        {{ $needsPassword ? 'Set password & accept' : 'Accept invitation' }}
                                     </a>
                                 </td>
                             </tr>
                         </table>
+
+                        <p style="margin:28px 0 0; font-size:13px; line-height:1.6; color:#999;">
+                            This invitation link expires in 7 days. If you weren't expecting this, you can safely ignore this email.
+                        </p>
 
                         <p style="margin:32px 0 0; font-size:14px; line-height:1.6; color:#555;">
                             Thanks,<br>

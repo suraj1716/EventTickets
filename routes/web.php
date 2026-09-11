@@ -27,6 +27,7 @@ use App\Http\Controllers\Auth\GoogleController;
 
 use App\Filament\Resources\BookingResource\Pages\CreateBooking;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffInviteAcceptController;
 use App\Http\Controllers\VoucherController;
 
 
@@ -245,7 +246,15 @@ Route::get('/api/footer-services', function () {
 Route::get('/cancellation-policy', fn () => Inertia::render('CancellationPolicy'))
     ->name('cancellation-policy');
 
+// ── Vendor staff invite accept (guest-accessible — a brand-new staff
+// account isn't logged in yet) ───────────────────────────────────────────
+Route::middleware('signed')->group(function () {
+    Route::get('/staff-invite/{vendorStaff}/accept', [StaffInviteAcceptController::class, 'show'])
+        ->name('staff-invite.accept');
+    Route::post('/staff-invite/{vendorStaff}/accept', [StaffInviteAcceptController::class, 'store'])
+        ->name('staff-invite.accept.store');
+});
+
 require __DIR__ . '/auth.php';
 require __DIR__ . '/admin_routes.php';
 require __DIR__.'/events.php';
-

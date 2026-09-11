@@ -35,7 +35,9 @@ class UserSeeder extends Seeder
             'password' => 'Qwerty123'
         ])->assignRole(RolesEnum::Admin->value);
 
-        $user->assignRole(RolesEnum::Vendor->value);
+        // Scoped to the vendor's own team (their own user id) — see
+        // app/Support/PermissionTeams.php.
+        \App\Support\PermissionTeams::asTeam($user->id, fn () => $user->assignRole(RolesEnum::Vendor->value));
 
         // Vendor owner, sourced from env — this is the account
         // DepartmentCategorySeeder (and other seeders) look up via
@@ -52,9 +54,13 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            if (! $vendorOwner->hasRole(RolesEnum::Vendor->value)) {
-                $vendorOwner->assignRole(RolesEnum::Vendor->value);
-            }
+            // Scoped to the vendor's own team (their own user id) — see
+            // app/Support/PermissionTeams.php.
+            \App\Support\PermissionTeams::asTeam($vendorOwner->id, function () use ($vendorOwner) {
+                if (! $vendorOwner->hasRole(RolesEnum::Vendor->value)) {
+                    $vendorOwner->assignRole(RolesEnum::Vendor->value);
+                }
+            });
 
             Vendor::firstOrCreate(
                 ['user_id' => $vendorOwner->id],

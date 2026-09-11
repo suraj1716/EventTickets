@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\GalleryController;
 use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\RosterController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\Admin\VendorStaffController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\HeroBannerController;
 use App\Http\Controllers\Admin\SwitchVendorController;
@@ -145,6 +146,18 @@ Route::middleware(['auth', 'verified', 'role:Admin|Vendor|Staff', 'acting.vendor
         Route::prefix('vendor')->name('vendor.')->group(function () {
             Route::resource('staff', StaffController::class)
                 ->except(['show', 'create', 'edit']);
+
+            // RBAC staff (login accounts w/ the Staff role) — distinct
+            // from the 'staff' resource above, which is the salon
+            // booking-profile Staff model (no login, no roles).
+            Route::prefix('team')->name('team.')->group(function () {
+                Route::get('/', [VendorStaffController::class, 'index'])->name('index');
+                Route::post('/', [VendorStaffController::class, 'store'])->name('store');
+                Route::post('/{vendorStaff}/resend', [VendorStaffController::class, 'resend'])->name('resend');
+                Route::patch('/{vendorStaff}/suspend', [VendorStaffController::class, 'suspend'])->name('suspend');
+                Route::patch('/{vendorStaff}/reactivate', [VendorStaffController::class, 'reactivate'])->name('reactivate');
+                Route::delete('/{vendorStaff}', [VendorStaffController::class, 'destroy'])->name('destroy');
+            });
         });
 
 

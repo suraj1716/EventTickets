@@ -89,6 +89,13 @@ return [
         'model_morph_key' => 'model_id',
 
         /*
+         * Teams feature: the same key the vendor_staff table uses —
+         * a vendor's own user id doubles as the spatie team id.
+         */
+
+        'team_foreign_key' => 'vendor_id',
+
+        /*
          * Change this if you want to use the teams feature and your related model's
          * foreign key is other than `team_id`.
          */
@@ -131,6 +138,16 @@ return [
      * (view the latest version of this package's migration file)
      */
 
+    // NOT enabled yet — see database/migrations/2026_09_11_210000_add_teams_to_permission_tables.php
+    // for why: role checks (isAdmin/isVendorRole/isStaffRole) are used as
+    // plain global "what kind of account" checks throughout this app,
+    // including inside middleware that runs before any team context is
+    // resolved. Flipping this on requires per-team role assignment +
+    // reordering the admin route group's middleware + auditing every
+    // role check outside the request cycle (queued jobs, console
+    // commands, notifications) first. The DB columns are already in
+    // place (harmless while this stays false) so that follow-up is just
+    // config + call-site work, no further migration needed.
     'teams' => false,
 
     /*
