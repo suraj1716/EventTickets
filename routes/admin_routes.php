@@ -24,7 +24,7 @@ use App\Http\Controllers\Admin\PermissionsTestController;
 // All routes protected by auth + Admin/Vendor/Staff role. acting.vendor
 // resolves which vendor a Staff user is currently working for (no-op for
 // Admin/Vendor) — see app/Http/Middleware/SetActingVendor.php.
-Route::middleware(['auth', 'verified', 'role:Admin|Vendor|Staff', 'acting.vendor'])
+Route::middleware(['auth', 'verified', 'role:Admin|Vendor|Staff', 'acting.vendor', 'permissions.team'])
     ->prefix('dashboard')
     ->name('admin.')
     ->group(function () {

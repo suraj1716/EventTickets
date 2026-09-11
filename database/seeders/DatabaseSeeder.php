@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // Permissions / roles first
-            RoleSeeder::class,
+            RoleSeeder::class,            RolesAndPermissionsSeeder::class,
 
             // Core users / vendor
             AdminAndVendorSeeder::class,

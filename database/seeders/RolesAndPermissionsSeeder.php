@@ -42,9 +42,14 @@ class RolesAndPermissionsSeeder extends Seeder
             }
         }
 
-        $admin = Role::findOrCreate('admin', 'web');
-        $vendor = Role::findOrCreate('vendor', 'web');
-        $staff = Role::findOrCreate('staff', 'web');
+        // Must match App\Enums\RolesEnum and the role names assigned
+        // elsewhere (AdminAndVendorSeeder, VendorController, the
+        // 'role:Admin|Vendor|Staff' route middleware, etc). Spatie
+        // matches role names exactly — a case mismatch here means these
+        // permissions attach to a role no real user ever holds.
+        $admin = Role::findOrCreate(\App\Enums\RolesEnum::Admin->value, 'web');
+        $vendor = Role::findOrCreate(\App\Enums\RolesEnum::Vendor->value, 'web');
+        $staff = Role::findOrCreate(\App\Enums\RolesEnum::Staff->value, 'web');
 
         // Admin: everything. (Gate::before also short-circuits admin, this
         // is belt-and-suspenders / makes hasPermissionTo() checks correct too.)

@@ -42,9 +42,9 @@ class PermissionsTestController extends Controller
                 'relationship' => $label === 'own' ? 'Owned by your acting vendor' : "Owned by a DIFFERENT vendor",
                 'expected' => $label === 'own' ? 'allow' : 'deny',
                 'abilities' => [
-                    'manage-event' => Gate::forUser($user)->allows('manage-event', $event),
-                    'delete-event' => Gate::forUser($user)->allows('delete-event', $event),
-                    'publish-event' => Gate::forUser($user)->allows('publish-event', $event),
+                    'manage-event' => Gate::forUser($user)->allows('update', $event),
+                    'delete-event' => Gate::forUser($user)->allows('delete', $event),
+                    'publish-event' => Gate::forUser($user)->allows('publish', $event),
                 ],
             ];
         }

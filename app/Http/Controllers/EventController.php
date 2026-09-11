@@ -7,6 +7,7 @@ use App\Models\EventLeg;
 use App\Models\EventMedia;
 use App\Models\TicketTier;
 use App\Models\Venue;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,8 @@ use Inertia\Inertia;
 
 class EventController extends Controller
 {
+    use AuthorizesRequests;
+
     /*
     |--------------------------------------------------------------------------
     | Event index
@@ -25,7 +28,7 @@ class EventController extends Controller
     {
         $events = Event::where(
         'vendor_user_id',
-        $request->user()->id
+        $request->user()->actingVendorId()
     )
     ->with([
         'media',
@@ -126,10 +129,7 @@ class EventController extends Controller
         Request $request,
         Event $event
     ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+        $this->authorize('update', $event);
 
         return Inertia::render('Admin/Events/Form', [
             'event' => $event->load([
@@ -156,6 +156,8 @@ class EventController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Event::class);
+
         $data = $this->validateEvent($request);
 
         $event = DB::transaction(function () use (
@@ -237,10 +239,7 @@ class EventController extends Controller
         Request $request,
         Event $event
     ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+        $this->authorize('update', $event);
 
         $data = $this->validateEvent(
             $request,
@@ -829,10 +828,7 @@ class EventController extends Controller
         Request $request,
         Event $event
     ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+        $this->authorize('publish', $event);
 
         /*
          * Every leg must have at least
@@ -879,10 +875,7 @@ class EventController extends Controller
         Request $request,
         Event $event
     ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+        $this->authorize('delete', $event);
 
         if ($event->status === 'cancelled') {
             return redirect()
@@ -916,10 +909,7 @@ class EventController extends Controller
         Request $request,
         Event $event
     ) {
-        $this->authorizeVendorOwnsEvent(
-            $request,
-            $event
-        );
+        $this->authorize('delete', $event);
 
         if ($event->status === 'published') {
             return redirect()
@@ -1232,20 +1222,4 @@ class EventController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Authorization
-    |--------------------------------------------------------------------------
-    */
-
-    protected function authorizeVendorOwnsEvent(
-        Request $request,
-        Event $event
-    ): void {
-        abort_unless(
-            $event->vendor_user_id ===
-                $request->user()->id,
-            403
-        );
-    }
 }

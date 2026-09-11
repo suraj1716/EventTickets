@@ -31,6 +31,7 @@ $middleware->web(append: [
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'acting.vendor' => \App\Http\Middleware\SetActingVendor::class,
+            'permissions.team' => \App\Http\Middleware\SetPermissionsTeam::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
