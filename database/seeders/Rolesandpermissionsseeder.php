@@ -3,29 +3,76 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
+    /**
+     * Resource => [abilities]. Kept flat as "resource.ability" permission
+     * names so policies and Blade @can checks read naturally.
+     */
+    protected array $permissionMap = [
+        // Platform-wide, admin-only
+        'departments' => ['view', 'create', 'update', 'delete'],
+        'categories' => ['view', 'create', 'update', 'delete'],
+        'vendors' => ['view', 'approve', 'suspend', 'delete'],
+        'users' => ['view', 'create', 'update', 'delete', 'impersonate'],
+        'reports' => ['view-platform'],
+
+        // Vendor-owned resources — scoped per-team via the policies
+        'venues' => ['view', 'create', 'update', 'delete'],
+        'events' => ['view', 'create', 'update', 'delete', 'publish', 'manage-media'],
+        'ticket-tiers' => ['view', 'create', 'update', 'delete'],
+        'orders' => ['view', 'refund'],
+        'tickets' => ['view', 'scan'], // 'scan' = door/check-in staff
+        'staff' => ['view', 'invite', 'update', 'remove'],
+        'reports' => ['view-vendor'],
+    ];
+
     public function run(): void
     {
-        // Reset cached roles and permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // Create permissions
-        Permission::firstOrCreate(['name' => 'ApproveVendors']);
-        Permission::firstOrCreate(['name' => 'SellProducts']);
-        Permission::firstOrCreate(['name' => 'BuyProducts']);
+        foreach ($this->permissionMap as $resource => $abilities) {
+            foreach ($abilities as $ability) {
+                Permission::findOrCreate("{$resource}.{$ability}", 'web');
+            }
+        }
 
-        // Create roles and assign permissions
-        $admin = Role::firstOrCreate(['name' => 'Admin']);
-        $admin->givePermissionTo(['ApproveVendors', 'SellProducts', 'BuyProducts']);
+        $admin = Role::findOrCreate('admin', 'web');
+        $vendor = Role::findOrCreate('vendor', 'web');
+        $staff = Role::findOrCreate('staff', 'web');
 
-        $vendor = Role::firstOrCreate(['name' => 'Vendor']);
-        $vendor->givePermissionTo(['SellProducts', 'BuyProducts']);
+        // Admin: everything. (Gate::before also short-circuits admin, this
+        // is belt-and-suspenders / makes hasPermissionTo() checks correct too.)
+        $admin->syncPermissions(Permission::all());
 
-        $user = Role::firstOrCreate(['name' => 'User']);
-        $user->givePermissionTo(['BuyProducts']);
+        // Vendor owner: full control of their own venues/events/staff/orders,
+        // no platform-level abilities (categories, departments, other vendors).
+        $vendor->syncPermissions([
+            'venues.view', 'venues.create', 'venues.update', 'venues.delete',
+            'events.view', 'events.create', 'events.update', 'events.delete',
+            'events.publish', 'events.manage-media',
+            'ticket-tiers.view', 'ticket-tiers.create', 'ticket-tiers.update', 'ticket-tiers.delete',
+            'orders.view', 'orders.refund',
+            'tickets.view', 'tickets.scan',
+            'staff.view', 'staff.invite', 'staff.update', 'staff.remove',
+            'reports.view-vendor',
+        ]);
+
+        // Staff: day-to-day operational abilities only. No delete/publish,
+        // no staff management, no refunds by default.
+        $staff->syncPermissions([
+            'venues.view',
+            'events.view', 'events.update', 'events.manage-media',
+            'ticket-tiers.view',
+            'orders.view',
+            'tickets.view', 'tickets.scan',
+        ]);
+
+        $this->command?->info('Roles & permissions seeded.');
     }
 }

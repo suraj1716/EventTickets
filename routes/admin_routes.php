@@ -17,10 +17,14 @@ use App\Http\Controllers\Admin\RosterController;
 use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\HeroBannerController;
+use App\Http\Controllers\Admin\SwitchVendorController;
+use App\Http\Controllers\Admin\PermissionsTestController;
 
 // ── React Admin Dashboard ──────────────────────────────────────────────────
-// All routes protected by auth + Admin/Vendor role
-Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
+// All routes protected by auth + Admin/Vendor/Staff role. acting.vendor
+// resolves which vendor a Staff user is currently working for (no-op for
+// Admin/Vendor) — see app/Http/Middleware/SetActingVendor.php.
+Route::middleware(['auth', 'verified', 'role:Admin|Vendor|Staff', 'acting.vendor'])
     ->prefix('dashboard')
     ->name('admin.')
     ->group(function () {
@@ -163,8 +167,15 @@ Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
         Route::patch('hero-banner/{heroBanner}/toggle', [HeroBannerController::class, 'toggle'])
             ->name('hero-banner.toggle');
 
+        // Staff acting-vendor context switch (multi-vendor staff only)
+        Route::get('/switch-vendor', [SwitchVendorController::class, 'index'])
+            ->name('switch-vendor.index');
+        Route::post('/switch-vendor', [SwitchVendorController::class, 'update'])
+            ->name('switch-vendor.update');
 
-
+        // Live RBAC test panel
+        Route::get('/permissions-test', [PermissionsTestController::class, 'index'])
+            ->name('permissions-test.index');
 
     });
 

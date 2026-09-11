@@ -25,6 +25,22 @@ class ResaleSellerConnectController extends Controller
 
         $user = Auth::user();
 
+        // Carries the originating ticket through both legs of the Stripe
+        // redirect (refresh_url when onboarding isn't finished yet, and
+        // return_url once it is), so we can send the seller back to the
+        // exact ticket they were trying to list instead of always to
+        // home. Optional — /resale/mine also links here with no ticket
+        // context, and that's fine, it just falls back to home below.
+        $ticketId = $request->query('ticket');
+
+        $redirectTarget = function () use ($ticketId) {
+            if ($ticketId && \App\Models\Ticket::where('id', $ticketId)->exists()) {
+                return redirect()->route('tickets.show', $ticketId);
+            }
+
+            return redirect()->route('home');
+        };
+
         try {
             if ($user->stripe_account_id) {
                 $account = $this->withStripeDeprecationWarningsSuppressed(
@@ -65,19 +81,17 @@ class ResaleSellerConnectController extends Controller
                     }
 
                     if ($active) {
-                        return redirect()
-                            ->route('home')
-                            ->with(
-                                'success',
-                                'Stripe account connected and ready.'
-                            );
+                        return $redirectTarget()->with(
+                            'success',
+                            'Stripe account connected and ready.'
+                        );
                     }
                 }
 
                 $onboardingLink = AccountLink::create([
                     'account' => $user->stripe_account_id,
-                    'refresh_url' => route('resale.connect'),
-                    'return_url' => route('resale.connect'),
+                    'refresh_url' => route('resale.connect', $ticketId ? ['ticket' => $ticketId] : []),
+                    'return_url' => route('resale.connect', $ticketId ? ['ticket' => $ticketId] : []),
                     'type' => 'account_onboarding',
                 ]);
 
@@ -126,8 +140,8 @@ class ResaleSellerConnectController extends Controller
 
             $onboardingLink = AccountLink::create([
                 'account' => $account->id,
-                'refresh_url' => route('resale.connect'),
-                'return_url' => route('resale.connect'),
+                'refresh_url' => route('resale.connect', $ticketId ? ['ticket' => $ticketId] : []),
+                'return_url' => route('resale.connect', $ticketId ? ['ticket' => $ticketId] : []),
                 'type' => 'account_onboarding',
             ]);
 

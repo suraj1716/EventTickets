@@ -26,6 +26,9 @@ use App\Observers\TicketTierObserver;
 use App\Observers\VenueSectionObserver;
 use App\Observers\VenueSeatObserver;
 use Illuminate\Support\Facades\Mail;
+use App\Models\Event;
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -68,5 +71,31 @@ class AppServiceProvider extends ServiceProvider
 
 
         Vite::prefetch(concurrency: 3);
+
+        // ── RBAC test abilities (Admin/Vendor/Staff) ───────────────────
+        // Admins pass every check automatically.
+        Gate::before(function (User $user, string $ability) {
+            return $user->isAdmin() ? true : null;
+        });
+
+        // Vendor/Staff can manage an event only if it belongs to whichever
+        // vendor they're currently acting as (themselves for a Vendor,
+        // the session-selected vendor for Staff — see User::actingVendorId()).
+        Gate::define('manage-event', function (User $user, Event $event) {
+            return ($user->isVendorRole() || $user->isStaffRole())
+                && $event->vendor_user_id === $user->actingVendorId();
+        });
+
+        // Staff can view/update but never delete or publish — Vendor can
+        // do all of it for their own events.
+        Gate::define('delete-event', function (User $user, Event $event) {
+            return $user->isVendorRole()
+                && $event->vendor_user_id === $user->actingVendorId();
+        });
+
+        Gate::define('publish-event', function (User $user, Event $event) {
+            return $user->isVendorRole()
+                && $event->vendor_user_id === $user->actingVendorId();
+        });
     }
 }

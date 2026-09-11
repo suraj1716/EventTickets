@@ -38,6 +38,7 @@ import {
   ArrowLeft,
   Bell,
   LogOut,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { C as SharedC } from "@/Components/Admin/AdminComponents";
@@ -104,6 +105,7 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
       { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null, adminOnly: true },
       { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null },
       { label: "Roster", href: "admin.roster.index", icon: CalendarClock, countKey: null, adminOnly: true },
+      { label: "Permissions Test", href: "admin.permissions-test.index", icon: ShieldCheck, countKey: null },
     ],
   },
 ];
