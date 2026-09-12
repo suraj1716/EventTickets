@@ -27,10 +27,10 @@ class AdminAndVendorSeeder extends Seeder
 
      // ── Vendor (Hair Salon Owner) ──────────────────────────
 $vendorUser = User::firstOrCreate(
-    ['email' => 'info@rbhairlounge.com.au'],
+    ['email' => 'suraj.techrevibe@gmail.com'],
     [
-        'name'              => 'Rb Hair & Beauty Lounge',
-        'phone'             => '+61280654661',
+        'name'              => 'Techrevibe',
+        'phone'             => '+61414226056',
         'password'          => Hash::make('password'),
         'email_verified_at' => now(),
         'referral_code'     => strtoupper(Str::random(8)),

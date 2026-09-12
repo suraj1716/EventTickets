@@ -9,11 +9,10 @@ use App\Mail\StaffInvitation;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorStaff;
-use App\Support\PermissionTeams;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,13 +30,15 @@ class VendorStaffController extends Controller
 
         $team = $vendorId
             ? VendorStaff::forVendor($vendorId)
-                ->with('staff:id,name,email')
+                ->with('staff:id,name,email,phone,avatar')
                 ->latest()
                 ->get()
                 ->map(fn (VendorStaff $vs) => [
                     'id' => $vs->id,
                     'name' => $vs->staff->name,
                     'email' => $vs->staff->email,
+                    'phone' => $vs->staff->phone,
+                    'photo' => $vs->staff->avatar,
                     'status' => $vs->status,
                     'invited_at' => $vs->invited_at?->format('Y-m-d'),
                     'joined_at' => $vs->joined_at?->format('Y-m-d'),
@@ -50,9 +51,8 @@ class VendorStaffController extends Controller
             // Admin has no "acting" vendor of their own, so the page must
             // let them pick one before a list can be shown.
             'requiresVendorSelection' => $user->isAdmin() && ! $vendorId,
-            // Sourced from the vendors table, not the Vendor role — role
-            // checks are team-scoped now (see app/Support/PermissionTeams.php)
-            // and there's no single "team" that covers every vendor.
+            // Admin has no vendor of their own to default to, so they
+            // pick one from the full list of approved vendors.
             'vendors' => $user->isAdmin()
                 ? Vendor::where('status', VendorStatusEnum::Approved->value)
                     ->with('user:id,name')
@@ -70,6 +70,8 @@ class VendorStaffController extends Controller
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:30',
+            'photo' => 'nullable|image|max:2048',
         ]);
 
         $targetUser = User::where('email', $validated['email'])->first();
@@ -82,11 +84,18 @@ class VendorStaffController extends Controller
 
         $justCreated = false;
 
+        // phone/photo only apply when we're creating the account — we
+        // won't silently overwrite an existing user's own profile info
+        // just because someone invited them.
         if (! $targetUser) {
             $targetUser = User::create([
                 'name' => $validated['name'] ?? $validated['email'],
                 'email' => $validated['email'],
                 'password' => null,
+                'phone' => $validated['phone'] ?? null,
+                'avatar' => $request->hasFile('photo')
+                    ? Storage::disk('public')->url($request->file('photo')->store('staff-avatars', 'public'))
+                    : null,
             ]);
             $justCreated = true;
         }
@@ -128,7 +137,12 @@ class VendorStaffController extends Controller
 
         abort_unless($vendorStaff->isActive(), 422, 'Only active members can be suspended.');
 
-        PermissionTeams::asTeam($vendorStaff->vendor_id, fn () => $vendorStaff->staff->removeRole(RolesEnum::Staff->value));
+        // Only strip the Staff role if this was their last active vendor
+        // — the role is global, not per-vendor, so a staff member working
+        // for two vendors should keep it while suspended from just one.
+        if ($vendorStaff->staff->activeVendors()->where('users.id', '!=', $vendorStaff->vendor_id)->doesntExist()) {
+            $vendorStaff->staff->removeRole(RolesEnum::Staff->value);
+        }
 
         $vendorStaff->update(['status' => 'suspended']);
 
@@ -141,11 +155,9 @@ class VendorStaffController extends Controller
 
         abort_unless($vendorStaff->status === 'suspended', 422, 'Only suspended members can be reactivated.');
 
-        PermissionTeams::asTeam($vendorStaff->vendor_id, function () use ($vendorStaff) {
-            if (! $vendorStaff->staff->hasRole(RolesEnum::Staff->value)) {
-                $vendorStaff->staff->assignRole(RolesEnum::Staff->value);
-            }
-        });
+        if (! $vendorStaff->staff->hasRole(RolesEnum::Staff->value)) {
+            $vendorStaff->staff->assignRole(RolesEnum::Staff->value);
+        }
 
         $vendorStaff->update(['status' => 'active']);
 
@@ -156,8 +168,10 @@ class VendorStaffController extends Controller
     {
         $this->authorize('delete', $vendorStaff);
 
-        if ($vendorStaff->isActive()) {
-            PermissionTeams::asTeam($vendorStaff->vendor_id, fn () => $vendorStaff->staff->removeRole(RolesEnum::Staff->value));
+        if ($vendorStaff->isActive()
+            && $vendorStaff->staff->activeVendors()->where('users.id', '!=', $vendorStaff->vendor_id)->doesntExist()
+        ) {
+            $vendorStaff->staff->removeRole(RolesEnum::Staff->value);
         }
 
         $vendorStaff->delete();
@@ -181,24 +195,26 @@ class VendorStaffController extends Controller
         }
 
         $rule = $required ? 'required' : 'nullable';
+return $request->validate([
+    'vendor_id' => [
+        $rule,
+        'integer',
+        'exists:vendors,user_id',
+        function ($attribute, $value, $fail) {
+            $vendor = Vendor::where('user_id', $value)->first();
 
-        return $request->validate(['vendor_id' => "{$rule}|integer|exists:vendors,user_id"])['vendor_id'] ?? null;
-    }
+            if (! $vendor || $vendor->status !== VendorStatusEnum::Approved->value) {
+                $fail('The selected vendor is not approved.');
+            }
+        },
+    ],
+])['vendor_id'] ?? null;
 
-    /**
-     * Team-agnostic check: does this user hold the Admin or Vendor role
-     * under ANY team? hasRole() only checks the current request's team
-     * context, which isn't meaningful here — we're asking about a
-     * different user entirely.
-     */
+        }
+
     private function hasAdminOrVendorRole(User $user): bool
     {
-        return DB::table('model_has_roles')
-            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-            ->where('model_has_roles.model_id', $user->id)
-            ->where('model_has_roles.model_type', User::class)
-            ->whereIn('roles.name', [RolesEnum::Admin->value, RolesEnum::Vendor->value])
-            ->exists();
+        return $user->hasAnyRole([RolesEnum::Admin->value, RolesEnum::Vendor->value]);
     }
 
     private function sendInvitation(VendorStaff $vendorStaff, User $targetUser, bool $needsPassword): void

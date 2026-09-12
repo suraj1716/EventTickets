@@ -350,7 +350,7 @@ export default function Edit() {
 
             <div className="pf-grid">
               <div className="pf-stack">
-                {auth.user.email === vendorOwnerEmail && !isVendor && (
+                {auth.user && !isVendor && (
                   <button
                     className="pf-btn-primary"
                     disabled={processing}

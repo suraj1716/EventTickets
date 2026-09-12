@@ -239,9 +239,16 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const isAdmin =
-    auth?.user?.roles?.includes("Admin") ||
-    (auth?.user?.roles?.includes("Vendor") && auth?.user?.vendor?.status === "approved");
+  const roles = auth?.user?.roles ?? [];
+
+const isAdmin = roles.includes("Admin");
+const isVendor = roles.includes("Vendor");
+const isStaff = roles.includes("Staff");
+
+const canAccessDashboard =
+  isAdmin ||
+  (isVendor && auth?.user?.vendor?.status === "approved") ||
+  isStaff;
   const { url } = usePage();
   const vendor = useVendorDetails();
 
@@ -288,7 +295,9 @@ export default function Navbar() {
   ];
 
   const accountItems: { label: string; href: string }[] = [
-    ...(isAdmin ? [{ label: "Admin Dashboard", href: route("admin.dashboard") }] : []),
+  ...(canAccessDashboard
+    ? [{ label: "Dashboard", href: route("admin.dashboard") }]
+    : []),
     { label: "My Tickets", href: route("tickets.index") },
     { label: "Vouchers", href: route("vouchers.index") },
     { label: "Resale Listings", href: route("resale.mine") },

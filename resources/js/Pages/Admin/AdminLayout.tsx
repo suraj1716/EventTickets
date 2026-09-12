@@ -39,6 +39,7 @@ import {
   Bell,
   LogOut,
   ShieldCheck,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { C as SharedC } from "@/Components/Admin/AdminComponents";
@@ -57,6 +58,7 @@ type NavItem = {
   // aren't scoped by role yet (see admin_routes.php — all under
   // role:Admin|Vendor) — this only trims what vendors *see* for now.
   adminOnly?: boolean;
+  adminOrVendor?: boolean;
 };
 
 const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
@@ -104,6 +106,7 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
       { label: "Users", href: "admin.users.index", icon: User, countKey: null, adminOnly: true },
       { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null, adminOnly: true },
       { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null },
+      { label: "Team", href: "admin.vendor.team.index", icon: UserPlus, countKey: null,   adminOrVendor: true, },
       { label: "Roster", href: "admin.roster.index", icon: CalendarClock, countKey: null, adminOnly: true },
       { label: "Permissions Test", href: "admin.permissions-test.index", icon: ShieldCheck, countKey: null },
     ],
@@ -171,15 +174,30 @@ export default function AdminLayout({
   const userName = authUser?.name ?? "Admin";
   const roles = authUser?.roles ?? [];
   const isAdmin = roles.includes("Admin");
+  const isVendor = roles.includes("Vendor");
+console.log("AUTH ROLES:", roles);
+console.log("IS ADMIN:", isAdmin);
+console.log("IS VENDOR:", isVendor);
   const userRole = authUser?.roles?.[0] ?? "Platform admin";
   const markLetter = appName.trim().charAt(0).toUpperCase() || "A";
 
   // Vendors see a trimmed-down sidebar; groups left with no items after
   // filtering are dropped entirely.
-  const visibleGroups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => isAdmin || !item.adminOnly),
-  })).filter((group) => group.items.length > 0);
+const visibleGroups = NAV_GROUPS.map((group) => ({
+  ...group,
+  items: group.items.filter((item) => {
+    if (item.adminOnly) {
+      return isAdmin;
+    }
+
+    if (item.adminOrVendor) {
+      return isAdmin || isVendor;
+    }
+
+    return true;
+  }),
+})).filter((group) => group.items.length > 0);
+
 
   return (
     <div

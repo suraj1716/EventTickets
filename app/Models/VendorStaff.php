@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A staff member's membership on a vendor's team. vendor_id doubles as
- * the spatie permissions team id (see app/Support/PermissionTeams.php).
+ * A staff member's membership on a vendor's team. The Staff role itself
+ * is global (see App\Enums\RolesEnum / RolesAndPermissionsSeeder) — this
+ * table is what actually tracks *which* vendor(s) a staff member can act
+ * as.
  *
  * status: invited -> active -> suspended (or removed entirely, which
  * deletes the row). Only 'active' rows count toward $user->activeVendors()
