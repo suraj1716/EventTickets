@@ -105,8 +105,8 @@ class Order extends Model
         return $this->hasOne(VoucherUsage::class);
     }
 
-    public function tickets()
+public function tickets()
 {
-    return $this->hasManyThrough(Ticket::class, OrderItem::class);
+    return $this->hasMany(Ticket::class, 'order_id');
 }
 }

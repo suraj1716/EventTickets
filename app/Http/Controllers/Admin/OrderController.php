@@ -4,17 +4,19 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\OrderStatusEnum;
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
+use App\Models\Event;
+use App\Models\EventSeat;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\TicketTier;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\Voucher;
 use App\Models\VoucherUsage;
 use App\Services\RefundService;
+use App\Services\TicketGenerationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +30,7 @@ class OrderController extends Controller
     ══════════════════════════════════════════ */
     public function index(Request $request)
     {
-        $query = Order::with('user', 'vendorUser.vendor', 'booking', 'refunds')->latest();
+        $query = Order::with('user', 'vendorUser.vendor', 'refunds')->latest();
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -58,7 +60,7 @@ class OrderController extends Controller
             'vendor_type'    => $o->vendorUser?->vendor?->vendor_type?->value ?? '—',
             'total_price'    => $o->total_price,
             'voucher_discount' => $o->voucher_discount ?? 0,
-            'gross_total'      => round(($o->total_price ?? 0) + ($o->voucher_discount ?? 0), 2), // ← new, ready to display
+            'gross_total'      => round(($o->total_price ?? 0) + ($o->voucher_discount ?? 0), 2),
             'status'         => $o->status,
             'is_paid'        => $o->is_paid,
             'payment_method' => $o->payment_method ?? null,
@@ -66,7 +68,10 @@ class OrderController extends Controller
             'refunded_at'    => $o->refunded_at?->format('d M Y H:i'),
             'refund_amount'  => $o->refund_amount,
 
-            'has_booking'    => !is_null($o->booking),
+            // Was `has_booking` (salon appointment flag) — this is a ticket
+            // platform now, so the equivalent signal is "does this order
+            // contain tickets" vs. a pure merch order.
+            'has_tickets'    => $o->orderItems()->whereNotNull('ticket_tier_id')->exists(),
             'created_at'     => $o->created_at?->format('d M Y H:i'),
             'refunded_types' => $o->refunds()->pluck('type')->values()->all(),
         ]);
@@ -90,11 +95,15 @@ class OrderController extends Controller
         $order->load(
             'user',
             'vendorUser.vendor',
-            'booking',
             'orderItems.product',
-            'refunds',
-            'staff'
+            'orderItems.ticketTier.eventLeg.event',
+            'refunds'
         );
+
+        // Real, generated Ticket rows (post-payment) — separate from the
+        // order_items ticket lines, which exist even before payment.
+        $tickets = $order->tickets()->with('seat')->get();
+
         return Inertia::render('Admin/Orders/Show', [
             'order' => [
                 'id'             => $order->id,
@@ -105,7 +114,7 @@ class OrderController extends Controller
                 'vendor_type'    => $order->vendorUser?->vendor?->vendor_type?->value ?? '—',
                 'voucher_discount' => $order->voucher_discount ?? 0,
                 'total_price'    => $order->total_price,
-                'gross_total'    => round(($order->total_price ?? 0) + ($order->voucher_discount ?? 0), 2), // ← add this
+                'gross_total'    => round(($order->total_price ?? 0) + ($order->voucher_discount ?? 0), 2),
                 'booking_fee'    => $order->booking_fee ?? 0,
                 'status'         => $order->status,
                 'is_paid'        => $order->is_paid,
@@ -115,25 +124,40 @@ class OrderController extends Controller
                 'refunded_types' => $order->refunds->pluck('type')->values()->all(),
                 'refunded_at'    => $order->refunded_at?->format('d M Y H:i'),
                 'refund_amount'  => $order->refund_amount,
-
                 'created_at'     => $order->created_at?->format('d M Y H:i'),
-                'booking' => $order->booking ? [
-                    'id'           => $order->booking->id,
-                    'booking_date' => $order->booking->booking_date,
-                    'time_slot'    => $order->booking->time_slot,
-                ] : null,
-                'staff_id' => $order->staff_id,
-                'staff' => $order->staff ? [
-                    'id'   => $order->staff->id,
-                    'name' => $order->staff->name,
-                ] : null,
-                'items' => $order->orderItems->map(fn($i) => [
-                    'id'       => $i->id,
-                    'title'    => $i->product?->title ?? '—',
-                    'image'    => $i->product?->getFirstMediaUrl('products'),
-                    'quantity' => $i->quantity,
-                    'price'    => $i->price,
-                    'subtotal' => $i->quantity * $i->price,
+
+                'items' => $order->orderItems->map(fn($i) => $i->ticket_tier_id
+                    ? [
+                        'id'         => $i->id,
+                        'type'       => 'ticket',
+                        'title'      => ($i->ticketTier?->eventLeg?->event?->name ?? 'Event') . ' — ' . ($i->ticketTier?->name ?? 'Ticket'),
+                        'event_name' => $i->ticketTier?->eventLeg?->event?->name ?? '—',
+                        'tier_name'  => $i->ticketTier?->name ?? '—',
+                        'event_date' => $i->ticketTier?->eventLeg?->event_date,
+                        'venue_name' => $i->ticketTier?->eventLeg?->venue_name,
+                        'quantity'   => $i->quantity,
+                        'price'      => $i->price,
+                        'subtotal'   => $i->quantity * $i->price,
+                    ]
+                    : [
+                        'id'       => $i->id,
+                        'type'     => 'product',
+                        'title'    => $i->product?->title ?? '—',
+                        'image'    => $i->product?->getFirstMediaUrl('products'),
+                        'quantity' => $i->quantity,
+                        'price'    => $i->price,
+                        'subtotal' => $i->quantity * $i->price,
+                    ]),
+
+                // Real issued tickets — only present once the order has been
+                // paid and TicketGenerationService::generate() has run.
+                'tickets' => $tickets->map(fn($t) => [
+                    'id'         => $t->id,
+                    'code'       => $t->code,
+                    'status'     => $t->status,
+                    'qr_url'     => $t->qr_url,
+                    'seat_label' => $t->seat?->label,
+                    'holder_name' => $t->holder_name,
                 ]),
             ],
             'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
@@ -142,45 +166,94 @@ class OrderController extends Controller
     }
 
     /* ══════════════════════════════════════════
-       CREATE (walk-in POS)
+       Resolve which vendor's inventory this admin
+       session should see. Vendor/Staff always act
+       for their own/acting vendor; Admin must pick
+       one explicitly (there's no "acting vendor" for
+       an Admin account).
     ══════════════════════════════════════════ */
-    public function create()
+    private function resolveVendorId(Request $request): ?int
     {
-        $products = Product::where('status', 'published')
+        $user = $request->user();
+
+        if (! $user->isAdmin()) {
+            return $user->actingVendorId();
+        }
+
+        return $request->filled('vendor_id') ? (int) $request->vendor_id : null;
+    }
+
+    /* ══════════════════════════════════════════
+       CREATE (walk-in ticket sale)
+    ══════════════════════════════════════════ */
+    public function create(Request $request)
+    {
+        $vendorId = $this->resolveVendorId($request);
+
+        if (! $vendorId) {
+            return Inertia::render('Admin/Orders/Create', [
+                'requiresVendorSelection' => true,
+                'vendors' => Vendor::query()->orderBy('store_name')->get(['user_id', 'store_name']),
+                'events' => [],
+                'products' => [],
+                'users' => [],
+                'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
+                'flash' => ['success' => session('success'), 'error' => session('error')],
+            ]);
+        }
+
+        $events = Event::where('vendor_user_id', $vendorId)
+            ->with(['legs.ticketTiers', 'legs.seats'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn(Event $event) => [
+                'id' => $event->id,
+                'vendor_user_id' => $event->vendor_user_id,
+                'name' => $event->name,
+                'legs' => $event->legs->map(fn($leg) => [
+                    'id' => $leg->id,
+                    'venue_name' => $leg->venue_name,
+                    'event_date' => optional($leg->event_date)->format('Y-m-d') ?? (string) $leg->event_date,
+                    'seating_type' => $leg->seating_type,
+                    'ticket_tiers' => $leg->ticketTiers->map(fn(TicketTier $tier) => [
+                        'id' => $tier->id,
+                        'event_leg_id' => $tier->event_leg_id,
+                        'name' => $tier->name,
+                        'price' => $tier->price,
+                        'remaining' => $tier->remaining,
+                    ]),
+                    'seats' => $leg->seats->map(fn(EventSeat $seat) => [
+                        'id' => $seat->id,
+                        'event_leg_id' => $seat->event_leg_id,
+                        'ticket_tier_id' => $seat->ticket_tier_id,
+                        'row_label' => $seat->row_label,
+                        'seat_number' => $seat->seat_number,
+                        'label' => $seat->label,
+                        'status' => $seat->status,
+                    ]),
+                ]),
+            ]);
+
+        $products = Product::where('created_by', $vendorId)
+            ->where('status', 'published')
             ->get(['id', 'title', 'price'])
-            ->map(function ($product) {
-                return [
-                    'id'    => $product->id,
-                    'title' => $product->title,
-                    'price' => $product->price,
-                    'image' => $product->getFirstMediaUrl('products'),
-                ];
-            });
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'title' => $p->title,
+                'price' => $p->price,
+                'image' => $p->getFirstMediaUrl('products'),
+            ]);
 
-        $users = User::orderBy('name')
-            ->get(['id', 'name', 'email', 'phone']);
-
-        $vendors = Vendor::with('user')->get();
-
-        $statuses = [
-            'draft',
-            'paid',
-            'delivered',
-            'cancelled',
-            'refunded',
-        ];
+        $users = User::orderBy('name')->get(['id', 'name', 'email', 'phone']);
 
         return Inertia::render('Admin/Orders/Create', [
-            'users'          => $users,
-            'vendors'        => $vendors,
-            'products'       => $products,
-            'statuses'       => $statuses,
-            'vendor_user_id' => Auth::id(),
-            'vendor_name'    => Auth::user()->name,
-            'flash'          => [
-                'success' => session('success'),
-                'error'   => session('error'),
-            ],
+            'requiresVendorSelection' => false,
+            'vendors' => null,
+            'events' => $events,
+            'products' => $products,
+            'users' => $users,
+            'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
+            'flash' => ['success' => session('success'), 'error' => session('error')],
         ]);
     }
 
@@ -201,7 +274,7 @@ class OrderController extends Controller
     }
 
     /* ══════════════════════════════════════════
-       STORE (walk-in)
+       STORE (walk-in ticket + merch sale)
     ══════════════════════════════════════════ */
     public function store(Request $request)
     {
@@ -210,22 +283,33 @@ class OrderController extends Controller
             'new_name'          => 'required_without:user_id|string|max:255',
             'new_email'         => 'nullable|email|max:255',
             'new_phone'         => 'required_without:user_id|string|max:30',
-            'vendor_user_id'    => 'required|exists:users,id',
-            'payment_method' => 'nullable|in:cash,eftpos,other,stripe,card',
+            'payment_method'    => 'nullable|in:cash,eftpos,other,stripe,card',
             'is_paid'           => 'boolean',
             'notes'             => 'nullable|string|max:500',
-            'items'             => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'  => 'required|integer|min:1',
-            'items.*.price'     => 'required|numeric|min:0',
-            'add_booking'       => 'boolean',
-            'booking_date'      => 'required_if:add_booking,true|date',
-            'booking_time_slot' => 'required_if:add_booking,true|string',
+            'booking_fee'       => 'nullable|numeric|min:0',
+            'ticket_lines'      => 'required_without:product_lines|array',
+            'ticket_lines.*.ticket_tier_id' => 'required|exists:ticket_tiers,id',
+            'ticket_lines.*.quantity'       => 'required|integer|min:1',
+            'ticket_lines.*.seat_ids'       => 'nullable|array',
+            'ticket_lines.*.seat_ids.*'     => 'integer|exists:event_seats,id',
+            'product_lines'     => 'required_without:ticket_lines|array',
+            'product_lines.*.product_id' => 'required|exists:products,id',
+            'product_lines.*.quantity'   => 'required|integer|min:1',
+            'product_lines.*.price'      => 'required|numeric|min:0',
         ]);
+
+        $vendorId = $this->resolveVendorId($request);
+        abort_unless($vendorId, 422, 'No vendor selected for this order.');
+
+        $ticketLines = collect($request->input('ticket_lines', []));
+        $productLines = collect($request->input('product_lines', []));
+
+        if ($ticketLines->isEmpty() && $productLines->isEmpty()) {
+            return back()->withErrors(['error' => 'Add at least one ticket or product.']);
+        }
 
         DB::beginTransaction();
         try {
-            // Resolve or create customer
             if ($request->filled('user_id')) {
                 $user = User::findOrFail($request->user_id);
             } else {
@@ -241,13 +325,31 @@ class OrderController extends Controller
                 ]);
             }
 
-            $total = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+            // Reserve ticket stock up front — inside the same transaction as
+            // order/item creation, so a failed reservation rolls everything
+            // back rather than leaving a paid-looking order with no stock.
+            $ticketTiers = TicketTier::whereIn('id', $ticketLines->pluck('ticket_tier_id'))
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            foreach ($ticketLines as $line) {
+                $tier = $ticketTiers->get($line['ticket_tier_id']);
+                if (! $tier || ! $tier->reserve((int) $line['quantity'])) {
+                    throw new \RuntimeException("Not enough tickets remaining for \"{$tier?->name}\".");
+                }
+            }
+
+            $ticketTotal = $ticketLines->sum(fn($l) => $ticketTiers[$l['ticket_tier_id']]->price * $l['quantity']);
+            $productTotal = $productLines->sum(fn($l) => $l['price'] * $l['quantity']);
+            $bookingFee = (float) $request->input('booking_fee', 0);
+            $total = $ticketTotal + $productTotal + $bookingFee;
 
             $order = Order::create([
                 'user_id'                   => $user->id,
-                'vendor_user_id'            => $request->vendor_user_id,
+                'vendor_user_id'            => $vendorId,
                 'total_price'               => $total,
-                'booking_fee'               => 0,
+                'booking_fee'               => $bookingFee,
                 'status'                    => $request->boolean('is_paid') ? 'paid' : 'draft',
                 'is_paid'                   => $request->boolean('is_paid'),
                 'payment_method'            => $request->payment_method,
@@ -257,27 +359,36 @@ class OrderController extends Controller
                 'vendor_subtotal'           => $total,
             ]);
 
-            foreach ($request->items as $item) {
+            foreach ($ticketLines as $line) {
+                $tier = $ticketTiers[$line['ticket_tier_id']];
                 OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $item['product_id'],
-                    'quantity'   => $item['quantity'],
-                    'price'      => $item['price'],
+                    'order_id'       => $order->id,
+                    'ticket_tier_id' => $tier->id,
+                    'quantity'       => $line['quantity'],
+                    'price'          => $tier->price,
+                    'seat_ids'       => $line['seat_ids'] ?? null,
                 ]);
             }
 
-            if ($request->boolean('add_booking')) {
-                Booking::create([
-                    'user_id'      => $user->id,
-                    'order_id'     => $order->id,
-                    'booking_date' => $request->booking_date,
-                    'time_slot'    => $request->booking_time_slot,
+            foreach ($productLines as $line) {
+                OrderItem::create([
+                    'order_id'   => $order->id,
+                    'product_id' => $line['product_id'],
+                    'quantity'   => $line['quantity'],
+                    'price'      => $line['price'],
                 ]);
+            }
+
+            // Walk-in sales are paid on the spot — issue real tickets (QR +
+            // barcode + seat lock) immediately rather than waiting on a
+            // webhook that will never fire for a cash/EFTPOS sale.
+            if ($request->boolean('is_paid') && $ticketLines->isNotEmpty()) {
+                app(TicketGenerationService::class)->generate($order->fresh('orderItems'));
             }
 
             DB::commit();
             return redirect()->route('admin.orders.show', $order->id)
-                ->with('success', "Walk-in order #{$order->id} created for {$user->name}.");
+                ->with('success', "Order #{$order->id} created for {$user->name}.");
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Order failed: ' . $e->getMessage()]);
@@ -285,111 +396,88 @@ class OrderController extends Controller
     }
 
     /* ══════════════════════════════════════════
-   EDIT
-══════════════════════════════════════════ */
+       EDIT
+    ══════════════════════════════════════════ */
     public function edit(Order $order)
     {
+        $order->load('orderItems.product', 'orderItems.ticketTier.eventLeg.event');
+        $users = User::orderBy('name')->get(['id', 'name', 'email', 'phone']);
+        $tickets = $order->tickets()->with('seat')->get();
 
-        $order->load('orderItems.product', 'booking.staff');
-        $products = Product::where('status', 'published')->get(['id', 'title', 'price']);
-        $users    = User::orderBy('name')->get(['id', 'name', 'email', 'phone']);
-        $vendor = \App\Models\Vendor::where('user_id', $order->vendor_user_id)->first();
-        $staffOptions = \App\Models\Staff::select('id', 'name')->orderBy('name')->get();
-
-        $payload = [
+        return Inertia::render('Admin/Orders/Edit', [
             'order' => [
                 'id'             => $order->id,
                 'user_id'        => $order->user_id,
-                'vendor_user_id' => $order->vendor_user_id,
                 'status'         => $order->status,
                 'is_paid'        => (bool) $order->is_paid,
-                'payment_intent'  => $order->payment_intent,
+                'payment_intent' => $order->payment_intent,
                 'payment_method' => $order->payment_method ?? 'cash',
                 'total_price'    => $order->total_price,
                 'notes'          => $order->notes ?? '',
-                'booking' => $order->booking ? [
-                    'id'                => $order->booking->id,
-                    'booking_date'      => $order->booking->booking_date,
-                    'time_slot'         => $order->booking->time_slot,
-                    'assigned_staff_id' => $order->booking->staff_id,
-                    'assigned_staff'    => $order->booking->staff?->name,
-                ] : null,
-                'items' => $order->orderItems->map(fn($i) => [
-                    'product_id' => $i->product_id,
-                    'title'      => $i->product?->title ?? '—',
-                    'quantity'   => $i->quantity,
-                    'price'      => $i->price,
+                'items' => $order->orderItems->map(fn($i) => $i->ticket_tier_id
+                    ? [
+                        'id'         => $i->id,
+                        'type'       => 'ticket',
+                        'title'      => ($i->ticketTier?->eventLeg?->event?->name ?? 'Event') . ' — ' . ($i->ticketTier?->name ?? 'Ticket'),
+                        'quantity'   => $i->quantity,
+                        'price'      => $i->price,
+                    ]
+                    : [
+                        'id'       => $i->id,
+                        'type'     => 'product',
+                        'title'    => $i->product?->title ?? '—',
+                        'quantity' => $i->quantity,
+                        'price'    => $i->price,
+                    ]),
+                'tickets' => $tickets->map(fn($t) => [
+                    'id' => $t->id,
+                    'code' => $t->code,
+                    'status' => $t->status,
+                    'seat_label' => $t->seat?->label,
                 ]),
             ],
-            'vendor' => $vendor ? [
-                'business_start_time'   => $vendor->business_start_time,
-                'business_end_time'     => $vendor->business_end_time,
-                'slot_interval_minutes' => $vendor->slot_interval_minutes,
-            ] : null,
-            'products'     => $products,
-            'users'        => $users,
-            'staffOptions' => $staffOptions,
-            'statuses'     => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
-            'flash'        => ['success' => session('success'), 'error' => session('error')],
-        ];
-
-
-        return Inertia::render('Admin/Orders/Edit', $payload);
+            'users'    => $users,
+            'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
+            'flash'    => ['success' => session('success'), 'error' => session('error')],
+        ]);
     }
 
     /* ══════════════════════════════════════════
-   UPDATE
-══════════════════════════════════════════ */
+       UPDATE
+       Line items are NOT editable here once created —
+       tickets may already be issued (QR/seat locked),
+       and re-diffing lines against issued tickets is a
+       hazard, not a feature. This updates order-level
+       fields only: status, payment, buyer, notes.
+    ══════════════════════════════════════════ */
     public function update(Request $request, Order $order)
     {
         $request->validate([
-            'status'            => 'required|in:draft,paid,shipped,delivered,cancelled',
-            'is_paid'           => 'boolean',
+            'status'         => 'required|in:draft,paid,shipped,delivered,cancelled',
+            'is_paid'        => 'boolean',
             'payment_method' => 'nullable|in:cash,eftpos,other,stripe,card',
-            'notes'             => 'nullable|string|max:500',
-            'user_id'           => 'nullable|exists:users,id',
-            'items'             => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'  => 'required|integer|min:1',
-            'items.*.price'     => 'required|numeric|min:0',
-            'booking_date'      => 'nullable|date',
-            'booking_time_slot' => 'nullable|string',
-            'assigned_staff_id' => 'nullable|exists:staff,id',
+            'notes'          => 'nullable|string|max:500',
+            'user_id'        => 'nullable|exists:users,id',
         ]);
 
-        $total = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+        $wasPaid = $order->is_paid;
 
         $order->update([
             'status'         => $request->status,
             'is_paid'        => $request->boolean('is_paid'),
             'payment_method' => $request->payment_method,
-            'total_price'    => $total,
             'user_id'        => $request->user_id ?? $order->user_id,
             'manual_paid_at' => $request->boolean('is_paid') && !$order->manual_paid_at ? now() : $order->manual_paid_at,
         ]);
 
-        // Rebuild items
-        $order->orderItems()->delete();
-        foreach ($request->items as $item) {
-            OrderItem::create([
-                'order_id'   => $order->id,
-                'product_id' => $item['product_id'],
-                'quantity'   => $item['quantity'],
-                'price'      => $item['price'],
-            ]);
-        }
-
-        // Update or create booking
-        if ($request->filled('booking_date') && $request->filled('booking_time_slot')) {
-            $order->booking()->updateOrCreate(
-                ['order_id' => $order->id],
-                [
-                    'user_id'        => $request->user_id ?? $order->user_id,
-                    'booking_date'   => $request->booking_date,
-                    'time_slot'      => $request->booking_time_slot,
-                    'staff_id'       => $request->assigned_staff_id,
-                ]
-            );
+        // Marking a previously-unpaid ticket order as paid (e.g. an EFTPOS
+        // sale confirmed after the fact) should issue real tickets now,
+        // same as the immediate-pay path in store().
+        if (!$wasPaid && $order->is_paid) {
+            $order->loadMissing('orderItems');
+            if ($order->orderItems->contains(fn($i) => $i->ticket_tier_id !== null)) {
+                app(TicketGenerationService::class)->generate($order);
+            }
         }
 
         return redirect()->route('admin.orders.show', $order->id)
@@ -476,7 +564,6 @@ class OrderController extends Controller
             'refunded_at' => $order->refunded_at,
             'total_price' => $order->total_price,
             'status' => $order->status,
-            'has_booking' => (bool) $order->booking,
         ]);
 
         $refundService = app(RefundService::class);
@@ -605,7 +692,6 @@ class OrderController extends Controller
     ══════════════════════════════════════════ */
     public function destroy(Order $order)
     {
-        $order->booking?->delete();
         $order->orderItems()->delete();
         $order->delete();
         return redirect()->route('admin.orders.index')->with('success', "Order #{$order->id} deleted.");

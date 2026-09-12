@@ -1,1329 +1,590 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Head, router, usePage } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
+import { useMemo, useState } from "react";
 import AdminLayout from "../AdminLayout";
-import { AdminPageHeader, AdminBtn, Icons, FlashMessage, fontBody, fontDisplay, C } from "../../../Components/Admin/AdminComponents";
-import { User, Vendor } from "@/types";
+import {
+  AdminPageHeader,
+  AdminBtn,
+  FlashMessage,
+  Icons,
+  fontBody,
+  C,
+} from "../../../Components/Admin/AdminComponents";
+import { AdminInput, AdminSelect, AdminToggle, Field } from "../../../Components/Admin/useAdminForm";
 
-/* ── Types ── */
+// ── Types ────────────────────────────────────────────────────
+
+interface TicketTier {
+  id: number;
+  event_leg_id: number;
+  name: string;
+  price: number;
+  remaining: number;
+}
+interface Seat {
+  id: number;
+  event_leg_id: number;
+  ticket_tier_id: number | null;
+  row_label: string | null;
+  seat_number: number | null;
+  label: string;
+  status: string;
+}
+interface EventLeg {
+  id: number;
+  venue_name: string;
+  event_date: string;
+  seating_type: "general" | "reserved";
+  ticket_tiers: TicketTier[];
+  seats: Seat[];
+}
+interface EventOption {
+  id: number;
+  vendor_user_id: number;
+  name: string;
+  legs: EventLeg[];
+}
 interface Product {
   id: number;
   title: string;
   price: number;
   image: string | null;
 }
-interface LineItem {
-  product_id: number;
-  title: string;
-  quantity: number;
-  price: number;
-}
-interface FoundUser {
+interface UserOption {
   id: number;
   name: string;
   email: string;
-  phone: string;
+  phone: string | null;
+}
+interface VendorOption {
+  user_id: number;
+  store_name: string;
+}
+
+interface TicketLine {
+  key: string;
+  event_id: number;
+  event_name: string;
+  leg_id: number;
+  tier_id: number;
+  tier_name: string;
+  price: number;
+  quantity: number;
+  seating_type: "general" | "reserved";
+  seat_ids: number[];
+}
+interface ProductLine {
+  key: string;
+  product_id: number;
+  title: string;
+  price: number;
+  quantity: number;
 }
 
 interface Props {
+  events: EventOption[];
   products: Product[];
-  vendor_user_id: number;
-  vendor_name: string;
-  users?: User[];
-  vendors?: Vendor[];
-  statuses?: string[];
-  flash?: { success?: string; error?: string };
+  users: UserOption[];
+  statuses: string[];
+  requiresVendorSelection: boolean;
+  vendors: VendorOption[] | null;
+  flash: { success?: string; error?: string };
   errors?: Record<string, string>;
 }
 
-/* ── Style helpers ── */
-const label: React.CSSProperties = {
-  display: "block",
-  fontFamily: `${fontBody}`,
-  fontSize: "10px",
-  fontWeight: 500,
-  letterSpacing: "0.18em",
-  textTransform: "uppercase",
-  color: `${C.textMuted}`,
-  marginBottom: 6,
-};
-const input: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  fontFamily: `${fontBody}`,
-  fontSize: "13px",
-  color: `${C.text}`,
-  background: `${C.bgAlt}`,
-  border: `1px solid ${C.border}`,
-  borderRadius: "8px",
-  outline: "none",
-  boxSizing: "border-box",
-  transition: "border-color 150ms",
-};
-const err: React.CSSProperties = {
-  fontFamily: `${fontBody}`,
-  fontSize: "11px",
-  color: `${C.error}`,
-  marginTop: 4,
-};
-const fieldWrap: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-};
+// ── Small local layout helper (mirrors Show.tsx's SectionCard) ──
 
-function Card({
-  title,
-  badge,
-  children,
-}: {
-  title: string;
-  badge?: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        background: `${C.surface}`,
-        border: `1px solid ${C.border}`,
-        borderRadius: "12px",
-        overflow: "hidden",
-      }}
-    >
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
       <div
         style={{
           padding: "12px 20px",
           borderBottom: `1px solid ${C.border}`,
-          background: `${C.bgAlt}`,
+          background: C.bgAlt,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: 10,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 3,
-              height: 16,
-              background: `${C.amber}`,
-              borderRadius: 2,
-            }}
-          />
-          <span
-            style={{
-              fontFamily: `${fontBody}`,
-              fontSize: "10px",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: `${C.textMuted}`,
-              fontWeight: 500,
-            }}
-          >
-            {title}
-          </span>
-        </div>
-        {badge && (
-          <span
-            style={{
-              fontFamily: `${fontBody}`,
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: `${C.amber}`,
-              background: "rgba(201,169,110,0.1)",
-              border: "1px solid rgba(201,169,110,0.25)",
-              padding: "2px 8px",
-              borderRadius: "999px",
-            }}
-          >
-            {badge}
-          </span>
-        )}
+        <div style={{ width: 3, height: 16, background: C.amber, borderRadius: 2 }} />
+        <span style={{ fontFamily: fontBody, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.textMuted, fontWeight: 500 }}>
+          {title}
+        </span>
       </div>
-      <div style={{ padding: "20px" }}>{children}</div>
+      <div style={{ padding: 20 }}>{children}</div>
     </div>
   );
 }
 
-/* ── Time slot helper ── */
-function roundedSlot(): { date: string; slot: string } {
-  const now = new Date();
-  const mins = now.getMinutes();
-  const roundedMins = Math.round(mins / 30) * 30;
-  const start = new Date(now);
-  start.setMinutes(roundedMins, 0, 0);
-  const end = new Date(start);
-  end.setMinutes(end.getMinutes() + 30);
+let keyCounter = 0;
+const nextKey = () => `line_${++keyCounter}`;
 
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("en-AU", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-
-  const dateStr = now.toISOString().split("T")[0];
-  return { date: dateStr, slot: `${fmt(start)} - ${fmt(end)}` };
-}
-
-/* ── Available 30-min time slots for today ── */
-function buildTimeSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 8; h < 20; h++) {
-    for (const m of [0, 30]) {
-      const start = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const endM = m + 30;
-      const endH = endM >= 60 ? h + 1 : h;
-      const end = `${String(endH).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`;
-      slots.push(`${start} - ${end}`);
-    }
-  }
-  return slots;
-}
-
-/* ═══════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════ */
-export default function Create({
+export default function OrderCreate({
+  events,
   products,
-  vendor_user_id,
-  vendor_name,
+  users,
+  requiresVendorSelection,
+  vendors,
   flash,
-  errors = {},
-  users = [],
-  vendors = [],
-  statuses = [],
+  errors,
 }: Props) {
-  /* ── Customer state ── */
-  const [phone, setPhone] = useState("");
-  const [lookupState, setLookupState] = useState<
-    "idle" | "searching" | "found" | "new"
-  >("idle");
-  const { props } = usePage();
-  const csrfToken = (props as any).csrf_token;
-  const [foundUser, setFoundUser] = useState<User | null>(null);
-
-  const [resolvedUserId, setResolvedUserId] = useState<number | null>(null);
+  // Buyer
+  const [buyerMode, setBuyerMode] = useState<"existing" | "new">("new");
+  const [userId, setUserId] = useState<number | "">("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [phoneLookup, setPhoneLookup] = useState("");
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "found" | "not_found">("idle");
 
-  /* ── Items state ── */
-  const [items, setItems] = useState<LineItem[]>([]);
-  const [selectedPid, setSelectedPid] = useState("");
-  const [productSearch, setProductSearch] = useState("");
+  // Ticket line builder
+  const [selEventId, setSelEventId] = useState<number | "">("");
+  const [selLegId, setSelLegId] = useState<number | "">("");
+  const [selTierId, setSelTierId] = useState<number | "">("");
+  const [selQty, setSelQty] = useState(1);
+  const [selSeatIds, setSelSeatIds] = useState<number[]>([]);
 
-  /* ── Booking state ── */
-  const { date: autoDate, slot: autoSlot } = roundedSlot();
-  const [addBooking, setAddBooking] = useState(false);
-  const [bookingDate, setBookingDate] = useState(autoDate);
-  const [bookingSlot, setBookingSlot] = useState(autoSlot);
-  const timeSlots = buildTimeSlots();
+  // Product line builder
+  const [selProductId, setSelProductId] = useState<number | "">("");
+  const [selProductQty, setSelProductQty] = useState(1);
 
-  /* ── Payment state ── */
-  const [paymentMethod, setPaymentMethod] = useState<
-    "cash" | "eftpos" | "other"
-  >("cash");
-  const [isPaid, setIsPaid] = useState(false);
+  const [ticketLines, setTicketLines] = useState<TicketLine[]>([]);
+  const [productLines, setProductLines] = useState<ProductLine[]>([]);
+
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [isPaid, setIsPaid] = useState(true);
+  const [bookingFee, setBookingFee] = useState("0");
   const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
-  /* ── Phone lookup ── */
-  const handlePhoneLookup = async () => {
-    if (phone.length < 6) return;
-    setLookupState("searching");
-    setFoundUser(null);
-    setResolvedUserId(null);
+  const selectedEvent = events.find((e) => e.id === selEventId);
+  const selectedLeg = selectedEvent?.legs.find((l) => l.id === selLegId);
+  const selectedTier = selectedLeg?.ticket_tiers.find((t) => t.id === selTierId);
+  const availableSeats = selectedLeg?.seats.filter(
+    (s) => s.status === "available" && (s.ticket_tier_id === null || s.ticket_tier_id === selTierId)
+  ) ?? [];
 
-    try {
-      const res = await fetch(route("admin.orders.walkin.lookup"), {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": csrfToken,
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ phone }),
-      });
-
-      const text = await res.text();
-      const data = JSON.parse(text);
-
-      if (data.found) {
-        setFoundUser(data.user);
-        setResolvedUserId(data.user.id);
-        setLookupState("found");
-      } else {
-        setLookupState("new");
-      }
-    } catch {
-      setLookupState("new");
-    }
-  };
-
-  const resetCustomer = () => {
-    setPhone("");
-    setLookupState("idle");
-    setFoundUser(null);
-    setResolvedUserId(null);
-    setNewName("");
-    setNewEmail("");
-  };
-
-  /* ── Product helpers ── */
-  const filteredProducts = products.filter((p) =>
-    p.title.toLowerCase().includes(productSearch.toLowerCase()),
-  );
-
-  const addItem = () => {
-    const product = products.find((p) => p.id === Number(selectedPid));
-    if (!product) return;
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.product_id === product.id);
-      if (idx >= 0) {
-        const u = [...prev];
-        u[idx].quantity += 1;
-        return u;
-      }
-      return [
-        ...prev,
-        {
-          product_id: product.id,
-          title: product.title,
-          quantity: 1,
-          price: product.price,
-        },
-      ];
+  const handleLookup = async () => {
+    if (!phoneLookup) return;
+    const res = await fetch(route("admin.orders.walkin.lookup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": (window as any).Laravel?.csrfToken ?? "" },
+      body: JSON.stringify({ phone: phoneLookup }),
     });
-    setSelectedPid("");
-    setProductSearch("");
-  };
-
-  const updateItem = (
-    idx: number,
-    field: "quantity" | "price",
-    val: number,
-  ) => {
-    setItems((prev) => {
-      const u = [...prev];
-      u[idx][field] = val;
-      return u;
-    });
-  };
-
-  const removeItem = (idx: number) =>
-    setItems((prev) => prev.filter((_, i) => i !== idx));
-
-  const total = items.reduce((s, i) => s + i.quantity * i.price, 0);
-
-  /* ── Submit ── */
-  const handleSubmit = () => {
-    setSubmitting(true);
-    const payload: Record<string, any> = {
-      vendor_user_id: vendor_user_id,
-      payment_method: paymentMethod,
-      is_paid: isPaid,
-      notes,
-      items: items.map((i) => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        price: i.price,
-      })),
-      add_booking: addBooking,
-      booking_date: addBooking ? bookingDate : undefined,
-      booking_time_slot: addBooking ? bookingSlot : undefined,
-    };
-
-    if (resolvedUserId) {
-      payload.user_id = resolvedUserId;
+    const data = await res.json();
+    if (data.found) {
+      setUserId(data.user.id);
+      setLookupStatus("found");
     } else {
-      payload.new_name = newName;
-      payload.new_email = newEmail;
-      payload.new_phone = phone;
+      setLookupStatus("not_found");
+      setNewPhone(phoneLookup);
     }
-
-    router.post(route("admin.orders.store"), payload, {
-      onFinish: () => setSubmitting(false),
-    });
   };
 
-  const canSubmit =
-    (resolvedUserId || (lookupState === "new" && newName.trim())) &&
-    items.length > 0;
+  const addTicketLine = () => {
+    if (!selectedEvent || !selectedLeg || !selectedTier) return;
+    if (selectedLeg.seating_type === "reserved" && selSeatIds.length !== selQty) {
+      alert(`Select exactly ${selQty} seat(s).`);
+      return;
+    }
+    setTicketLines((prev) => [
+      ...prev,
+      {
+        key: nextKey(),
+        event_id: selectedEvent.id,
+        event_name: selectedEvent.name,
+        leg_id: selectedLeg.id,
+        tier_id: selectedTier.id,
+        tier_name: selectedTier.name,
+        price: selectedTier.price,
+        quantity: selQty,
+        seating_type: selectedLeg.seating_type,
+        seat_ids: selSeatIds,
+      },
+    ]);
+    setSelEventId("");
+    setSelLegId("");
+    setSelTierId("");
+    setSelQty(1);
+    setSelSeatIds([]);
+  };
 
-  /* ─────────────────────────────────────────
-     RENDER
-  ───────────────────────────────────────── */
-  return (
-    <>
-      <Head title="Walk-in Order" />
+  const addProductLine = () => {
+    const product = products.find((p) => p.id === selProductId);
+    if (!product) return;
+    setProductLines((prev) => [
+      ...prev,
+      { key: nextKey(), product_id: product.id, title: product.title, price: product.price, quantity: selProductQty },
+    ]);
+    setSelProductId("");
+    setSelProductQty(1);
+  };
+
+  const removeTicketLine = (key: string) => setTicketLines((prev) => prev.filter((l) => l.key !== key));
+  const removeProductLine = (key: string) => setProductLines((prev) => prev.filter((l) => l.key !== key));
+
+  const total = useMemo(() => {
+    const ticketTotal = ticketLines.reduce((sum, l) => sum + l.price * l.quantity, 0);
+    const productTotal = productLines.reduce((sum, l) => sum + l.price * l.quantity, 0);
+    return ticketTotal + productTotal + (parseFloat(bookingFee) || 0);
+  }, [ticketLines, productLines, bookingFee]);
+
+  const handleSubmit = () => {
+    if (ticketLines.length === 0 && productLines.length === 0) {
+      alert("Add at least one ticket or product.");
+      return;
+    }
+    setProcessing(true);
+    router.post(
+      route("admin.orders.store"),
+      {
+        user_id: buyerMode === "existing" ? userId || undefined : undefined,
+        new_name: buyerMode === "new" ? newName : undefined,
+        new_email: buyerMode === "new" ? newEmail : undefined,
+        new_phone: buyerMode === "new" ? newPhone : undefined,
+        payment_method: paymentMethod,
+        is_paid: isPaid,
+        booking_fee: parseFloat(bookingFee) || 0,
+        notes,
+        ticket_lines: ticketLines.map((l) => ({
+          ticket_tier_id: l.tier_id,
+          quantity: l.quantity,
+          seat_ids: l.seat_ids.length > 0 ? l.seat_ids : undefined,
+        })),
+        product_lines: productLines.map((l) => ({
+          product_id: l.product_id,
+          quantity: l.quantity,
+          price: l.price,
+        })),
+      },
+      { onFinish: () => setProcessing(false) }
+    );
+  };
+
+  if (requiresVendorSelection) {
+    return (
       <AdminLayout>
-        <AdminPageHeader
-          eyebrow="Orders"
-          title="Walk-in Order"
-          meta={`Serving as: ${vendor_name}`}
-          action={
-            <AdminBtn as="a" href={route("admin.orders.index")} variant="ghost">
-              <Icons.Back /> Back to Orders
-            </AdminBtn>
-          }
-        />
-
-        <FlashMessage flash={flash ?? {}} />
-        {errors.error && (
-          <div
-            style={{
-              ...err,
-              padding: "10px 14px",
-              border: "1px solid rgba(192,57,43,0.2)",
-              background: "rgba(192,57,43,0.06)",
-              borderRadius: "8px",
-              marginBottom: 16,
-            }}
+        <Head title="New Order" />
+        <AdminPageHeader eyebrow="Box Office" title="New Order" />
+        <FlashMessage flash={{ ...flash, error: errors?.error }} />
+        <Section title="Select a vendor">
+          <AdminSelect
+            value=""
+            onChange={(e) => router.get(route("admin.orders.create"), { vendor_id: e.target.value })}
           >
-            {errors.error}
-          </div>
-        )}
+            <option value="">Choose a vendor…</option>
+            {vendors?.map((v) => (
+              <option key={v.user_id} value={v.user_id}>
+                {v.store_name}
+              </option>
+            ))}
+          </AdminSelect>
+        </Section>
+      </AdminLayout>
+    );
+  }
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) 300px",
-            gap: 20,
-            alignItems: "start",
-          }}
-        >
-          {/* ════ LEFT COLUMN ════ */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* ── STEP 1: Customer ── */}
-            <Card
-              title="Step 1 — Customer"
-              badge={
-                resolvedUserId || lookupState === "new"
-                  ? resolvedUserId
-                    ? "✓ Linked"
-                    : "✓ New"
-                  : undefined
-              }
-            >
-              {/* Phone lookup row */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                <div style={{ flex: 1, ...fieldWrap }}>
-                  <label style={label}>Mobile Number</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => {
-                      setPhone(e.target.value);
-                      setLookupState("idle");
-                      setFoundUser(null);
-                      setResolvedUserId(null);
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && handlePhoneLookup()}
-                    placeholder="e.g. 0412 345 678"
-                    style={input}
-                  />
+  return (
+    <AdminLayout>
+      <Head title="New Order" />
+      <AdminPageHeader
+        eyebrow="Box Office"
+        title="New Order"
+        action={
+          <AdminBtn as="a" href={route("admin.orders.index")} variant="ghost">
+            <Icons.Back /> Orders
+          </AdminBtn>
+        }
+      />
+      <FlashMessage flash={{ ...flash, error: errors?.error }} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 20, alignItems: "start" }}>
+        {/* ── LEFT ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Buyer */}
+          <Section title="Buyer">
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <AdminBtn variant={buyerMode === "existing" ? "primary" : "ghost"} onClick={() => setBuyerMode("existing")}>
+                Existing Customer
+              </AdminBtn>
+              <AdminBtn variant={buyerMode === "new" ? "primary" : "ghost"} onClick={() => setBuyerMode("new")}>
+                New Customer
+              </AdminBtn>
+            </div>
+
+            {buyerMode === "existing" ? (
+              <>
+                <Field label="Look up by phone">
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <AdminInput value={phoneLookup} onChange={(e) => setPhoneLookup(e.target.value)} placeholder="0400 000 000" />
+                    <AdminBtn onClick={handleLookup}>Find</AdminBtn>
+                  </div>
+                  {lookupStatus === "found" && <div style={{ fontSize: 11, color: C.amber, marginTop: 4 }}>Customer found ✓</div>}
+                  {lookupStatus === "not_found" && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>No match — switch to "New Customer" or pick below.</div>}
+                </Field>
+                <Field label="Or select">
+                  <AdminSelect value={userId} onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : "")}>
+                    <option value="">Select customer…</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} — {u.email}
+                      </option>
+                    ))}
+                  </AdminSelect>
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Name" required>
+                  <AdminInput value={newName} onChange={(e) => setNewName(e.target.value)} />
+                </Field>
+                <Field label="Email" help="Tickets and receipts are sent here.">
+                  <AdminInput type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                </Field>
+                <Field label="Phone" required>
+                  <AdminInput value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+                </Field>
+              </>
+            )}
+          </Section>
+
+          {/* Tickets */}
+          <Section title="Tickets">
+            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 0.6fr auto", gap: 8, alignItems: "end", marginBottom: 14 }}>
+              <Field label="Event" style={{ marginBottom: 0 }}>
+                <AdminSelect
+                  value={selEventId}
+                  onChange={(e) => {
+                    setSelEventId(e.target.value ? Number(e.target.value) : "");
+                    setSelLegId("");
+                    setSelTierId("");
+                    setSelSeatIds([]);
+                  }}
+                >
+                  <option value="">Select event…</option>
+                  {events.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.name}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </Field>
+              <Field label="Date / Venue" style={{ marginBottom: 0 }}>
+                <AdminSelect
+                  value={selLegId}
+                  disabled={!selectedEvent}
+                  onChange={(e) => {
+                    setSelLegId(e.target.value ? Number(e.target.value) : "");
+                    setSelTierId("");
+                    setSelSeatIds([]);
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {selectedEvent?.legs.map((leg) => (
+                    <option key={leg.id} value={leg.id}>
+                      {leg.event_date} — {leg.venue_name}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </Field>
+              <Field label="Ticket Tier" style={{ marginBottom: 0 }}>
+                <AdminSelect
+                  value={selTierId}
+                  disabled={!selectedLeg}
+                  onChange={(e) => {
+                    setSelTierId(e.target.value ? Number(e.target.value) : "");
+                    setSelSeatIds([]);
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {selectedLeg?.ticket_tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name} — A${Number(tier.price).toFixed(2)} ({tier.remaining} left)
+                    </option>
+                  ))}
+                </AdminSelect>
+              </Field>
+              <Field label="Qty" style={{ marginBottom: 0 }}>
+                <AdminInput
+                  type="number"
+                  min={1}
+                  value={selQty}
+                  onChange={(e) => {
+                    setSelQty(Math.max(1, Number(e.target.value)));
+                    setSelSeatIds([]);
+                  }}
+                />
+              </Field>
+              <AdminBtn variant="accent" onClick={addTicketLine} disabled={!selectedTier}>
+                <Icons.Plus />
+              </AdminBtn>
+            </div>
+
+            {selectedLeg?.seating_type === "reserved" && selectedTier && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
+                  Pick {selQty} seat{selQty === 1 ? "" : "s"} ({selSeatIds.length}/{selQty} selected)
                 </div>
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <AdminBtn
-                    onClick={handlePhoneLookup}
-                    disabled={phone.length < 6 || lookupState === "searching"}
-                    variant="primary"
-                  >
-                    {lookupState === "searching" ? "Searching…" : "Lookup"}
-                  </AdminBtn>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 140, overflowY: "auto" }}>
+                  {availableSeats.map((seat) => {
+                    const checked = selSeatIds.includes(seat.id);
+                    const disabled = !checked && selSeatIds.length >= selQty;
+                    return (
+                      <button
+                        key={seat.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() =>
+                          setSelSeatIds((prev) => (checked ? prev.filter((id) => id !== seat.id) : [...prev, seat.id]))
+                        }
+                        style={{
+                          fontSize: 11,
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          border: `1px solid ${checked ? C.amber : C.border}`,
+                          background: checked ? "rgba(201,169,110,0.15)" : C.bgAlt,
+                          color: checked ? C.amber : C.text,
+                          cursor: disabled ? "not-allowed" : "pointer",
+                          opacity: disabled ? 0.4 : 1,
+                        }}
+                      >
+                        {seat.label}
+                      </button>
+                    );
+                  })}
+                  {availableSeats.length === 0 && <span style={{ fontSize: 12, color: C.textMuted }}>No available seats for this tier.</span>}
                 </div>
               </div>
+            )}
 
-              {/* Found existing user */}
-              {lookupState === "found" && foundUser && (
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "8px",
-                    background: "rgba(58,125,68,0.06)",
-                    border: "1px solid rgba(58,125,68,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "13px",
-                        fontWeight: 500,
-                        color: `${C.text}`,
-                      }}
-                    >
-                      {foundUser.name}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "11px",
-                        color: `${C.textMuted}`,
-                        marginTop: 2,
-                      }}
-                    >
-                      {foundUser.email} · {foundUser.phone}
-                    </div>
-                  </div>
+            {ticketLines.length === 0 ? (
+              <div style={{ fontSize: 12, color: C.textMuted, padding: "8px 0" }}>No tickets added yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {ticketLines.map((l) => (
                   <div
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "10px",
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                        color: `${C.success}`,
-                      }}
-                    >
-                      ✓ Existing customer
-                    </span>
-                    <button
-                      onClick={resetCustomer}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: `${C.textMuted}`,
-                        cursor: "pointer",
-                        fontSize: 16,
-                        lineHeight: 1,
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* New user register form */}
-              {lookupState === "new" && (
-                <div
-                  style={{
-                    borderRadius: "8px",
-                    border: `1px solid ${C.border}`,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
+                    key={l.key}
                     style={{
-                      padding: "10px 14px",
-                      background: `${C.bgAlt}`,
-                      borderBottom: `1px solid ${C.border}`,
                       display: "flex",
-                      alignItems: "center",
                       justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      background: C.bgAlt,
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
                     }}
                   >
-                    <span
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "10px",
-                        letterSpacing: "0.16em",
-                        textTransform: "uppercase",
-                        color: `${C.amber}`,
-                      }}
-                    >
-                      ✦ No account found — register new customer
-                    </span>
-                    <button
-                      onClick={resetCustomer}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: `${C.textMuted}`,
-                        cursor: "pointer",
-                        fontSize: 16,
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <div
-                    style={{
-                      padding: "16px",
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 12,
-                    }}
-                  >
-                    <div style={fieldWrap}>
-                      <label style={label}>Full Name *</label>
-                      <input
-                        type="text"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Jane Smith"
-                        style={input}
-                      />
-                      {errors.new_name && (
-                        <span style={err}>{errors.new_name}</span>
+                    <div style={{ fontSize: 13 }}>
+                      <strong>{l.event_name}</strong> — {l.tier_name} ×{l.quantity}
+                      {l.seat_ids.length > 0 && (
+                        <span style={{ color: C.textMuted, fontSize: 11 }}> (seats: {l.seat_ids.length})</span>
                       )}
                     </div>
-                    <div style={fieldWrap}>
-                      <label style={label}>Email (optional)</label>
-                      <input
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        placeholder="jane@email.com"
-                        style={input}
-                      />
-                      {errors.new_email && (
-                        <span style={err}>{errors.new_email}</span>
-                      )}
-                    </div>
-                    <div style={fieldWrap}>
-                      <label style={label}>Phone</label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        disabled
-                        style={{ ...input, opacity: 0.6 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* ── STEP 2: Products ── */}
-            <Card
-              title="Step 2 — Products"
-              badge={
-                items.length > 0
-                  ? `${items.length} item${items.length > 1 ? "s" : ""}`
-                  : undefined
-              }
-            >
-              {/* Product search + add */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    style={{
-                      width: 13,
-                      height: 13,
-                      position: "absolute",
-                      left: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: `${C.textMuted}`,
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setSelectedPid("");
-                    }}
-                    placeholder="Search products…"
-                    style={{ ...input, paddingLeft: 30 }}
-                  />
-                  {productSearch && filteredProducts.length > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        zIndex: 20,
-                        background: `${C.surface}`,
-                        border: `1px solid ${C.border}`,
-                        borderRadius: "8px",
-                        maxHeight: 220,
-                        overflowY: "auto",
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-                      }}
-                    >
-                      {filteredProducts.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedPid(String(p.id));
-                            setProductSearch(p.title);
-                          }}
-                          style={{
-                            padding: "10px 14px",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 8,
-                            borderBottom: `1px solid ${C.border}`,
-                            background:
-                              selectedPid === String(p.id)
-                                ? `${C.bgAlt}`
-                                : "transparent",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: `${fontBody}`,
-                              fontSize: "13px",
-                              color: `${C.text}`,
-                            }}
-                          >
-                            {p.title}
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: `${fontBody}`,
-                              fontSize: "12px",
-                              color: `${C.amber}`,
-                              fontWeight: 500,
-                            }}
-                          >
-                            A${p.price.toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <AdminBtn
-                  onClick={addItem}
-                  disabled={!selectedPid}
-                  variant="primary"
-                >
-                  <Icons.Plus /> Add
-                </AdminBtn>
-              </div>
-
-              {/* Line items table */}
-              {items.length === 0 ? (
-                <div
-                  style={{
-                    padding: "32px 0",
-                    textAlign: "center",
-                    fontFamily: `${fontBody}`,
-                    fontSize: "13px",
-                    color: `${C.textMuted}`,
-                    opacity: 0.6,
-                  }}
-                >
-                  Search and add products above
-                </div>
-              ) : (
-                <div
-                  style={{
-                    border: `1px solid ${C.border}`,
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr
-                        style={{
-                          background: `${C.bgAlt}`,
-                          borderBottom: `1px solid ${C.border}`,
-                        }}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ color: C.amber, fontSize: 13 }}>A${(l.price * l.quantity).toFixed(2)}</span>
+                      <button
+                        onClick={() => removeTicketLine(l.key)}
+                        style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}
                       >
-                        {["Product", "Qty", "Price", "Subtotal", ""].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              style={{
-                                padding: "8px 12px",
-                                textAlign: "left",
-                                fontFamily: `${fontBody}`,
-                                fontSize: "9px",
-                                letterSpacing: "0.15em",
-                                textTransform: "uppercase",
-                                color: `${C.textMuted}`,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, i) => (
-                        <tr
-                          key={item.product_id}
-                          style={{
-                            borderBottom: `1px solid ${C.border}`,
-                          }}
-                        >
-                          <td
-                            style={{
-                              padding: "10px 12px",
-                              fontFamily: `${fontBody}`,
-                              fontSize: "13px",
-                              color: `${C.text}`,
-                            }}
-                          >
-                            {item.title}
-                          </td>
-                          <td style={{ padding: "10px 12px" }}>
-                            <input
-                              type="number"
-                              min={1}
-                              value={item.quantity}
-                              onChange={(e) =>
-                                updateItem(
-                                  i,
-                                  "quantity",
-                                  Number(e.target.value),
-                                )
-                              }
-                              style={{
-                                ...input,
-                                width: 60,
-                                padding: "5px 8px",
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: "10px 12px" }}>
-                            <input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={item.price}
-                              onChange={(e) =>
-                                updateItem(i, "price", Number(e.target.value))
-                              }
-                              style={{
-                                ...input,
-                                width: 80,
-                                padding: "5px 8px",
-                              }}
-                            />
-                          </td>
-                          <td
-                            style={{
-                              padding: "10px 12px",
-                              fontFamily: `${fontBody}`,
-                              fontSize: "13px",
-                              color: `${C.amber}`,
-                              fontWeight: 500,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            A${(item.quantity * item.price).toFixed(2)}
-                          </td>
-                          <td style={{ padding: "10px 12px" }}>
-                            <button
-                              onClick={() => removeItem(i)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: `${C.error}`,
-                                fontSize: 16,
-                                lineHeight: 1,
-                                display: "flex",
-                              }}
-                            >
-                              <Icons.Delete />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr
-                        style={{
-                          borderTop: `2px solid ${C.border}`,
-                          background: `${C.bgAlt}`,
-                        }}
-                      >
-                        <td
-                          colSpan={3}
-                          style={{
-                            padding: "12px",
-                            textAlign: "right",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "10px",
-                            letterSpacing: "0.14em",
-                            textTransform: "uppercase",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          Order Total
-                        </td>
-                        <td
-                          style={{
-                            padding: "12px",
-                            fontFamily: `${fontDisplay}`,
-                            fontSize: "1.2rem",
-                            color: `${C.amber}`,
-                            fontWeight: 400,
-                          }}
-                        >
-                          A${total.toFixed(2)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </Card>
-
-            {/* ── STEP 3: Booking ── */}
-            <Card title="Step 3 — Booking (optional)">
-              {/* Toggle */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: addBooking ? 16 : 0,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "13px",
-                      color: `${C.text}`,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Add a booking for this visit
+                        <Icons.Delete />
+                      </button>
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "11px",
-                      color: `${C.textMuted}`,
-                      marginTop: 2,
-                    }}
-                  >
-                    Auto-filled to current time slot · {autoDate}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAddBooking((v) => !v)}
-                  style={{
-                    width: 44,
-                    height: 24,
-                    borderRadius: "999px",
-                    background: addBooking
-                      ? `${C.amber}`
-                      : `${C.border}`,
-                    border: "none",
-                    cursor: "pointer",
-                    position: "relative",
-                    transition: "background 200ms",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 3,
-                      left: addBooking ? 23 : 3,
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      background: "white",
-                      transition: "left 200ms",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                    }}
-                  />
-                </button>
+                ))}
               </div>
+            )}
+          </Section>
 
-              {addBooking && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}
-                >
-                  <div style={fieldWrap}>
-                    <label style={label}>Date</label>
-                    <input
-                      type="date"
-                      value={bookingDate}
-                      onChange={(e) => setBookingDate(e.target.value)}
-                      style={input}
-                    />
-                  </div>
-                  <div style={fieldWrap}>
-                    <label style={label}>Time Slot</label>
-                    <select
-                      value={bookingSlot}
-                      onChange={(e) => setBookingSlot(e.target.value)}
-                      style={input}
-                    >
-                      {timeSlots.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </Card>
+          {/* Merch / products */}
+          <Section title="Merch (optional)">
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end", marginBottom: 14 }}>
+              <Field label="Product" style={{ marginBottom: 0 }}>
+                <AdminSelect value={selProductId} onChange={(e) => setSelProductId(e.target.value ? Number(e.target.value) : "")}>
+                  <option value="">Select product…</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} — A${Number(p.price).toFixed(2)}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </Field>
+              <Field label="Qty" style={{ marginBottom: 0 }}>
+                <AdminInput type="number" min={1} value={selProductQty} onChange={(e) => setSelProductQty(Math.max(1, Number(e.target.value)))} />
+              </Field>
+              <AdminBtn variant="accent" onClick={addProductLine} disabled={!selProductId}>
+                <Icons.Plus />
+              </AdminBtn>
+            </div>
 
-            {/* ── Notes ── */}
-            <Card title="Notes (optional)">
+            {productLines.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {productLines.map((l) => (
+                  <div
+                    key={l.key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      background: C.bgAlt,
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                    }}
+                  >
+                    <div style={{ fontSize: 13 }}>
+                      {l.title} ×{l.quantity}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ color: C.amber, fontSize: 13 }}>A${(l.price * l.quantity).toFixed(2)}</span>
+                      <button
+                        onClick={() => removeProductLine(l.key)}
+                        style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}
+                      >
+                        <Icons.Delete />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
+
+        {/* ── RIGHT ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <Section title="Payment">
+            <Field label="Method">
+              <AdminSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                <option value="cash">Cash</option>
+                <option value="eftpos">EFTPOS</option>
+                <option value="other">Other</option>
+              </AdminSelect>
+            </Field>
+            <Field label="Service fee (optional)">
+              <AdminInput type="number" min={0} step="0.01" value={bookingFee} onChange={(e) => setBookingFee(e.target.value)} />
+            </Field>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <span style={{ fontSize: 13, color: C.text }}>Mark as paid</span>
+              <AdminToggle checked={isPaid} onChange={setIsPaid} />
+            </div>
+            <Field label="Notes">
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any staff notes about this visit…"
                 rows={3}
-                style={{ ...input, resize: "vertical", lineHeight: 1.6 }}
+                style={{ width: "100%", boxSizing: "border-box", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontFamily: fontBody, fontSize: 13, color: C.text, resize: "vertical" }}
               />
-            </Card>
-          </div>
+            </Field>
+          </Section>
 
-          {/* ════ RIGHT COLUMN ════ */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Vendor info */}
-            <Card title="Vendor">
-              <div
-                style={{
-                  padding: "10px 14px",
-                  background: `${C.bgAlt}`,
-                  borderRadius: "8px",
-                  border: `1px solid ${C.border}`,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <div
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: `${C.success}`,
-                    flexShrink: 0,
-                  }}
-                />
-                <div>
-                  <div
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      color: `${C.text}`,
-                    }}
-                  >
-                    {vendor_name}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "10px",
-                      color: `${C.textMuted}`,
-                      marginTop: 1,
-                    }}
-                  >
-                    Auto-assigned · logged in user
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Payment */}
-            <Card title="Payment">
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 14 }}
-              >
-                {/* Method buttons */}
-                <div style={fieldWrap}>
-                  <label style={label}>Method</label>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                    }}
-                  >
-                    {(["cash", "eftpos"] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setPaymentMethod(m)}
-                        style={{
-                          padding: "10px 0",
-                          fontFamily: `${fontBody}`,
-                          fontSize: "11px",
-                          letterSpacing: "0.12em",
-                          textTransform: "uppercase",
-                          cursor: "pointer",
-                          border: `1px solid ${paymentMethod === m ? `${C.amber}` : `${C.border}`}`,
-                          background:
-                            paymentMethod === m
-                              ? "rgba(201,169,110,0.1)"
-                              : "transparent",
-                          color:
-                            paymentMethod === m
-                              ? `${C.amber}`
-                              : `${C.textMuted}`,
-                          borderRadius: "8px",
-                          transition: "all 150ms",
-                        }}
-                      >
-                        {m === "cash" ? "💵 Cash" : "💳 EFTPOS"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Paid toggle */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px",
-                    background: `${C.bgAlt}`,
-                    borderRadius: "8px",
-                    border: `1px solid ${C.border}`,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: `${C.text}`,
-                      }}
-                    >
-                      Mark as Paid
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "10px",
-                        color: `${C.textMuted}`,
-                        marginTop: 1,
-                      }}
-                    >
-                      Payment collected now
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsPaid((v) => !v)}
-                    style={{
-                      width: 44,
-                      height: 24,
-                      borderRadius: "999px",
-                      background: isPaid
-                        ? `${C.success}`
-                        : `${C.border}`,
-                      border: "none",
-                      cursor: "pointer",
-                      position: "relative",
-                      transition: "background 200ms",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 3,
-                        left: isPaid ? 23 : 3,
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: "white",
-                        transition: "left 200ms",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                      }}
-                    />
-                  </button>
-                </div>
-              </div>
-            </Card>
-
-            {/* Order summary */}
-            <Card title="Summary">
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}
-              >
-                {[
-                  [
-                    "Customer",
-                    resolvedUserId
-                      ? (foundUser?.name ?? "Existing")
-                      : lookupState === "new" && newName
-                        ? `${newName} (new)`
-                        : "—",
-                  ],
-                  [
-                    "Items",
-                    items.length > 0
-                      ? `${items.length} product${items.length > 1 ? "s" : ""}`
-                      : "—",
-                  ],
-                  [
-                    "Booking",
-                    addBooking ? `${bookingDate} · ${bookingSlot}` : "None",
-                  ],
-                  [
-                    "Payment",
-                    `${paymentMethod.toUpperCase()} · ${isPaid ? "Paid" : "Unpaid"}`,
-                  ],
-                ].map(([k, v]) => (
-                  <div
-                    key={k}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "11px",
-                        color: `${C.textMuted}`,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                      }}
-                    >
-                      {k}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "12px",
-                        color: `${C.text}`,
-                        textAlign: "right",
-                        maxWidth: 160,
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {v}
-                    </span>
-                  </div>
-                ))}
-
-                <div
-                  style={{
-                    height: 1,
-                    background: `${C.border}`,
-                    margin: "4px 0",
-                  }}
-                />
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "11px",
-                      color: `${C.textMuted}`,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    Total
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: `${fontDisplay}`,
-                      fontSize: "1.3rem",
-                      color: `${C.amber}`,
-                    }}
-                  >
-                    A${total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Submit */}
-            {/* <AdminBtn
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-              variant="accent"
-            >
-              <Icons.Check />
-              {submitting ? "Creating Order…" : "Create Walk-in Order"}
-            </AdminBtn> */}
-
-            {!canSubmit && (
-              <p
-                style={{
-                  fontFamily: `${fontBody}`,
-                  fontSize: "11px",
-                  color: `${C.textMuted}`,
-                  textAlign: "center",
-                  lineHeight: 1.6,
-                }}
-              >
-                {!resolvedUserId && lookupState !== "new"
-                  ? "Look up a customer first"
-                  : items.length === 0
-                    ? "Add at least one product"
-                    : ""}
-              </p>
-            )}
-          </div>
+          <Section title="Total">
+            <div style={{ fontSize: 24, color: C.amber, fontWeight: 500, marginBottom: 16 }}>A${total.toFixed(2)}</div>
+            <AdminBtn variant="primary" onClick={handleSubmit} disabled={processing} style={{ width: "100%", justifyContent: "center" }}>
+              {processing ? "Creating…" : "Create Order"}
+            </AdminBtn>
+          </Section>
         </div>
-
-        {/* Sticky save bar */}
-        <div
-          style={{
-            position: "sticky",
-            bottom: 0,
-            zIndex: 40,
-            background: `${C.surface}`,
-            borderTop: `1px solid ${C.border}`,
-            padding: "12px 20px",
-            margin: "24px -28px -32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: `${fontBody}`,
-              fontSize: "11px",
-              color: `${C.textMuted}`,
-            }}
-          >
-            {resolvedUserId || (lookupState === "new" && newName)
-              ? `Customer: ${foundUser?.name ?? newName} · ${items.length} item(s) · A$${total.toFixed(2)}`
-              : "Walk-in order — no customer linked yet"}
-          </div>
-          <AdminBtn
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-            variant="accent"
-          >
-            <Icons.Check />
-            {submitting ? "Creating…" : "Create Order"}
-          </AdminBtn>
-        </div>
-      </AdminLayout>
-    </>
+      </div>
+    </AdminLayout>
   );
 }

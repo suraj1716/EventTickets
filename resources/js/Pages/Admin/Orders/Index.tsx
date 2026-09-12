@@ -19,7 +19,7 @@ interface Order {
   payment_intent: string | null;
   refunded_at: string | null;
   refund_amount: number | null;
-  has_booking: boolean;
+  has_tickets: boolean;
   created_at: string;
 }
 
@@ -160,7 +160,7 @@ export default function OrdersIndex({
             "Vendor",
             "Total",
             "Method",
-            "Booking",
+            "Tickets",
             "Status",
             "Paid",
             "Actions",
@@ -207,7 +207,7 @@ export default function OrdersIndex({
                       marginTop: 2,
                     }}
                   >
-                    Gift card: −A${Number(o.voucher_discount).toFixed(2)}
+                    Voucher: −A${Number(o.voucher_discount).toFixed(2)}
                     {Number(o.total_price) === 0 && " (fully covered)"}
                   </div>
                 )}
@@ -215,7 +215,7 @@ export default function OrdersIndex({
   <div style={{ fontSize: 10, color: `${C.error}`, marginTop: 2 }}>
     Refunded A${Number(o.refund_amount).toFixed(2)}
     {Number(o.voucher_discount) > 0 && (
-      <> + A${Number(o.voucher_discount).toFixed(2)} restored to gift card</>
+      <> + A${Number(o.voucher_discount).toFixed(2)} restored to voucher</>
     )}
   </div>
 )}
@@ -247,7 +247,7 @@ export default function OrdersIndex({
                 )}
               </Td>
 
-              <Td muted>{o.has_booking ? "✓" : "—"}</Td>
+              <Td muted>{o.has_tickets ? "✓" : "—"}</Td>
 
               <Td onClick={(e) => e.stopPropagation()}>
                 <select
@@ -334,7 +334,7 @@ export default function OrdersIndex({
         {deleteTarget && (
           <ConfirmModal
             title={`Delete Order #${deleteTarget.id}?`}
-            description={`This will permanently delete the order for ${deleteTarget.customer}. Any linked booking will also be removed. This cannot be undone.`}
+            description={`This will permanently delete the order for ${deleteTarget.customer}. Any issued tickets will also be removed. This cannot be undone.`}
             confirmLabel="Delete Order"
             onConfirm={handleDelete}
             onCancel={() => setDeleteTarget(null)}

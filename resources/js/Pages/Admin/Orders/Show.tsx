@@ -1,50 +1,109 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Head, router } from "@inertiajs/react";
-import AdminLayout from "../AdminLayout";
+import { Head, router, usePage } from "@inertiajs/react";
 import { createPortal } from "react-dom";
 
-import { AdminPageHeader, AdminBtn, StatusBadge, FlashMessage, ConfirmModal, Icons, fontDisplay, fontBody, C } from "../../../Components/Admin/AdminComponents";
+import AdminLayout from "../AdminLayout";
 
-interface OrderItem {
+import {
+  AdminPageHeader,
+  AdminBtn,
+  StatusBadge,
+  FlashMessage,
+  ConfirmModal,
+  Icons,
+  fontDisplay,
+  fontBody,
+  C,
+} from "../../../Components/Admin/AdminComponents";
+
+/*
+|--------------------------------------------------------------------------
+| Types
+|--------------------------------------------------------------------------
+*/
+
+interface EventInfo {
   id: number;
-  title: string;
-  image: string | null;
-  quantity: number;
-  price: number;
-  subtotal: number;
+  name: string;
+  slug?: string;
+  image?: string | null;
 }
-interface OrderProps {
-  voucher_id: number | null;
+
+interface EventLegInfo {
   id: number;
+  name?: string | null;
+  date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  venue_name?: string | null;
+  venue_city?: string | null;
+  seating_type?: "general" | "reserved" | string | null;
+}
+
+interface IssuedTicket {
+  id: number;
+  code: string;
+  status: string;
+  qr_url?: string | null;
+
+  holder_name?: string | null;
+  holder_email?: string | null;
+
+  seat_label?: string | null;
+  tier_name?: string | null;
+  tier_price?: number | null;
+
+  event?: EventInfo | null;
+  event_leg?: EventLegInfo | null;
+}
+
+interface OrderProps {
+  id: number;
+
   customer: string;
   customer_email: string;
   customer_phone: string;
+
   vendor: string;
-  vendor_type: string;
+  vendor_type?: string | null;
+
+  event?: EventInfo | null;
+
+  tickets: IssuedTicket[];
+
   total_price: number;
+  gross_total: number;
   voucher_discount: number;
   booking_fee: number;
+
   status: string;
   is_paid: boolean;
+
   payment_method: string | null;
   manual_paid_at: string | null;
   payment_intent: string | null;
+
   refunded_at: string | null;
   refund_amount: number | null;
-  created_at: string;
-  items: OrderItem[];
-  booking: { id: number; booking_date: string; time_slot: string } | null;
-  staff_id: number | null;
-  staff: { id: number; name: string } | null;
   refunded_types: string[];
-  gross_total: number;
+
+  created_at: string;
 }
 
 interface Props {
   order: OrderProps;
   statuses: string[];
-  flash: { success?: string; error?: string };
+  flash: {
+    success?: string;
+    error?: string;
+  };
 }
+
+/*
+|--------------------------------------------------------------------------
+| Small UI helpers
+|--------------------------------------------------------------------------
+*/
 
 function InfoRow({
   label,
@@ -66,21 +125,22 @@ function InfoRow({
     >
       <span
         style={{
-          fontFamily: `${fontBody}`,
+          fontFamily: fontBody,
           fontSize: "10px",
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: `${C.textMuted}`,
+          color: C.textMuted,
           flexShrink: 0,
         }}
       >
         {label}
       </span>
+
       <span
         style={{
-          fontFamily: `${fontBody}`,
+          fontFamily: fontBody,
           fontSize: "13px",
-          color: `${C.text}`,
+          color: C.text,
           textAlign: "right",
         }}
       >
@@ -92,15 +152,17 @@ function InfoRow({
 
 function SectionCard({
   title,
+  eyebrow,
   children,
 }: {
   title: string;
+  eyebrow?: string;
   children: React.ReactNode;
 }) {
   return (
     <div
       style={{
-        background: `${C.surface}`,
+        background: C.surface,
         border: `1px solid ${C.border}`,
         borderRadius: "12px",
         overflow: "hidden",
@@ -110,58 +172,169 @@ function SectionCard({
         style={{
           padding: "12px 20px",
           borderBottom: `1px solid ${C.border}`,
-          background: `${C.bgAlt}`,
+          background: C.bgAlt,
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           gap: 10,
         }}
       >
         <div
           style={{
-            width: 3,
-            height: 16,
-            background: `${C.amber}`,
-            borderRadius: 2,
-          }}
-        />
-        <span
-          style={{
-            fontFamily: `${fontBody}`,
-            fontSize: "10px",
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: `${C.textMuted}`,
-            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          {title}
-        </span>
+          <div
+            style={{
+              width: 3,
+              height: 16,
+              background: C.amber,
+              borderRadius: 2,
+            }}
+          />
+
+          <span
+            style={{
+              fontFamily: fontBody,
+              fontSize: "10px",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: C.textMuted,
+              fontWeight: 500,
+            }}
+          >
+            {title}
+          </span>
+        </div>
+
+        {eyebrow && (
+          <span
+            style={{
+              fontFamily: fontBody,
+              fontSize: "9px",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: C.textMuted,
+            }}
+          >
+            {eyebrow}
+          </span>
+        )}
       </div>
+
       <div style={{ padding: "20px" }}>{children}</div>
     </div>
   );
 }
+
 const menuItemStyle: React.CSSProperties = {
   width: "100%",
   textAlign: "left",
   background: "transparent",
   border: "none",
   padding: "8px 10px",
-  fontFamily: `${fontBody}`,
+  fontFamily: fontBody,
   fontSize: "12px",
   letterSpacing: "0.04em",
-  color: `${C.text}`,
+  color: C.text,
   cursor: "pointer",
   borderRadius: "8px",
-  zIndex: 1000,
 };
-export default function OrderShow({ order, statuses, flash }: Props) {
+
+function formatMoney(value: number | null | undefined) {
+  return `A$${Number(value ?? 0).toFixed(2)}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-AU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatTime(value?: string | null) {
+  if (!value) return null;
+
+  const date = new Date(`1970-01-01T${value}`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleTimeString("en-AU", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function titleCase(value?: string | null) {
+  if (!value) return "—";
+
+  return value
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/*
+|--------------------------------------------------------------------------
+| Component
+|--------------------------------------------------------------------------
+*/
+
+export default function OrderShow({
+  order,
+  statuses,
+  flash,
+}: Props) {
+  const page = usePage();
+
+  console.log("========== ORDER SHOW ==========");
+  console.log("FULL ORDER:", order);
+  console.log("ORDER ID:", order?.id);
+  console.log("CUSTOMER:", order?.customer);
+  console.log("VENDOR:", order?.vendor);
+  console.log("EVENT:", order?.event);
+  console.log("TICKETS:", order?.tickets);
+  console.log("ITEMS:", order?.items);
+
+  console.log("========== INERTIA PAGE PROPS ==========");
+  console.log("PAGE PROPS:", page.props);
+  console.log("ORDER PROP:", page.props.order);
+  console.log("=========================================");
+
+  // rest of component...
   const [showDelete, setShowDelete] = useState(false);
+
   const [status, setStatus] = useState(order.status);
   const [saving, setSaving] = useState(false);
 
+  const [refundMenuOpen, setRefundMenuOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+
+  const refundMenuRef = useRef<HTMLDivElement>(null);
+  const refundPortalRef = useRef<HTMLDivElement>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Status
+  |--------------------------------------------------------------------------
+  */
+
   const handleStatusSave = () => {
     setSaving(true);
+
     router.patch(
       route("admin.orders.status", order.id),
       { status },
@@ -171,76 +344,18 @@ export default function OrderShow({ order, statuses, flash }: Props) {
       },
     );
   };
-  console.log("order refund state:", {
-    refund_amount: order.refund_amount,
-    voucher_discount: order.voucher_discount,
-    refunded_types: order.refunded_types,
-  });
 
-  const [refundMenuOpen, setRefundMenuOpen] = useState(false);
-  const [refundAmount, setRefundAmount] = useState<string>("");
+  /*
+  |--------------------------------------------------------------------------
+  | Refund
+  |--------------------------------------------------------------------------
+  */
 
-  const maxRefundable = order.total_price - (order.refund_amount ?? 0);
+  const maxRefundable = Math.max(
+    0,
+    Number(order.total_price) - Number(order.refund_amount ?? 0),
+  );
 
-  const handleCustomRefund = () => {
-    const amount = parseFloat(refundAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      alert("Enter a valid refund amount.");
-      return;
-    }
-    if (amount > maxRefundable) {
-      alert(
-        `Amount cannot exceed the refundable total of $${maxRefundable.toFixed(2)}.`,
-      );
-      return;
-    }
-    if (!confirm(`Refund $${amount.toFixed(2)} for this order?`)) return;
-
-    router.post(
-      route("admin.orders.refund", order.id),
-      { type: "custom", amount },
-      { preserveScroll: true, onSuccess: () => setRefundAmount("") },
-    );
-  };
-
-  const refundMenuRef = useRef<HTMLDivElement>(null);
-
-  const refundPortalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const clickedTrigger = refundMenuRef.current?.contains(target);
-      const clickedPortal = refundPortalRef.current?.contains(target);
-      if (!clickedTrigger && !clickedPortal) {
-        setRefundMenuOpen(false);
-      }
-    };
-    if (refundMenuOpen)
-      document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [refundMenuOpen]);
-
-  const handleRefund = (
-    type: "full" | "booking_fee" | "except_booking_fee",
-  ) => {
-    const labels = {
-      full: "Process a FULL refund (including booking fee)?",
-      booking_fee: "Refund ONLY the booking fee?",
-      except_booking_fee: "Refund everything EXCEPT the booking fee?",
-    };
-    if (!confirm(labels[type])) return;
-    router.post(
-      route("admin.orders.refund", order.id),
-      { type },
-      { preserveScroll: true },
-    );
-  };
-
-  const handleDelete = () => {
-    router.delete(route("admin.orders.destroy", order.id));
-  };
   const stripeLikeMethods = [
     "stripe",
     "card",
@@ -249,33 +364,178 @@ export default function OrderShow({ order, statuses, flash }: Props) {
     "klarna",
     "zip",
   ];
+
   const isStripeOrder = order.payment_method
     ? stripeLikeMethods.includes(order.payment_method)
     : false;
+
   const isVoucherCovered = Number(order.voucher_discount) > 0;
-  const isFullyRefunded = order.refunded_types.includes("full");
 
-  // Partial refund buttons work if EITHER the order is Stripe-paid (partial charge refund)
-  // OR the order was voucher-covered (partial voucher restore) — or both, for mixed orders.
-  const canPartialRefund = isStripeOrder || isVoucherCovered;
+  const isFullyRefunded =
+    order.refunded_types?.includes("full") ?? false;
+
+  const canPartialRefund =
+    isStripeOrder || isVoucherCovered;
+
   const bothPartialsUsed =
-    order.refunded_types.includes("booking_fee") &&
-    order.refunded_types.includes("except_booking_fee");
+    order.refunded_types?.includes("booking_fee") &&
+    order.refunded_types?.includes("except_booking_fee");
 
-  const isWalkIn = !!order.payment_method && !order.payment_intent;
+  const isWalkIn =
+    !!order.payment_method && !order.payment_intent;
+
+  const handleRefund = (
+    type: "full" | "booking_fee" | "except_booking_fee",
+  ) => {
+    const labels = {
+      full: "Process a FULL refund including the booking fee?",
+      booking_fee: "Refund ONLY the booking fee?",
+      except_booking_fee:
+        "Refund everything EXCEPT the booking fee?",
+    };
+
+    if (!confirm(labels[type])) return;
+
+    router.post(
+      route("admin.orders.refund", order.id),
+      { type },
+      {
+        preserveScroll: true,
+      },
+    );
+  };
+
+  const handleCustomRefund = () => {
+    const amount = parseFloat(refundAmount);
+
+    if (Number.isNaN(amount) || amount <= 0) {
+      alert("Enter a valid refund amount.");
+      return;
+    }
+
+    if (amount > maxRefundable) {
+      alert(
+        `Amount cannot exceed the refundable total of ${formatMoney(
+          maxRefundable,
+        )}.`,
+      );
+      return;
+    }
+
+    if (!confirm(`Refund ${formatMoney(amount)} for this order?`)) {
+      return;
+    }
+
+    router.post(
+      route("admin.orders.refund", order.id),
+      {
+        type: "custom",
+        amount,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => setRefundAmount(""),
+      },
+    );
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Refund menu outside click
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      const clickedTrigger =
+        refundMenuRef.current?.contains(target);
+
+      const clickedPortal =
+        refundPortalRef.current?.contains(target);
+
+      if (!clickedTrigger && !clickedPortal) {
+        setRefundMenuOpen(false);
+      }
+    };
+
+    if (refundMenuOpen) {
+      document.addEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    }
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, [refundMenuOpen]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Delete
+  |--------------------------------------------------------------------------
+  */
+
+  const handleDelete = () => {
+    router.delete(
+      route("admin.orders.destroy", order.id),
+    );
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Event information
+  |--------------------------------------------------------------------------
+  */
+
+  const event =
+    order.event ??
+    order.tickets.find((ticket) => ticket.event)?.event ??
+    null;
+
+  const firstLeg =
+    order.tickets.find((ticket) => ticket.event_leg)?.event_leg ??
+    null;
+
+  const uniqueTiers = Array.from(
+    new Set(
+      order.tickets
+        .map((ticket) => ticket.tier_name)
+        .filter(Boolean),
+    ),
+  );
+
+  const reservedTickets = order.tickets.filter(
+    (ticket) => ticket.seat_label,
+  );
+
+  const hasReservedSeats = reservedTickets.length > 0;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
+
   return (
     <>
       <Head title={`Order #${order.id}`} />
+
       <AdminLayout>
         <AdminPageHeader
-          eyebrow="Commerce"
+          eyebrow="Ticketing"
           title={
             <>
               Order{" "}
               <em
                 style={{
                   fontStyle: "italic",
-                  color: `${C.amberHover}`,
+                  color: C.amberHover,
                 }}
               >
                 #{order.id}
@@ -284,7 +544,14 @@ export default function OrderShow({ order, statuses, flash }: Props) {
           }
           meta={`Created ${order.created_at}`}
           action={
-            <div style={{ display: "flex", gap: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
               <AdminBtn
                 as="a"
                 href={route("admin.orders.index")}
@@ -292,6 +559,7 @@ export default function OrderShow({ order, statuses, flash }: Props) {
               >
                 <Icons.Back /> Orders
               </AdminBtn>
+
               <AdminBtn
                 as="a"
                 href={route("admin.orders.edit", order.id)}
@@ -300,131 +568,156 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                 <Icons.Edit /> Edit
               </AdminBtn>
 
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {!isFullyRefunded && (
-                  <div
-                    ref={refundMenuRef}
-                    style={{ position: "relative", display: "inline-block" }}
+              {!isFullyRefunded && (
+                <div
+                  ref={refundMenuRef}
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                  }}
+                >
+                  <AdminBtn
+                    onClick={() =>
+                      setRefundMenuOpen((open) => !open)
+                    }
                   >
-                    <AdminBtn onClick={() => setRefundMenuOpen((o) => !o)}>
-                      Refund ▾
-                    </AdminBtn>
-                    {refundMenuOpen &&
-                      refundMenuRef.current &&
-                      createPortal(
+                    Refund ▾
+                  </AdminBtn>
+
+                  {refundMenuOpen &&
+                    refundMenuRef.current &&
+                    createPortal(
+                      <div
+                        ref={refundPortalRef}
+                        style={{
+                          position: "fixed",
+                          top:
+                            refundMenuRef.current.getBoundingClientRect()
+                              .bottom + 6,
+                          left:
+                            refundMenuRef.current.getBoundingClientRect()
+                              .right - 240,
+                          zIndex: 9999,
+                          background: C.surface,
+                          border: `1px solid ${C.border}`,
+                          borderRadius: "8px",
+                          boxShadow:
+                            "0 12px 32px rgba(0,0,0,0.35)",
+                          padding: "10px",
+                          width: 240,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            handleRefund("full");
+                            setRefundMenuOpen(false);
+                          }}
+                          disabled={
+                            isFullyRefunded ||
+                            bothPartialsUsed
+                          }
+                          style={menuItemStyle}
+                        >
+                          Refund Full
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            handleRefund(
+                              "except_booking_fee",
+                            );
+                            setRefundMenuOpen(false);
+                          }}
+                          disabled={
+                            isFullyRefunded ||
+                            !canPartialRefund ||
+                            order.refunded_types.includes(
+                              "except_booking_fee",
+                            )
+                          }
+                          style={menuItemStyle}
+                        >
+                          Refund Except Booking Fee
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            handleRefund("booking_fee");
+                            setRefundMenuOpen(false);
+                          }}
+                          disabled={
+                            isFullyRefunded ||
+                            !canPartialRefund ||
+                            order.refunded_types.includes(
+                              "booking_fee",
+                            )
+                          }
+                          style={menuItemStyle}
+                        >
+                          Refund Booking Fee Only
+                        </button>
+
                         <div
-                          ref={refundPortalRef}
                           style={{
-                            position: "fixed",
-                            top:
-                              refundMenuRef.current.getBoundingClientRect()
-                                .bottom + 6,
-                            left:
-                              refundMenuRef.current.getBoundingClientRect()
-                                .right - 240,
-                            zIndex: 9999,
-                            background: `${C.surface}`,
-                            border: `1px solid ${C.border}`,
-                            borderRadius: "8px",
-                            boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-                            padding: "10px",
-                            width: 240,
+                            borderTop: `1px solid ${C.border}`,
+                            paddingTop: 8,
                             display: "flex",
-                            flexDirection: "column",
-                            gap: "8px",
+                            gap: 6,
                           }}
                         >
-                          <button
-                            onClick={() => {
-                              handleRefund("full");
-                              setRefundMenuOpen(false);
-                            }}
-                            disabled={isFullyRefunded || bothPartialsUsed}
-                            style={menuItemStyle}
-                          >
-                            Refund Full
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              handleRefund("except_booking_fee");
-                              setRefundMenuOpen(false);
-                            }}
-                            disabled={
-                              isFullyRefunded ||
-                              !canPartialRefund ||
-                              order.refunded_types.includes(
-                                "except_booking_fee",
-                              )
+                          <input
+                            type="number"
+                            min={0}
+                            max={maxRefundable}
+                            step="0.01"
+                            placeholder={`Max $${maxRefundable.toFixed(
+                              2,
+                            )}`}
+                            value={refundAmount}
+                            onChange={(e) =>
+                              setRefundAmount(e.target.value)
                             }
-                            style={menuItemStyle}
-                          >
-                            Refund Except Booking Fee
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              handleRefund("booking_fee");
-                              setRefundMenuOpen(false);
-                            }}
-                            disabled={
-                              isFullyRefunded ||
-                              !canPartialRefund ||
-                              order.refunded_types.includes("booking_fee")
-                            }
-                            style={menuItemStyle}
-                          >
-                            Refund Booking Fee Only
-                          </button>
-
-                          <div
                             style={{
-                              borderTop: `1px solid ${C.border}`,
-                              paddingTop: "8px",
-                              display: "flex",
-                              gap: "6px",
+                              flex: 1,
+                              minWidth: 0,
+                              padding: "6px 8px",
+                              fontFamily: fontBody,
+                              fontSize: 12,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 8,
+                              background: C.bgAlt,
+                              color: C.text,
+                            }}
+                          />
+
+                          <button
+                            onClick={() => {
+                              handleCustomRefund();
+                              setRefundMenuOpen(false);
+                            }}
+                            style={{
+                              ...menuItemStyle,
+                              width: "auto",
+                              padding: "6px 10px",
                             }}
                           >
-                            <input
-                              type="number"
-                              min={0}
-                              max={maxRefundable}
-                              step="0.01"
-                              placeholder={`Max $${maxRefundable.toFixed(2)}`}
-                              value={refundAmount}
-                              onChange={(e) => setRefundAmount(e.target.value)}
-                              style={{
-                                flex: 1,
-                                minWidth: 0,
-                                padding: "6px 8px",
-                                fontFamily: `${fontBody}`,
-                                fontSize: "12px",
-                                border: `1px solid ${C.border}`,
-                                borderRadius: "8px",
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                handleCustomRefund();
-                                setRefundMenuOpen(false);
-                              }}
-                              style={{
-                                ...menuItemStyle,
-                                width: "auto",
-                                padding: "6px 10px",
-                              }}
-                            >
-                              Refund
-                            </button>
-                          </div>
-                        </div>,
-                        document.body,
-                      )}
-                  </div>
-                )}
-              </div>
-              <AdminBtn onClick={() => setShowDelete(true)} variant="danger">
-                <Icons.Delete /> Delete Order
+                            Refund
+                          </button>
+                        </div>
+                      </div>,
+                      document.body,
+                    )}
+                </div>
+              )}
+
+              <AdminBtn
+                onClick={() => setShowDelete(true)}
+                variant="danger"
+              >
+                <Icons.Delete /> Delete
               </AdminBtn>
             </div>
           }
@@ -432,433 +725,744 @@ export default function OrderShow({ order, statuses, flash }: Props) {
 
         <FlashMessage flash={flash} />
 
+        {/* =========================================================
+            ORDER SUMMARY
+        ========================================================= */}
+
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) 300px",
+            gridTemplateColumns:
+              "minmax(0, 1fr) 300px",
             gap: 20,
             alignItems: "start",
           }}
         >
-          {/* ── LEFT ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Items */}
-            <SectionCard title="Order Items">
-              <div
-                style={{
-                  border: `1px solid ${C.border}`,
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                }}
-              >
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr
+          {/* =====================================================
+              LEFT
+          ===================================================== */}
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
+          >
+            {/* EVENT */}
+
+            <SectionCard
+              title="Event"
+              eyebrow={event ? `Event #${event.id}` : undefined}
+            >
+              {event ? (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 18,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {event.image && (
+                    <img
+                      src={event.image}
+                      alt={event.name}
                       style={{
-                        background: `${C.bgAlt}`,
-                        borderBottom: `1px solid ${C.border}`,
+                        width: 110,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        border: `1px solid ${C.border}`,
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: fontDisplay,
+                        fontSize: "1.55rem",
+                        color: C.text,
+                        lineHeight: 1.1,
+                        marginBottom: 8,
                       }}
                     >
-                      {["", "Product", "Qty", "Unit Price", "Subtotal"].map(
-                        (h) => (
-                          <th
-                            key={h}
-                            style={{
-                              padding: "8px 12px",
-                              textAlign: "left",
-                              fontFamily: `${fontBody}`,
-                              fontSize: "9px",
-                              letterSpacing: "0.15em",
-                              textTransform: "uppercase",
-                              color: `${C.textMuted}`,
-                              fontWeight: 500,
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {order.items.map((item) => (
-                      <tr
-                        key={item.id}
+                      {event.name}
+                    </div>
+
+                    {firstLeg && (
+                      <div
                         style={{
-                          borderBottom: `1px solid ${C.border}`,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 5,
                         }}
                       >
-                        <td style={{ padding: "10px 12px" }}>
+                        {firstLeg.name && (
                           <div
                             style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "8px",
-                              overflow: "hidden",
-                              background: `${C.bgAlt}`,
-                              border: `1px solid ${C.border}`,
-                              flexShrink: 0,
+                              fontFamily: fontBody,
+                              fontSize: 12,
+                              color: C.textMuted,
                             }}
                           >
-                            {item.image ? (
-                              <img
-                                src={item.image}
-                                alt={item.title}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  opacity: 0.3,
-                                }}
-                              >
-                                <Icons.Image />
-                              </div>
+                            {firstLeg.name}
+                          </div>
+                        )}
+
+                        {firstLeg.date && (
+                          <div
+                            style={{
+                              fontFamily: fontBody,
+                              fontSize: 12,
+                              color: C.text,
+                            }}
+                          >
+                            {formatDate(firstLeg.date)}
+                            {firstLeg.start_time &&
+                              ` · ${formatTime(
+                                firstLeg.start_time,
+                              )}`}
+                          </div>
+                        )}
+
+                        {firstLeg.venue_name && (
+                          <div
+                            style={{
+                              fontFamily: fontBody,
+                              fontSize: 12,
+                              color: C.textMuted,
+                            }}
+                          >
+                            {firstLeg.venue_name}
+                            {firstLeg.venue_city &&
+                              ` · ${firstLeg.venue_city}`}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontFamily: fontBody,
+                    fontSize: 13,
+                    color: C.textMuted,
+                  }}
+                >
+                  Event information unavailable.
+                </div>
+              )}
+            </SectionCard>
+
+            {/* TICKETS */}
+
+            <SectionCard
+              title="Tickets"
+              eyebrow={`${order.tickets.length} issued`}
+            >
+              {order.tickets.length === 0 ? (
+                <div
+                  style={{
+                    padding: 20,
+                    textAlign: "center",
+                    color: C.textMuted,
+                    fontFamily: fontBody,
+                    fontSize: 13,
+                  }}
+                >
+                  No tickets issued for this order.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {order.tickets.map((ticket) => {
+                    const leg = ticket.event_leg;
+
+                    return (
+                      <div
+                        key={ticket.id}
+                        style={{
+                          border: `1px solid ${C.border}`,
+                          borderRadius: 10,
+                          background: C.bgAlt,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent:
+                              "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            padding:
+                              "12px 14px",
+                            borderBottom:
+                              `1px solid ${C.border}`,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontFamily: fontBody,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: C.text,
+                              }}
+                            >
+                              {ticket.tier_name ??
+                                "Event Ticket"}
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: 3,
+                                fontFamily:
+                                  "monospace",
+                                fontSize: 10,
+                                color:
+                                  C.textMuted,
+                                letterSpacing:
+                                  "0.05em",
+                              }}
+                            >
+                              {ticket.code}
+                            </div>
+                          </div>
+
+                          <StatusBadge
+                            status={ticket.status}
+                          />
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(3, minmax(0, 1fr))",
+                            gap: 12,
+                            padding: 14,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 9,
+                                textTransform:
+                                  "uppercase",
+                                letterSpacing:
+                                  "0.12em",
+                                color:
+                                  C.textMuted,
+                                marginBottom: 4,
+                              }}
+                            >
+                              Holder
+                            </div>
+
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 12,
+                                color: C.text,
+                              }}
+                            >
+                              {ticket.holder_name ??
+                                order.customer}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 9,
+                                textTransform:
+                                  "uppercase",
+                                letterSpacing:
+                                  "0.12em",
+                                color:
+                                  C.textMuted,
+                                marginBottom: 4,
+                              }}
+                            >
+                              Tier
+                            </div>
+
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 12,
+                                color: C.text,
+                              }}
+                            >
+                              {ticket.tier_name ??
+                                "—"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 9,
+                                textTransform:
+                                  "uppercase",
+                                letterSpacing:
+                                  "0.12em",
+                                color:
+                                  C.textMuted,
+                                marginBottom: 4,
+                              }}
+                            >
+                              Seat
+                            </div>
+
+                            <div
+                              style={{
+                                fontFamily:
+                                  fontBody,
+                                fontSize: 12,
+                                color:
+                                  ticket.seat_label
+                                    ? C.amber
+                                    : C.textMuted,
+                                fontWeight:
+                                  ticket.seat_label
+                                    ? 600
+                                    : 400,
+                              }}
+                            >
+                              {ticket.seat_label ??
+                                "General Admission"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {leg && (
+                          <div
+                            style={{
+                              padding:
+                                "9px 14px",
+                              borderTop:
+                                `1px solid ${C.border}`,
+                              display: "flex",
+                              justifyContent:
+                                "space-between",
+                              alignItems:
+                                "center",
+                              gap: 10,
+                              fontFamily:
+                                fontBody,
+                              fontSize: 11,
+                              color:
+                                C.textMuted,
+                            }}
+                          >
+                            <span>
+                              {leg.venue_name ??
+                                "Venue unavailable"}
+                              {leg.venue_city &&
+                                ` · ${leg.venue_city}`}
+                            </span>
+
+                            <span>
+                              {leg.date
+                                ? formatDate(
+                                    leg.date,
+                                  )
+                                : ""}
+                              {leg.start_time &&
+                                ` · ${formatTime(
+                                  leg.start_time,
+                                )}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* EVENT BREAKDOWN */}
+
+            <SectionCard title="Ticket Breakdown">
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                {uniqueTiers.length > 0 ? (
+                  uniqueTiers.map((tier) => {
+                    const tierTickets =
+                      order.tickets.filter(
+                        (ticket) =>
+                          ticket.tier_name === tier,
+                      );
+
+                    const subtotal =
+                      tierTickets.reduce(
+                        (sum, ticket) =>
+                          sum +
+                          Number(
+                            ticket.tier_price ??
+                              0,
+                          ),
+                        0,
+                      );
+
+                    return (
+                      <div
+                        key={tier}
+                        style={{
+                          display: "flex",
+                          justifyContent:
+                            "space-between",
+                          alignItems:
+                            "center",
+                          padding:
+                            "11px 0",
+                          borderBottom:
+                            `1px solid ${C.border}`,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontFamily:
+                                fontBody,
+                              fontSize: 13,
+                              color: C.text,
+                            }}
+                          >
+                            {tier}
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontFamily:
+                                fontBody,
+                              fontSize: 10,
+                              color:
+                                C.textMuted,
+                            }}
+                          >
+                            {tierTickets.length}{" "}
+                            {tierTickets.length ===
+                            1
+                              ? "ticket"
+                              : "tickets"}
+                          </div>
+                        </div>
+
+                        {subtotal > 0 && (
+                          <div
+                            style={{
+                              fontFamily:
+                                fontBody,
+                              fontSize: 13,
+                              color:
+                                C.text,
+                            }}
+                          >
+                            {formatMoney(
+                              subtotal,
                             )}
                           </div>
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.text}`,
-                          }}
-                        >
-                          {item.title}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          ×{item.quantity}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          A${Number(item.price).toFixed(2)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.amber}`,
-                            fontWeight: 500,
-                          }}
-                        >
-                          A${Number(item.subtotal).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    {order.booking_fee > 0 && (
-                      <tr
-                        style={{
-                          borderTop: `1px solid ${C.border}`,
-                          background: `${C.bgAlt}`,
-                        }}
-                      >
-                        <td
-                          colSpan={4}
-                          style={{
-                            padding: "10px 12px",
-                            textAlign: "right",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "11px",
-                            color: `${C.textMuted}`,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          Booking Fee
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          A${Number(order.booking_fee).toFixed(2)}
-                        </td>
-                      </tr>
-                    )}
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div
+                    style={{
+                      color: C.textMuted,
+                      fontFamily: fontBody,
+                      fontSize: 13,
+                    }}
+                  >
+                    Ticket information unavailable.
+                  </div>
+                )}
 
-                    {Number(order.voucher_discount) > 0 && (
-                      <tr
-                        style={{
-                          borderTop: `1px solid ${C.border}`,
-                          background: `${C.bgAlt}`,
-                        }}
-                      >
-                        <td
-                          colSpan={4}
-                          style={{
-                            padding: "10px 12px",
-                            textAlign: "right",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "11px",
-                            color: `${C.textMuted}`,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          Gift Card / Voucher Applied
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.error}`,
-                          }}
-                        >
-                          −A${Number(order.voucher_discount).toFixed(2)}
-                        </td>
-                      </tr>
-                    )}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems: "center",
+                    paddingTop: 14,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: fontBody,
+                      fontSize: 10,
+                      textTransform:
+                        "uppercase",
+                      letterSpacing:
+                        "0.14em",
+                      color: C.textMuted,
+                    }}
+                  >
+                    Seating
+                  </span>
 
-                    <tr
-                      style={{
-                        borderTop: `2px solid ${C.border}`,
-                        background: `${C.bgAlt}`,
-                      }}
-                    >
-                      <td
-                        colSpan={4}
-                        style={{
-                          padding: "12px",
-                          textAlign: "right",
-                          fontFamily: `${fontBody}`,
-                          fontSize: "10px",
-                          letterSpacing: "0.14em",
-                          textTransform: "uppercase",
-                          color: `${C.textMuted}`,
-                        }}
-                      >
-                        Order Total
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px",
-                          fontFamily: `${fontDisplay}`,
-                          fontSize: "1.2rem",
-                          color: `${C.amber}`,
-                        }}
-                      >
-                        A${Number(order.gross_total).toFixed(2)}
-                      </td>
-                    </tr>
-
-                    {Number(order.voucher_discount) > 0 && (
-                      <tr style={{ background: `${C.bgAlt}` }}>
-                        <td
-                          colSpan={4}
-                          style={{
-                            padding: "6px 12px",
-                            textAlign: "right",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "10px",
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          Amount Charged
-                        </td>
-                        <td
-                          style={{
-                            padding: "6px 12px",
-                            fontFamily: `${fontBody}`,
-                            fontSize: "13px",
-                            color: `${C.textMuted}`,
-                          }}
-                        >
-                          A${Number(order.total_price).toFixed(2)}
-                        </td>
-                      </tr>
-                    )}
-                  </tfoot>
-                </table>
+                  <span
+                    style={{
+                      fontFamily: fontBody,
+                      fontSize: 12,
+                      color: C.text,
+                    }}
+                  >
+                    {hasReservedSeats
+                      ? "Reserved Seating"
+                      : "General Admission"}
+                  </span>
+                </div>
               </div>
             </SectionCard>
 
-            {/* Booking */}
-            {order.booking && (
-              <SectionCard title="Booking">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "14px 16px",
-                      background: `${C.bgAlt}`,
-                      borderRadius: "8px",
-                      border: `1px solid ${C.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "10px",
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        color: `${C.textMuted}`,
-                        marginBottom: 6,
-                      }}
-                    >
-                      Date
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "14px",
-                        color: `${C.text}`,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {order.booking.booking_date}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      padding: "14px 16px",
-                      background: `${C.bgAlt}`,
-                      borderRadius: "8px",
-                      border: `1px solid ${C.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "10px",
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        color: `${C.textMuted}`,
-                        marginBottom: 6,
-                      }}
-                    >
-                      Time Slot
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: `${fontBody}`,
-                        fontSize: "14px",
-                        color: `${C.text}`,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {order.booking.time_slot}
-                    </div>
-                  </div>
-                </div>
-              </SectionCard>
-            )}
+            {/* ATTENDEES */}
 
-            {/* Staff */}
-            {order.staff && (
-              <SectionCard title="Staff">
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    background: `${C.bgAlt}`,
-                    borderRadius: "8px",
-                    border: `1px solid ${C.border}`,
-                  }}
-                >
+            <SectionCard
+              title="Attendees"
+              eyebrow={`${order.tickets.length} ticket${
+                order.tickets.length === 1
+                  ? ""
+                  : "s"
+              }`}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {order.tickets.map((ticket) => (
                   <div
+                    key={ticket.id}
                     style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "10px",
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      color: `${C.textMuted}`,
-                      marginBottom: 6,
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems:
+                        "center",
+                      gap: 16,
+                      padding:
+                        "10px 12px",
+                      border:
+                        `1px solid ${C.border}`,
+                      borderRadius: 8,
                     }}
                   >
-                    Name
+                    <div>
+                      <div
+                        style={{
+                          fontFamily:
+                            fontBody,
+                          fontSize: 13,
+                          color: C.text,
+                        }}
+                      >
+                        {ticket.holder_name ??
+                          order.customer}
+                      </div>
+
+                      {ticket.holder_email && (
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontFamily:
+                              fontBody,
+                            fontSize: 11,
+                            color:
+                              C.textMuted,
+                          }}
+                        >
+                          {ticket.holder_email}
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        textAlign: "right",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily:
+                            "monospace",
+                          fontSize: 10,
+                          color:
+                            C.textMuted,
+                        }}
+                      >
+                        {ticket.code}
+                      </div>
+
+                      {ticket.seat_label && (
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontFamily:
+                              fontBody,
+                            fontSize: 10,
+                            color:
+                              C.amber,
+                          }}
+                        >
+                          Seat{" "}
+                          {ticket.seat_label}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      fontFamily: `${fontBody}`,
-                      fontSize: "14px",
-                      color: `${C.text}`,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {order.staff.name}
-                  </div>
-                </div>
-              </SectionCard>
-            )}
+                ))}
+              </div>
+            </SectionCard>
           </div>
 
-          {/* ── RIGHT ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Customer */}
+          {/* =====================================================
+              RIGHT
+          ===================================================== */}
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
+          >
+            {/* CUSTOMER */}
+
             <SectionCard title="Customer">
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                <InfoRow label="Name">{order.customer}</InfoRow>
-                <InfoRow label="Email">{order.customer_email}</InfoRow>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                <InfoRow label="Name">
+                  {order.customer || "—"}
+                </InfoRow>
+
+                <InfoRow label="Email">
+                  {order.customer_email || "—"}
+                </InfoRow>
+
                 {order.customer_phone && (
-                  <InfoRow label="Phone">{order.customer_phone}</InfoRow>
+                  <InfoRow label="Phone">
+                    {order.customer_phone}
+                  </InfoRow>
                 )}
-                <InfoRow label="Vendor">{order.vendor}</InfoRow>
               </div>
             </SectionCard>
 
-            {/* Payment */}
-            <SectionCard title="Payment">
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                <InfoRow label="Status">
-                  <StatusBadge status={order.is_paid ? "paid" : "draft"} />
+            {/* EVENT / VENDOR */}
+
+            <SectionCard title="Marketplace">
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                <InfoRow label="Vendor">
+                  {order.vendor || "—"}
                 </InfoRow>
+
+                {order.vendor_type && (
+                  <InfoRow label="Account">
+                    {titleCase(order.vendor_type)}
+                  </InfoRow>
+                )}
+
+                {event && (
+                  <InfoRow label="Event">
+                    {event.name}
+                  </InfoRow>
+                )}
+
+                {firstLeg?.venue_name && (
+                  <InfoRow label="Venue">
+                    {firstLeg.venue_name}
+                  </InfoRow>
+                )}
+              </div>
+            </SectionCard>
+
+            {/* PAYMENT */}
+
+            <SectionCard title="Payment">
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                <InfoRow label="Status">
+                  <StatusBadge
+                    status={
+                      order.is_paid
+                        ? "paid"
+                        : order.status
+                    }
+                  />
+                </InfoRow>
+
                 {order.payment_method && (
                   <InfoRow label="Method">
                     <span
                       style={{
-                        textTransform: "uppercase",
+                        textTransform:
+                          "uppercase",
                         fontSize: 11,
-                        letterSpacing: "0.1em",
+                        letterSpacing:
+                          "0.1em",
                       }}
                     >
                       {order.payment_method}
                     </span>
+
                     {isWalkIn && (
                       <span
                         style={{
                           marginLeft: 6,
                           fontSize: 10,
-                          color: `${C.amber}`,
-                          background: "rgba(201,169,110,0.1)",
-                          border: "1px solid rgba(201,169,110,0.25)",
-                          padding: "1px 6px",
-                          borderRadius: "999px",
+                          color: C.amber,
+                          background:
+                            "rgba(201,169,110,0.1)",
+                          border:
+                            "1px solid rgba(201,169,110,0.25)",
+                          padding:
+                            "1px 6px",
+                          borderRadius:
+                            "999px",
                         }}
                       >
                         Walk-in
@@ -866,76 +1470,324 @@ export default function OrderShow({ order, statuses, flash }: Props) {
                     )}
                   </InfoRow>
                 )}
-                {order.manual_paid_at && (
-                  <InfoRow label="Paid at">{order.manual_paid_at}</InfoRow>
+
+                <InfoRow label="Tickets">
+                  {formatMoney(
+                    order.gross_total -
+                      Number(order.booking_fee),
+                  )}
+                </InfoRow>
+
+                {Number(order.booking_fee) > 0 && (
+                  <InfoRow label="Booking Fee">
+                    {formatMoney(
+                      order.booking_fee,
+                    )}
+                  </InfoRow>
                 )}
-                {order.payment_intent && (
-                  <InfoRow label="Stripe PI">
+
+                {Number(order.voucher_discount) >
+                  0 && (
+                  <InfoRow label="Voucher">
                     <span
                       style={{
-                        fontSize: 11,
-                        fontFamily: "monospace",
-                        color: `${C.textMuted}`,
+                        color: C.error,
                       }}
                     >
-                      {order.payment_intent.slice(0, 24)}…
+                      −
+                      {formatMoney(
+                        order.voucher_discount,
+                      )}
                     </span>
                   </InfoRow>
                 )}
-                {order.refunded_at && (
-                  <>
-                    <InfoRow label="Refunded">A${order.refund_amount}</InfoRow>
-                    <InfoRow label="Refund date">{order.refunded_at}</InfoRow>
-                  </>
+
+                <div
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 12,
+                    borderTop:
+                      `2px solid ${C.border}`,
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: fontBody,
+                      fontSize: 10,
+                      letterSpacing:
+                        "0.14em",
+                      textTransform:
+                        "uppercase",
+                      color: C.textMuted,
+                    }}
+                  >
+                    Charged
+                  </span>
+
+                  <span
+                    style={{
+                      fontFamily:
+                        fontDisplay,
+                      fontSize:
+                        "1.35rem",
+                      color: C.amber,
+                    }}
+                  >
+                    {formatMoney(
+                      order.total_price,
+                    )}
+                  </span>
+                </div>
+
+                {order.manual_paid_at && (
+                  <InfoRow label="Paid At">
+                    {order.manual_paid_at}
+                  </InfoRow>
+                )}
+
+                {order.payment_intent && (
+                  <InfoRow label="Payment ID">
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily:
+                          "monospace",
+                        color:
+                          C.textMuted,
+                      }}
+                    >
+                      {order.payment_intent.slice(
+                        0,
+                        20,
+                      )}
+                      …
+                    </span>
+                  </InfoRow>
                 )}
               </div>
             </SectionCard>
 
-            {/* Status control */}
+            {/* ORDER TOTAL */}
+
+            <SectionCard title="Order Summary">
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                <InfoRow label="Ticket Value">
+                  {formatMoney(
+                    order.gross_total -
+                      Number(order.booking_fee),
+                  )}
+                </InfoRow>
+
+                <InfoRow label="Booking Fee">
+                  {formatMoney(
+                    order.booking_fee,
+                  )}
+                </InfoRow>
+
+                {Number(order.voucher_discount) >
+                  0 && (
+                  <InfoRow label="Discount">
+                    <span
+                      style={{
+                        color: C.error,
+                      }}
+                    >
+                      −
+                      {formatMoney(
+                        order.voucher_discount,
+                      )}
+                    </span>
+                  </InfoRow>
+                )}
+
+                <div
+                  style={{
+                    paddingTop: 14,
+                    marginTop: 4,
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: fontBody,
+                      fontSize: 10,
+                      letterSpacing:
+                        "0.14em",
+                      textTransform:
+                        "uppercase",
+                      color: C.textMuted,
+                    }}
+                  >
+                    Total
+                  </span>
+
+                  <span
+                    style={{
+                      fontFamily:
+                        fontDisplay,
+                      fontSize:
+                        "1.4rem",
+                      color: C.amber,
+                    }}
+                  >
+                    {formatMoney(
+                      order.total_price,
+                    )}
+                  </span>
+                </div>
+
+                {order.refunded_at && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding:
+                        "10px 12px",
+                      background:
+                        "rgba(220,80,80,0.06)",
+                      border:
+                        "1px solid rgba(220,80,80,0.18)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily:
+                          fontBody,
+                        fontSize: 10,
+                        textTransform:
+                          "uppercase",
+                        letterSpacing:
+                          "0.12em",
+                        color:
+                          C.textMuted,
+                      }}
+                    >
+                      Refunded
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 3,
+                        fontFamily:
+                          fontBody,
+                        fontSize: 13,
+                        color:
+                          C.error,
+                      }}
+                    >
+                      {formatMoney(
+                        order.refund_amount,
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 3,
+                        fontFamily:
+                          fontBody,
+                        fontSize: 10,
+                        color:
+                          C.textMuted,
+                      }}
+                    >
+                      {order.refunded_at}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+
+            {/* STATUS */}
+
             <SectionCard title="Order Status">
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 12 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
               >
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
+                  onChange={(e) =>
+                    setStatus(e.target.value)
+                  }
                   style={{
                     width: "100%",
-                    padding: "9px 12px",
-                    fontFamily: `${fontBody}`,
-                    fontSize: "13px",
-                    color: `${C.text}`,
-                    background: `${C.bgAlt}`,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: "8px",
+                    padding:
+                      "9px 12px",
+                    fontFamily:
+                      fontBody,
+                    fontSize: 13,
+                    color: C.text,
+                    background:
+                      C.bgAlt,
+                    border:
+                      `1px solid ${C.border}`,
+                    borderRadius: 8,
                     outline: "none",
                   }}
                 >
-                  {statuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {statuses.map(
+                    (value) => (
+                      <option
+                        key={value}
+                        value={value}
+                      >
+                        {titleCase(value)}
+                      </option>
+                    ),
+                  )}
                 </select>
+
                 <AdminBtn
-                  onClick={handleStatusSave}
-                  disabled={saving || status === order.status}
+                  onClick={
+                    handleStatusSave
+                  }
+                  disabled={
+                    saving ||
+                    status ===
+                      order.status
+                  }
                   variant="primary"
                 >
-                  <Icons.Check /> {saving ? "Saving…" : "Update Status"}
+                  <Icons.Check />
+
+                  {saving
+                    ? "Saving…"
+                    : "Update Status"}
                 </AdminBtn>
               </div>
             </SectionCard>
           </div>
         </div>
 
+        {/* DELETE */}
+
         {showDelete && (
           <ConfirmModal
             title={`Delete Order #${order.id}?`}
-            description={`This will permanently delete the order for ${order.customer} including all items and any linked booking.`}
+            description={`This will permanently delete the order for ${
+              order.customer
+            } including all tickets.`}
             confirmLabel="Delete Order"
             onConfirm={handleDelete}
-            onCancel={() => setShowDelete(false)}
+            onCancel={() =>
+              setShowDelete(false)
+            }
           />
         )}
       </AdminLayout>
