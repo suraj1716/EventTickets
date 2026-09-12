@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Event;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class EventPolicy
 {
@@ -25,10 +26,23 @@ class EventPolicy
         return $user->can('events.create');
     }
 
-    public function update(User $user, Event $event): bool
-    {
-        return $user->can('events.update') && $this->belongsToActiveTeam($user, $event);
-    }
+  public function update(User $user, Event $event): bool
+{
+    $teamId = app(\Spatie\Permission\PermissionRegistrar::class)
+        ->getPermissionsTeamId();
+
+    Log::info('EVENT UPDATE POLICY', [
+        'user_id' => $user->id,
+        'roles' => $user->getRoleNames()->toArray(),
+        'permission' => $user->can('events.update'),
+        'event_id' => $event->id,
+        'event_vendor_user_id' => $event->vendor_user_id,
+        'permissions_team_id' => $teamId,
+    ]);
+
+    return $user->can('events.update')
+        && $this->belongsToActiveTeam($user, $event);
+}
 
     public function delete(User $user, Event $event): bool
     {

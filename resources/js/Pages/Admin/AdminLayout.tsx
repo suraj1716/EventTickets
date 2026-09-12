@@ -120,7 +120,6 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
       { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null, adminOnly: true },
       { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null, hideForStaff: true },
       { label: "Team", href: "admin.vendor.team.index", icon: UserPlus, countKey: null,   adminOrVendor: true, },
-      { label: "Switch Vendor", href: "admin.switch-vendor.index", icon: Repeat, countKey: null, staffOnly: true },
       { label: "Roster", href: "admin.roster.index", icon: CalendarClock, countKey: null, adminOnly: true },
       { label: "Permissions Test", href: "admin.permissions-test.index", icon: ShieldCheck, countKey: null },
     ],
@@ -158,18 +157,31 @@ export default function AdminLayout({
   const adminCounts = (props.adminCounts ?? {}) as Record<string, number>;
   const appName = (props.appName as string) || "Admin";
   const authUser = props.auth?.user as
-    | { name?: string; avatar?: string; roles?: string[] }
+    | {
+        name?: string;
+        email?: string;
+        avatar?: string;
+        roles?: string[];
+        permissions?: string[];
+        staffVendors?: { id: number; name: string }[];
+        actingVendorId?: number | null;
+      }
     | null
     | undefined;
 
   const [collapsed, setCollapsed] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [vendorSwitchOpen, setVendorSwitchOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const vendorSwitchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false);
+      }
+      if (vendorSwitchRef.current && !vendorSwitchRef.current.contains(e.target as Node)) {
+        setVendorSwitchOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -186,6 +198,7 @@ export default function AdminLayout({
   ].filter((n) => n.count > 0);
 
   const userName = authUser?.name ?? "Admin";
+  const userEmail = authUser?.email ?? "";
   const roles = authUser?.roles ?? [];
   const isAdmin = roles.includes("Admin");
   const isVendor = roles.includes("Vendor");
@@ -193,6 +206,21 @@ export default function AdminLayout({
   const permissions = authUser?.permissions ?? [];
   const staffVendors = authUser?.staffVendors ?? [];
   const userRole = authUser?.roles?.[0] ?? "Platform admin";
+
+  // Same visibility rule the old sidebar "Switch Vendor" item used —
+  // only worth showing once a staff member actually has more than one
+  // vendor to switch between.
+  const showVendorSwitch = isStaff && staffVendors.length > 1;
+  const activeVendor = staffVendors.find((v) => v.id === authUser?.actingVendorId) ?? null;
+
+  const switchVendor = (vendorId: number) => {
+    setVendorSwitchOpen(false);
+    router.post(
+      route("admin.switch-vendor.update"),
+      { vendor_id: vendorId },
+      { preserveScroll: true }
+    );
+  };
   const markLetter = appName.trim().charAt(0).toUpperCase() || "A";
 
   // Vendors see a trimmed-down sidebar; groups left with no items after
@@ -479,7 +507,7 @@ const visibleGroups = NAV_GROUPS.map((group) => ({
                   textOverflow: "ellipsis",
                 }}
               >
-                {userName}
+                {userEmail || userName}
               </div>
               <div
                 style={{
@@ -514,6 +542,116 @@ const visibleGroups = NAV_GROUPS.map((group) => ({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Vendor switch (Staff acting for more than one vendor) */}
+            {showVendorSwitch && (
+              <div ref={vendorSwitchRef} style={{ position: "relative" }}>
+                <button
+                  onClick={() => setVendorSwitchOpen((v) => !v)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "8px",
+                    color: C.textMuted,
+                    padding: "7px 12px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11,
+                    maxWidth: 180,
+                  }}
+                >
+                  <Repeat size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {activeVendor?.name ?? "Select vendor"}
+                  </span>
+                </button>
+
+                {vendorSwitchOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      width: 240,
+                      background: C.surface,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: "12px",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                      zIndex: 100,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "10px 16px",
+                        borderBottom: `1px dashed ${C.borderDashed}`,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        color: C.amber,
+                      }}
+                    >
+                      Acting as
+                    </div>
+                    {staffVendors.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => switchVendor(v.id)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          width: "100%",
+                          textAlign: "left",
+                          gap: 10,
+                          padding: "10px 16px",
+                          borderBottom: `1px dashed ${C.borderDashed}`,
+                          background:
+                            v.id === authUser?.actingVendorId ? "rgba(255,182,39,0.1)" : "transparent",
+                          border: "none",
+                          borderBottomStyle: "dashed",
+                          color: C.text,
+                          fontSize: "12.5px",
+                          fontFamily: "'Inter', sans-serif",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = C.bgAlt)}
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background =
+                            v.id === authUser?.actingVendorId ? "rgba(255,182,39,0.1)" : "transparent")
+                        }
+                      >
+                        {v.name}
+                        {v.id === authUser?.actingVendorId && (
+                          <span
+                            style={{
+                              marginLeft: "auto",
+                              fontFamily: "'JetBrains Mono', monospace",
+                              fontSize: 9,
+                              color: C.amber,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Active
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Notification bell */}
             <div ref={notifRef} style={{ position: "relative" }}>
               <button

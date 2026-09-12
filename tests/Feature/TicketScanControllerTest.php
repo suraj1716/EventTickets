@@ -35,9 +35,14 @@ class TicketScanControllerTest extends TestCase
 
         $this->seed(RoleSeeder::class);
 
-        $vendor = User::factory()->create();
-        $this->doorStaff = User::factory()->create();
-        $this->doorStaff->assignRole(RolesEnum::Vendor->value);
+       $vendor = User::factory()->create();
+$this->doorStaff = User::factory()->create();
+$this->doorStaff->assignRole(RolesEnum::Staff->value);
+
+$vendor->staffMembers()->attach($this->doorStaff->id, [
+    'status' => 'active',
+    'joined_at' => now(),
+]);
 
         $venue = Venue::factory()->create();
 
