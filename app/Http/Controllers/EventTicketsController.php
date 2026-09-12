@@ -17,7 +17,7 @@ class EventTicketsController extends Controller
     $tickets = Ticket::query()
         ->whereHas(
             'eventLeg.event',
-            fn ($q) => $q->where('vendor_user_id', $request->user()->id)
+            fn ($q) => $q->where('vendor_user_id', $request->user()->actingVendorId())
         )
         ->with([
             'ticketTier',
@@ -55,7 +55,7 @@ class EventTicketsController extends Controller
 
     $events = \App\Models\Event::where(
         'vendor_user_id',
-        $request->user()->id
+        $request->user()->actingVendorId()
     )
         ->orderBy('name')
         ->get(['id', 'name']);

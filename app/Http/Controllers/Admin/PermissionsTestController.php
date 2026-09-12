@@ -37,8 +37,17 @@ class PermissionsTestController extends Controller
                 continue;
             }
 
+            // The "other vendor's event" row exists purely to demonstrate
+            // that the deny check works — a non-Admin viewer (Vendor or
+            // Staff) has no legitimate reason to see that event's real
+            // name, even on a diagnostic page. Admins already see
+            // everything everywhere, so no need to redact for them.
+            $eventPayload = $label === 'other' && ! $user->isAdmin()
+                ? ['id' => $event->id, 'name' => '(a different vendor\'s event)', 'vendor_user_id' => $event->vendor_user_id]
+                : ['id' => $event->id, 'name' => $event->name, 'vendor_user_id' => $event->vendor_user_id];
+
             $checks[] = [
-                'event' => ['id' => $event->id, 'name' => $event->name, 'vendor_user_id' => $event->vendor_user_id],
+                'event' => $eventPayload,
                 'relationship' => $label === 'own' ? 'Owned by your acting vendor' : "Owned by a DIFFERENT vendor",
                 'expected' => $label === 'own' ? 'allow' : 'deny',
                 'abilities' => [

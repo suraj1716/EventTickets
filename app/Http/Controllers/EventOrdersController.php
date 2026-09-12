@@ -15,7 +15,7 @@ class EventOrdersController extends Controller
   public function index(Request $request)
 {
     $orders = Order::query()
-        ->where('vendor_user_id', $request->user()->id)
+        ->where('vendor_user_id', $request->user()->actingVendorId())
         ->whereHas('orderItems', fn ($q) => $q->whereNotNull('ticket_tier_id'))
         ->with([
             'user',

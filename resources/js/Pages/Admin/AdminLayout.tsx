@@ -40,6 +40,7 @@ import {
   LogOut,
   ShieldCheck,
   UserPlus,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 import { C as SharedC } from "@/Components/Admin/AdminComponents";
@@ -59,6 +60,18 @@ type NavItem = {
   // role:Admin|Vendor) — this only trims what vendors *see* for now.
   adminOnly?: boolean;
   adminOrVendor?: boolean;
+  // Staff get the full vendor dashboard's data (scoped to whichever
+  // vendor they're acting as), but not its full feature set — these are
+  // vendor-owner-only screens (catalog/finance/staff-management) that
+  // Staff's permission set was never meant to include.
+  hideForStaff?: boolean;
+  // Gate purely on the acting role's actual permission grant (see
+  // RolesAndPermissionsSeeder) rather than a hand-maintained role flag —
+  // use this when the nav item maps directly onto one permission.
+  requiresPermission?: string;
+  // Only ever relevant to Staff working more than one vendor — see the
+  // vendor-count check in the filter below.
+  staffOnly?: boolean;
 };
 
 const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
@@ -72,10 +85,10 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
     group: "Events",
     items: [
       { label: "Events", href: "admin.events.index", icon: Ticket, countKey: null },
-      { label: "New Event", href: "admin.events.create", icon: PlusCircle, countKey: null },
-      { label: "Venues", href: "admin.venues.index", icon: MapPin, countKey: null },
+      { label: "New Event", href: "admin.events.create", icon: PlusCircle, countKey: null, requiresPermission: "events.create" },
+      { label: "Venues", href: "admin.venues.index", icon: MapPin, countKey: null, hideForStaff: true },
       { label: "Tickets", href: "admin.events.tickets.index", icon: TicketCheck, countKey: null },
-      { label: "Watchlist", href: "admin.events.watchlist.index", icon: Eye, countKey: null },
+      { label: "Watchlist", href: "admin.events.watchlist.index", icon: Eye, countKey: null, hideForStaff: true },
       { label: "Ticket Scan", href: "staff.scan.index", icon: ScanLine, countKey: null },
     ],
   },
@@ -85,8 +98,8 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
       { label: "Hero Banner", href: "admin.hero-banner.index", icon: Image, countKey: null, adminOnly: true },
       { label: "Departments", href: "admin.departments.index", icon: Tag, countKey: null, adminOnly: true },
       { label: "Categories", href: "admin.categories.index", icon: FolderTree, countKey: null, adminOnly: true },
-      { label: "Products", href: "admin.products.index", icon: Package, countKey: null },
-      { label: "Gallery", href: "admin.gallery.index", icon: Images, countKey: null },
+      { label: "Products", href: "admin.products.index", icon: Package, countKey: null, hideForStaff: true },
+      { label: "Gallery", href: "admin.gallery.index", icon: Images, countKey: null, hideForStaff: true },
       { label: "Contacts", href: "admin.contacts.index", icon: Mail, countKey: "contacts", adminOnly: true },
     ],
   },
@@ -94,10 +107,10 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
     group: "Commerce",
     items: [
       { label: "Orders", href: "admin.orders.index", icon: ClipboardList, countKey: "orders" },
-      { label: "Bookings", href: "admin.bookings.index", icon: CalendarDays, countKey: "bookings" },
-      { label: "Vouchers", href: "admin.vouchers.index", icon: Gift, countKey: "vouchers" },
-      { label: "Gift-Cards", href: "admin.gift-card-templates.index", icon: CreditCard, countKey: null },
-      { label: "Payouts", href: "admin.payouts.index", icon: Wallet, countKey: null },
+      { label: "Bookings", href: "admin.bookings.index", icon: CalendarDays, countKey: "bookings", hideForStaff: true },
+      { label: "Vouchers", href: "admin.vouchers.index", icon: Gift, countKey: "vouchers", hideForStaff: true },
+      { label: "Gift-Cards", href: "admin.gift-card-templates.index", icon: CreditCard, countKey: null, hideForStaff: true },
+      { label: "Payouts", href: "admin.payouts.index", icon: Wallet, countKey: null, hideForStaff: true },
     ],
   },
   {
@@ -105,8 +118,9 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
     items: [
       { label: "Users", href: "admin.users.index", icon: User, countKey: null, adminOnly: true },
       { label: "Vendors", href: "admin.vendors.index", icon: Store, countKey: null, adminOnly: true },
-      { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null },
+      { label: "Staffs", href: "admin.vendor.staff.index", icon: Users, countKey: null, hideForStaff: true },
       { label: "Team", href: "admin.vendor.team.index", icon: UserPlus, countKey: null,   adminOrVendor: true, },
+      { label: "Switch Vendor", href: "admin.switch-vendor.index", icon: Repeat, countKey: null, staffOnly: true },
       { label: "Roster", href: "admin.roster.index", icon: CalendarClock, countKey: null, adminOnly: true },
       { label: "Permissions Test", href: "admin.permissions-test.index", icon: ShieldCheck, countKey: null },
     ],
@@ -175,9 +189,9 @@ export default function AdminLayout({
   const roles = authUser?.roles ?? [];
   const isAdmin = roles.includes("Admin");
   const isVendor = roles.includes("Vendor");
-console.log("AUTH ROLES:", roles);
-console.log("IS ADMIN:", isAdmin);
-console.log("IS VENDOR:", isVendor);
+  const isStaff = roles.includes("Staff");
+  const permissions = authUser?.permissions ?? [];
+  const staffVendors = authUser?.staffVendors ?? [];
   const userRole = authUser?.roles?.[0] ?? "Platform admin";
   const markLetter = appName.trim().charAt(0).toUpperCase() || "A";
 
@@ -192,6 +206,18 @@ const visibleGroups = NAV_GROUPS.map((group) => ({
 
     if (item.adminOrVendor) {
       return isAdmin || isVendor;
+    }
+
+    if (item.hideForStaff && isStaff) {
+      return false;
+    }
+
+    if (item.requiresPermission && !permissions.includes(item.requiresPermission)) {
+      return false;
+    }
+
+    if (item.staffOnly) {
+      return isStaff && staffVendors.length > 1;
     }
 
     return true;

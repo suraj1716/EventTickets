@@ -28,6 +28,13 @@ class AuthUserResource extends JsonResource
                 return $permission->name;
             }),
             'roles' => $this->getRoleNames(),
+            // Only meaningful for Staff — lets the sidebar render a
+            // "Switch Vendor" link and know which vendor is currently
+            // active without every page controller having to pass it.
+            'actingVendorId' => $this->isStaffRole() ? $this->actingVendorId() : null,
+            'staffVendors' => $this->isStaffRole()
+                ? $this->activeVendors()->get(['users.id', 'users.name'])
+                : [],
             'stripe_account_active' => (bool)$this->stripe_account_active,
            'vendor' => !$this->vendor ? null : [
     'status' => $this->vendor->status,
