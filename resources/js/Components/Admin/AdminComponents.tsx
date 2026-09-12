@@ -594,6 +594,7 @@ export function ActionBtn({
   children,
   as: Tag = "button",
   href,
+  disabled = false,
 }: {
   onClick?: (e?: React.MouseEvent) => void;
   variant?: "edit" | "delete" | "view" | "default";
@@ -601,6 +602,7 @@ export function ActionBtn({
   children: React.ReactNode;
   as?: any;
   href?: string;
+  disabled?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -613,13 +615,18 @@ export function ActionBtn({
 
   const c = colors[variant];
 
+  // Disabled buttons stay in place (so layout doesn't shift) but never
+  // fire onClick/navigate and never pick up the hover color — grayed out
+  // rather than removed, so it's visible that the action exists but this
+  // account can't use it here.
   return (
     <Tag
-      href={href}
-      onClick={onClick}
-      title={title}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      href={disabled ? undefined : href}
+      onClick={disabled ? undefined : onClick}
+      title={disabled ? `${title} (not permitted)` : title}
+      aria-disabled={disabled}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => !disabled && setHovered(false)}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -627,13 +634,15 @@ export function ActionBtn({
         width: 30,
         height: 30,
         borderRadius: "8px",
-        border: `1px solid ${hovered ? c.border : C.border}`,
-        background: hovered ? c.bg : "transparent",
-        color: hovered ? c.color : C.textMuted,
-        cursor: "pointer",
+        border: `1px solid ${!disabled && hovered ? c.border : C.border}`,
+        background: !disabled && hovered ? c.bg : "transparent",
+        color: disabled ? C.border : hovered ? c.color : C.textMuted,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
         transition: "all 150ms ease",
         textDecoration: "none",
         flexShrink: 0,
+        pointerEvents: disabled ? "none" : "auto",
       }}
     >
       {children}

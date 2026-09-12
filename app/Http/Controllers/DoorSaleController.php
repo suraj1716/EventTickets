@@ -6,9 +6,7 @@ use App\Mail\TicketsIssuedMail;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Staff;
 use App\Models\TicketTier;
-use App\Models\User;
 use App\Services\TicketGenerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,13 +17,6 @@ use Inertia\Inertia;
 
 class DoorSaleController extends Controller
 {
-    private function getStaffForUser(Request $request): Staff
-    {
-        return Staff::where('email', $request->user()->email)
-            ->where('is_active', true)
-            ->firstOrFail();
-    }
-
  public function create(Request $request)
 {
     $vendorUserId = $this->getVendorUserId($request);
@@ -46,7 +37,6 @@ class DoorSaleController extends Controller
 
  public function store(Request $request)
 {
-     dd($request->all());
     $vendorUserId = $this->getVendorUserId($request);
 
     $data = $request->validate([
@@ -67,19 +57,21 @@ class DoorSaleController extends Controller
 }
 
 
+// Resolves via VendorStaff/actingVendorId() — the same mechanism the
+// rest of the app uses (SetPermissionsTeam, EventPolicy, etc) — not the
+// separate legacy `staff` table, which has nothing to do with vendor
+// team membership and would silently 404 real staff accounts here.
+//
+// Admin has no vendor context of its own and isn't handled: door sales
+// don't have a vendor-picker for Admin yet (unlike VendorStaffController's
+// targetVendorId()). Add one before enabling this for Admin use.
 private function getVendorUserId(Request $request): int
 {
-    $user = $request->user();
+    $vendorId = $request->user()->actingVendorId();
 
-    if ($user->hasRole('Admin') || $user->hasRole('Vendor')) {
-        return $user->id;
-    }
+    abort_unless($vendorId, 403, 'No vendor context for this account.');
 
-    $staff = Staff::where('email', $user->email)
-        ->where('is_active', true)
-        ->firstOrFail();
-
-    return $staff->vendor_id;
+    return $vendorId;
 }
 
 }

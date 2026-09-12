@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Head } from "@inertiajs/react";
 import AdminLayout from "../AdminLayout";
@@ -38,6 +37,7 @@ interface Venue {
 
 interface Props {
     venue?: Venue;
+    can?: { manage: boolean };
     flash: {
         success?: string;
         error?: string;
@@ -135,12 +135,14 @@ function SaveBar({
     processing,
     onSubmit,
     cancelHref,
+    canManage = true,
 }: {
     isEdit: boolean;
     venueName?: string;
     processing: boolean;
     onSubmit: () => void;
     cancelHref: string;
+    canManage?: boolean;
 }) {
     return (
         <div
@@ -183,8 +185,9 @@ function SaveBar({
 
                 <AdminBtn
                     onClick={onSubmit}
-                    disabled={processing}
+                    disabled={processing || !canManage}
                     variant="accent"
+                    title={canManage ? undefined : "Not permitted"}
                 >
                     <Icons.Check />
 
@@ -199,8 +202,12 @@ function SaveBar({
     );
 }
 
-export default function VenueForm({ venue, flash }: Props) {
+export default function VenueForm({ venue, flash, can }: Props) {
     const isEdit = !!venue;
+    // No venue yet (create) always allows submitting — you only reach
+    // this page at all if the route/policy already let you create one.
+    // Editing an existing venue defers to the server-computed flag.
+    const canManage = can?.manage ?? true;
 
     const {
         data,
@@ -1357,6 +1364,7 @@ export default function VenueForm({ venue, flash }: Props) {
                     cancelHref={route(
                         "admin.venues.index"
                     )}
+                    canManage={canManage}
                 />
             </AdminLayout>
         </>

@@ -37,13 +37,14 @@ class TicketScanController extends Controller
             ]);
         }
 
-        // Route middleware only checks the role:Admin|Vendor — it says
-        // nothing about WHICH vendor's tickets this Vendor may scan.
-        // Without this, any Vendor account could scan/void a ticket for
-        // an event they don't own.
-        if (! $request->user()->hasRole('Admin')) {
+        // Route middleware only checks account_type:Admin|Vendor|Staff — it
+        // says nothing about WHICH vendor's tickets this account may scan.
+        // Without this, any Vendor/Staff account could scan/void a ticket
+        // for an event they don't act for. actingVendorId() covers both:
+        // a Vendor's own id, or a Staff member's currently-acting vendor.
+        if (! $request->user()->isAdmin()) {
             abort_unless(
-                $ticket->eventLeg?->event?->vendor_user_id === $request->user()->id,
+                $ticket->eventLeg?->event?->vendor_user_id === $request->user()->actingVendorId(),
                 403,
                 'This ticket belongs to a different event.'
             );

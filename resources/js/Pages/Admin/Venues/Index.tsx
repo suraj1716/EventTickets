@@ -30,6 +30,7 @@ type Venue = {
   seating_type: "general" | "reserved";
   is_active: boolean;
   event_legs_count: number;
+  can: { manage: boolean };
 };
 
 interface Props {
@@ -184,6 +185,7 @@ export default function VenuesIndex({ venues, filters, flash }: Props) {
                     title="Edit"
                     as="a"
                     href={route("admin.venues.edit", venue.id)}
+                    disabled={!venue.can.manage}
                   >
                     <Icons.Edit />
                   </ActionBtn>
@@ -192,6 +194,7 @@ export default function VenuesIndex({ venues, filters, flash }: Props) {
                       variant="delete"
                       title="Delete"
                       onClick={() => setDeleteTarget(venue)}
+                      disabled={!venue.can.manage}
                     >
                       <Icons.Delete />
                     </ActionBtn>

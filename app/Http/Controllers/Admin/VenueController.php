@@ -19,7 +19,11 @@ class VenueController extends Controller
             )
             ->orderBy('name')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (Venue $venue) => [
+                ...$venue->toArray(),
+                'can' => ['manage' => $this->canManage($request, $venue)],
+            ]);
 
         return Inertia::render('Admin/Venues/Index', [
             'venues' => $venues,
@@ -38,7 +42,13 @@ class VenueController extends Controller
 
         $venue = Venue::create([
             ...$data,
-            'created_by_user_id' => $request->user()->id,
+            // The vendor TEAM this venue belongs to, not literally whoever
+            // clicked save — a Staff member creating a venue while acting
+            // for Vendor X should produce the same owner as if Vendor X
+            // created it themselves. Admin has no acting vendor, so an
+            // Admin-created venue is just attributed to the Admin's own id
+            // (authorizeManage() lets Admin manage anything regardless).
+            'created_by_user_id' => $request->user()->actingVendorId() ?? $request->user()->id,
         ]);
 
         return redirect()
@@ -46,10 +56,11 @@ class VenueController extends Controller
             ->with('success', "Venue \"{$venue->name}\" saved.");
     }
 
-    public function edit(Venue $venue)
+    public function edit(Request $request, Venue $venue)
     {
         return Inertia::render('Admin/Venues/Form', [
             'venue' => $venue,
+            'can' => ['manage' => $this->canManage($request, $venue)],
         ]);
     }
 
@@ -105,10 +116,27 @@ class VenueController extends Controller
      * otherwise any vendor could rename or delete a venue that other
      * vendors' events already point to.
      */
+    /**
+     * Anyone can create and anyone can select. Editing/deleting an
+     * existing entry is restricted to whoever's vendor TEAM added it, or
+     * an Admin — otherwise any vendor (or their staff) could rename or
+     * delete a venue that other vendors' events already point to.
+     *
+     * Compares against actingVendorId(), not the raw user id — a Staff
+     * member acting for the vendor that owns this venue must pass the
+     * same check the vendor owner would.
+     */
+    protected function canManage(Request $request, Venue $venue): bool
+    {
+        $user = $request->user();
+
+        return $user->isAdmin() || $venue->created_by_user_id === $user->actingVendorId();
+    }
+
     protected function authorizeManage(Request $request, Venue $venue): void
     {
         abort_unless(
-            $request->user()->hasRole('Admin') || $venue->created_by_user_id === $request->user()->id,
+            $this->canManage($request, $venue),
             403,
             'Only the venue\'s creator or an Admin can edit or delete it.'
         );

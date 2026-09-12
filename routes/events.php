@@ -124,7 +124,7 @@ Route::middleware('auth')->post('/events/{event}/cart', [TicketCheckoutControlle
 |
 */
 
-Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
+Route::middleware(['auth', 'verified', 'account_type:Admin|Vendor|Staff'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
@@ -262,7 +262,7 @@ Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
 use App\Http\Controllers\DoorSaleController;
 use App\Http\Controllers\TicketScanController;
 
-Route::middleware(['auth', 'verified', 'role:Admin|Vendor'])
+Route::middleware(['auth', 'verified', 'account_type:Admin|Vendor|Staff'])
     ->name('staff.')
     ->group(function () {
         Route::get('/door-sale/create', [DoorSaleController::class, 'create'])

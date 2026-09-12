@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use SimonHamp\LaravelStripeConnect\Traits\Payable;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -102,19 +103,40 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->vendors()->wherePivot('status', 'active');
     }
 
+    /**
+     * True if this user holds $role under ANY team (or no team at all).
+     *
+     * Spatie's own hasRole() only checks the team currently active on
+     * PermissionRegistrar, which isn't meaningful for "what kind of
+     * account is this" — Admin/Vendor are assigned under team_id=null,
+     * Staff is assigned per-vendor-team (see VendorStaffController::
+     * suspend/reactivate/destroy), so a single active team can never
+     * correctly answer this for all three. Query the pivot directly
+     * instead of going through the currently-active team.
+     */
+    private function hasRoleInAnyTeam(string $role): bool
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_id', $this->id)
+            ->where('model_has_roles.model_type', self::class)
+            ->where('roles.name', $role)
+            ->exists();
+    }
+
     public function isAdmin(): bool
     {
-        return $this->hasRole(\App\Enums\RolesEnum::Admin->value);
+        return $this->hasRoleInAnyTeam(\App\Enums\RolesEnum::Admin->value);
     }
 
     public function isVendorRole(): bool
     {
-        return $this->hasRole(\App\Enums\RolesEnum::Vendor->value);
+        return $this->hasRoleInAnyTeam(\App\Enums\RolesEnum::Vendor->value);
     }
 
     public function isStaffRole(): bool
     {
-        return $this->hasRole(\App\Enums\RolesEnum::Staff->value);
+        return $this->hasRoleInAnyTeam(\App\Enums\RolesEnum::Staff->value);
     }
 
     /**

@@ -29,6 +29,7 @@ $middleware->web(append: [
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'account_type' => \App\Http\Middleware\EnsureAccountType::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'acting.vendor' => \App\Http\Middleware\SetActingVendor::class,
             'permissions.team' => \App\Http\Middleware\SetPermissionsTeam::class,
