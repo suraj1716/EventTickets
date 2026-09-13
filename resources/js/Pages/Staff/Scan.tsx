@@ -22,7 +22,7 @@ interface ScanTicket {
 }
 
 interface ScanResult {
-  status: 'ok' | 'not_found' | 'void' | 'already_scanned';
+  status: 'ok' | 'not_found' | 'void' | 'already_scanned' | 'listed_for_resale';
   code?: string;
   scanned_at?: string | null;
   ticket?: ScanTicket;
@@ -360,6 +360,22 @@ function ResultCard({
                 ).toLocaleString('en-AU')}.`
               : 'This ticket has already been used.'
           }
+          icon="warning"
+        />
+
+        <TicketSummary ticket={result.ticket} />
+
+        <ScanAgainButton onClick={onScanAgain} />
+      </div>
+    );
+  }
+
+  if (result.status === 'listed_for_resale') {
+    return (
+      <div className="rounded-2xl border border-red-900/60 bg-red-950/30 p-6">
+        <StatusHeader
+          title="Do not admit — listed for resale"
+          message="This code belongs to a ticket currently up for resale. It has NOT been marked as used. The holder may not be the eventual buyer — ask them to cancel the listing first, or check ID against the order."
           icon="warning"
         />
 

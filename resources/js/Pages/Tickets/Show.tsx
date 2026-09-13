@@ -84,7 +84,12 @@ export default function TicketShow({ ticket }: Props) {
   const { auth } = usePage<PageProps>().props;
   const qrUrl = ticket.qr_url;
   const barcodeUrl = ticket.barcode_url;
-
+  console.log("[ticket media debug]", {
+    qr_path: ticket.qr_path,       // raw stored path, e.g. "tickets/qr/ABCD-1234.svg"
+    qr_url: ticket.qr_url,         // what <img src> actually points at
+    barcode_path: ticket.barcode_path,
+    barcode_url: ticket.barcode_url,
+  });
   const statusKey = ticket.status?.toLowerCase?.() ?? "";
   const statusColor = STATUS_COLORS[statusKey] ?? {
     fg: C.amber,

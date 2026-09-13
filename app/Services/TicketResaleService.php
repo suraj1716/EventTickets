@@ -112,11 +112,13 @@ class TicketResaleService
      * people were sent a copy — now points at a dead code. There is
      * no path to a valid transfer that does not go through here.
      *
-     * Seller payout is deliberately NOT inside this transaction — see
-     * payoutSeller() below, called right after this returns. An
-     * external Stripe API call inside a transaction holding row locks
-     * is unsafe, and a payout failure must never roll back a ticket
-     * transfer the buyer already paid for.
+     * Seller payout does NOT happen here, or anywhere near sale time —
+     * it's deferred until payout_eligible_at (event date + buffer) and
+     * fired later by ProcessResalePayouts. Paying the seller instantly
+     * used to mean: event gets cancelled, buyer is refunded in full,
+     * but the seller's cut is already gone with no way to claw it back
+     * — the platform ate the loss. Waiting until after the event means
+     * a cancellation before payout simply skips it; nothing to reverse.
      */
     public function completeSale(
         TicketResaleListing $listing,
@@ -148,6 +150,7 @@ class TicketResaleService
                 'status' => 'sold',
                 'commission_amount' => $commissionAmount,
                 'seller_payout_amount' => $sellerPayout,
+                'payout_eligible_at' => $this->resolvePayoutEligibleAt($ticket),
                 'stripe_session_id' => $stripeSessionId,
                 'stripe_payment_intent' => $stripePaymentIntent,
                 'sold_at' => now(),
@@ -176,21 +179,35 @@ class TicketResaleService
             // support/dispute purposes. Deleting isn't necessary for
             // security here; the DB row is the only thing that matters.
 
-            Log::info('Ticket resale completed — ownership transferred, code rotated', [
+            Log::info('Ticket resale completed — ownership transferred, code rotated, payout deferred', [
                 'ticket_id' => $ticket->id,
                 'listing_id' => $listing->id,
                 'old_code_retired' => $oldCode,
                 'new_owner_user_id' => $buyer->id,
                 'seller_payout_amount' => $sellerPayout,
                 'commission_amount' => $commissionAmount,
+                'payout_eligible_at' => $listing->payout_eligible_at,
             ]);
 
             return $ticket->fresh();
         });
 
-        $this->payoutSeller($listing->fresh());
-
         return $ticket;
+    }
+
+    /**
+     * Event date + 48h. If the event's date can't be resolved for some
+     * reason, fall back to "now" so the listing isn't stuck unpayable
+     * forever — ProcessResalePayouts would pick it up on its very next
+     * run rather than never, which is the safer failure direction here.
+     */
+    protected function resolvePayoutEligibleAt(Ticket $ticket): \Illuminate\Support\Carbon
+    {
+        $eventDate = $ticket->eventLeg?->event_date;
+
+        return $eventDate
+            ? \Illuminate\Support\Carbon::parse($eventDate)->addHours(48)
+            : now();
     }
 
     /**
@@ -200,6 +217,14 @@ class TicketResaleService
      * TicketResaleCheckoutController, a plain Checkout Session with no
      * destination account), and this moves the seller's share out of
      * that balance afterward.
+     *
+     * Called by ProcessResalePayouts once payout_eligible_at has
+     * passed — not from completeSale() anymore. Also re-checks the
+     * ticket's status here (not just the listing's) as a last-line
+     * guard: if the event got cancelled and the ticket voided after
+     * this listing was queued but before the scheduled command ran,
+     * this must never pay a seller for a ticket that's already been
+     * refunded to its buyer via refundResaleChain().
      *
      * Deliberately tolerant of failure: a payout failing must never
      * undo the ticket transfer the buyer already paid for. On failure,
@@ -212,6 +237,17 @@ class TicketResaleService
     public function payoutSeller(TicketResaleListing $listing): void
     {
         if ($listing->seller_paid_out || $listing->status !== 'sold') {
+            return;
+        }
+
+        $ticket = $listing->ticket;
+
+        if (! $ticket || $ticket->status === 'void') {
+            Log::info('Resale payout skipped — ticket is void (event likely cancelled)', [
+                'listing_id' => $listing->id,
+                'ticket_id' => $listing->ticket_id,
+            ]);
+
             return;
         }
 

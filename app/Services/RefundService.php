@@ -422,11 +422,13 @@ class RefundService
         ?string $reason = null,
         bool $isMarker = false,
         float $voucherRestored = 0,
-        ?int $ticketId = null
+        ?int $ticketId = null,
+        ?int $resaleListingId = null
     ): RefundRecord {
         return RefundRecord::create([
             'order_id'          => $order->id,
             'ticket_id'         => $ticketId,
+            'resale_listing_id' => $resaleListingId,
             'type'              => $type,
             'amount'            => $amount,
             'voucher_restored'  => $voucherRestored,

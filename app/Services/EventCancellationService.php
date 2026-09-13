@@ -16,18 +16,23 @@ class EventCancellationService
     }
 
     /**
-     * Cancels the event and refunds every ticket's CURRENT owner, one
-     * ticket at a time, each for exactly what that owner paid —
-     * TicketRefundService already enforces that per-ticket scoping, this
-     * just calls it in a loop and handles the event/ticket/listing state
-     * around it.
+     * Cancels the event and unwinds every ticket's ENTIRE resale chain —
+     * not just the current owner. See
+     * TicketRefundService::refundResaleChain() for why: under the
+     * deferred-payout model, nobody in a ticket's resale history has
+     * been paid out yet by the time an event can still be cancelled, so
+     * refunding only the current owner would leave every earlier
+     * reseller having paid full price for a ticket they no longer hold
+     * and were never compensated for selling. Each hop nets to $0
+     * instead — refunded what they paid, and their own (still-unpaid)
+     * resale payout simply never fires once the ticket is void.
      *
      * There is no buyer-initiated path to this — cancellation is
      * organizer/admin only (enforce that in the controller, same as
      * VenueController::destroy's ownership check). A buyer's only
      * self-service option stays resale (TicketResaleController).
      *
-     * Each ticket's refund is isolated in its own try/catch, same
+     * Each ticket's chain is isolated in its own try/catch, same
      * resilience pattern as PayoutVendors::processPayout — one failed
      * Stripe call must not stop the rest of the event's ticket-holders
      * from getting refunded, and must not roll back tickets already
@@ -65,6 +70,11 @@ class EventCancellationService
 
                 // Pull it off the resale market first — it can't still be
                 // for sale once the event under it no longer exists.
+                // Note: this only touches an 'active' (still-listed, not
+                // yet sold) listing. A 'sold' listing is left as-is — it's
+                // an accurate record of a completed sale — and is instead
+                // blocked from ever paying out by the ticket going void
+                // below (see payoutSeller()'s own status check).
                 TicketResaleListing::where('ticket_id', $ticket->id)
                     ->where('status', 'active')
                     ->update([
@@ -72,21 +82,31 @@ class EventCancellationService
                         'cancelled_at' => now(),
                     ]);
 
-                $result = $this->refunds->refundCurrentOwner($ticket);
+                $hopResults = $this->refunds->refundResaleChain($ticket);
 
-                if ($result['status'] === 'refunded') {
-                    $ticket->update(['status' => 'void']);
-                    $results['refunded'][] = $result;
-                } elseif ($result['status'] === 'skipped') {
-                    // Nothing resolvable to refund (e.g. free/comp ticket) —
-                    // still void it, since the event is cancelled either way.
-                    $ticket->update(['status' => 'void']);
-                    $results['skipped'][] = $result;
+                // A ticket that was never resold and never charged
+                // anything (free/comp) unwinds to zero hops — treat that
+                // the same as "all skipped", not a failure.
+                $anyFailed = collect($hopResults)->contains(fn ($r) => $r['status'] === 'failed');
+
+                if ($anyFailed) {
+                    // At least one hop's Stripe call failed — leave the
+                    // ticket as-is (not voided) so it's visibly unresolved
+                    // for manual follow-up rather than silently lost, even
+                    // though other hops on this same ticket may have gone
+                    // through fine (those are already recorded and won't
+                    // be retried thanks to the per-hop idempotency guard).
+                    $results['failed'] = array_merge($results['failed'], $hopResults);
                 } else {
-                    // Refund attempt failed — leave the ticket as-is
-                    // (not voided) so it's visibly unresolved for manual
-                    // follow-up rather than silently lost.
-                    $results['failed'][] = $result;
+                    $ticket->update([
+                        'status' => 'void',
+                        'voided_at' => now(),
+                        'void_reason' => 'event_cancelled',
+                    ]);
+
+                    foreach ($hopResults as $result) {
+                        $results[$result['status'] === 'refunded' ? 'refunded' : 'skipped'][] = $result;
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::error('Event cancellation: ticket handling failed', [

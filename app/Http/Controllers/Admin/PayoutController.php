@@ -132,7 +132,7 @@ class PayoutController extends Controller
         );
     }
 
-  public function show(Payout $payout)
+public function show(Payout $payout)
 {
     $payout->load([
         'vendor.user',
@@ -146,8 +146,38 @@ class PayoutController extends Controller
             ->orderBy('created_at'),
     ]);
 
+    $eventGroups = $payout->orders
+        ->groupBy(function (Order $order) {
+            $eventIds = $order->orderItems
+                ->map(fn ($item) => $item->ticketTier?->eventLeg?->event_id ?? $item->product?->event_id)
+                ->filter()->unique();
+
+            return match (true) {
+                $eventIds->count() === 1 => (string) $eventIds->first(),
+                $eventIds->count() > 1  => 'mixed',
+                default                 => 'other',
+            };
+        })
+        ->map(function ($orders, $key) {
+            $event = $orders->first()->orderItems
+                ->map(fn ($item) => $item->ticketTier?->eventLeg?->event ?? $item->product?->event)
+                ->filter()->first();
+
+            return [
+                'key'         => $key,
+                'event_id'    => is_numeric($key) ? (int) $key : null,
+                'event_name'  => $key === 'other' ? 'Other items' : ($key === 'mixed' ? 'Multiple events' : $event?->name),
+                'order_count' => $orders->count(),
+                'vendor_net'  => $orders->sum(fn ($o) => max(0, $o->vendor_subtotal - ($o->refund_amount ?? 0))),
+                'orders'      => $orders->values(),
+            ];
+        })
+        ->sortByDesc('order_count')
+        ->values();
+
     return Inertia::render('Admin/Payouts/Invoice', [
-        'payout' => $payout,
+        'payout'      => $payout,
+        'eventGroups' => $eventGroups,
     ]);
 }
 

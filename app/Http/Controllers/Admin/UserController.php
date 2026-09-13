@@ -27,15 +27,27 @@ class UserController extends Controller
             $query->where('is_read', $request->is_read === '1');
         }
 
+        if ($request->filled('stripe_status')) {
+            match ($request->stripe_status) {
+                'connected' => $query->where('stripe_account_active', true),
+                'pending'   => $query->where('stripe_account_active', false)
+                                      ->whereNotNull('stripe_account_id'),
+                'none'      => $query->whereNull('stripe_account_id'),
+                default     => null,
+            };
+        }
+
         $users = $query->paginate(20)->through(fn($u) => [
-            'id'            => $u->id,
-            'name'          => $u->name,
-            'email'         => $u->email,
-            'orders_count'  => $u->orders_count,
-            'roles'         => $u->getRoleNames(),
-            'referral_code' => $u->referral_code,
-            'is_read'       => $u->is_read,
-            'created_at'    => $u->created_at?->format('d M Y'),
+            'id'                    => $u->id,
+            'name'                  => $u->name,
+            'email'                 => $u->email,
+            'orders_count'          => $u->orders_count,
+            'roles'                 => $u->getRoleNames(),
+            'referral_code'         => $u->referral_code,
+            'is_read'               => $u->is_read,
+            'stripe_account_id'     => $u->stripe_account_id,
+            'stripe_account_active' => $u->stripe_account_active,
+            'created_at'            => $u->created_at?->format('d M Y'),
         ]);
 
         // Auto-mark all unread users as read when admin visits
@@ -43,7 +55,7 @@ class UserController extends Controller
 
         return Inertia::render('Admin/Users/Index', [
             'users'   => $users,
-            'filters' => $request->only(['search', 'role', 'is_read']),
+            'filters' => $request->only(['search', 'role', 'is_read', 'stripe_status']),
             'roles'   => ['Admin', 'Vendor', 'User'],
             'flash'   => [
                 'success' => session('success'),

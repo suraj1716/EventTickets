@@ -66,6 +66,22 @@ class TicketScanController extends Controller
             ]);
         }
 
+        // A ticket up for resale keeps its ORIGINAL code active until it
+        // actually sells (code only rotates in
+        // TicketResaleService::completeSale()) — so without this check,
+        // the current holder could walk up and scan a ticket they've
+        // simultaneously listed for sale, and it would read as a normal
+        // 'ok' entry. That's misleading for staff either way: if it
+        // later sells, this same code becomes dead and a *different*
+        // person shows up with the new one; if it never sells, this was
+        // fine all along but staff had no way to tell the difference at
+        // the door. Surface it explicitly instead of silently admitting.
+        if ($ticket->status === 'listed') {
+            return Inertia::render('Staff/Scan', [
+                'result' => ['status' => 'listed_for_resale', 'ticket' => $ticket],
+            ]);
+        }
+
         $ticket->markScanned($request->user()?->id);
 
         return Inertia::render('Staff/Scan', [

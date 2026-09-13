@@ -10,6 +10,7 @@ class Refund extends Model
    protected $fillable = [
     'order_id',
     'ticket_id',   // ← new column: which ticket this refund is for (null = order-level)
+    'resale_listing_id', // ← which hop of a resale chain this refund unwinds (null = original, non-resale purchase)
     'type',
     'amount',
     'stripe_refund_id',
@@ -38,5 +39,10 @@ protected $casts = [
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function resaleListing(): BelongsTo
+    {
+        return $this->belongsTo(TicketResaleListing::class, 'resale_listing_id');
     }
 }

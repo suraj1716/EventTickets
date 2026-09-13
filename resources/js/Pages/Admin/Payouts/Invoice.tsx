@@ -104,8 +104,24 @@ interface Payout {
   orders: OrderRow[];
 }
 
+/**
+ * One bucket of orders that all belong to the same event (or "other" /
+ * "mixed" for items with no event / orders spanning more than one event).
+ * Built server-side in PayoutController::show() so a 250+ order payout
+ * doesn't render as one flat, unscannable table.
+ */
+interface EventGroup {
+  key: string;
+  event_id: number | null;
+  event_name: string | null;
+  order_count: number;
+  vendor_net: number;
+  orders: OrderRow[];
+}
+
 interface Props {
   payout: Payout;
+  eventGroups: EventGroup[];
   isAdmin?: boolean;
 }
 
@@ -463,10 +479,39 @@ function OrderTimeline({ order }: { order: OrderRow }) {
   );
 }
 
-export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
-  const orders = payout.orders ?? [];
+export default function PayoutInvoice({
+  payout,
+  eventGroups,
+  isAdmin = false,
+}: Props) {
+  // Flattened view of every order across all groups — used for the totals
+  // footer, the refund note, and the "N orders included" count, so none of
+  // that math has to change just because the table is now grouped.
+  const orders = React.useMemo(
+    () => eventGroups.flatMap((g) => g.orders),
+    [eventGroups],
+  );
 
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
+
+  // Which event groups are expanded. Small payouts (few groups) open
+  // everything by default; a payout with many groups (e.g. a tour with a
+  // dozen legs) opens just the first so the page isn't a wall of tables.
+  const [openGroups, setOpenGroups] = React.useState<Set<string>>(
+    () => new Set(eventGroups.length <= 3 ? eventGroups.map((g) => g.key) : eventGroups.slice(0, 1).map((g) => g.key)),
+  );
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const allOpen = openGroups.size === eventGroups.length;
+  const toggleAllGroups = () =>
+    setOpenGroups(allOpen ? new Set() : new Set(eventGroups.map((g) => g.key)));
 
   /**
    * INVOICE TOTALS
@@ -586,6 +631,14 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
     /* Screen timeline hidden */
     .screen-timeline {
       display: none !important;
+    }
+
+    /* A collapsed event group is just visually hidden on screen (see
+       .group-body below) — force it back open for print so the PDF/print
+       output always has every order, regardless of what was expanded when
+       "Print" was clicked. */
+    tbody.group-body {
+      display: table-row-group !important;
     }
 
     /* ALL timelines visible in PDF */
@@ -760,8 +813,27 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
               >
                 {orders.length} order
                 {orders.length === 1 ? "" : "s"} included
+                {eventGroups.length > 1 && ` across ${eventGroups.length} events`}
               </span>
             </div>
+
+            {eventGroups.length > 1 && (
+              <button
+                className="no-print"
+                onClick={toggleAllGroups}
+                style={{
+                  fontSize: 11,
+                  color: `${C.textMuted}`,
+                  background: "none",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                {allOpen ? "Collapse all" : "Expand all"}
+              </button>
+            )}
 
             {isAdmin && !reconciled && (
               <div
@@ -890,8 +962,73 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                 </tr>
               </thead>
 
-              <tbody>
-                {orders.map((o) => {
+              {eventGroups.map((group) => {
+                const isGroupOpen = openGroups.has(group.key);
+
+                return (
+                <React.Fragment key={group.key}>
+                  {/* GROUP HEADER */}
+                  <tbody>
+                    <tr
+                      className="no-print"
+                      onClick={() => toggleGroup(group.key)}
+                      style={{
+                        cursor: "pointer",
+                        background: "rgba(0,0,0,0.03)",
+                        borderBottom: `1px solid ${C.border}`,
+                      }}
+                    >
+                      <td
+                        colSpan={11}
+                        style={{
+                          padding: "8px 4px",
+                          fontWeight: 600,
+                          fontSize: 12,
+                        }}
+                      >
+                        <span style={{ color: `${C.textMuted}`, marginRight: 6 }}>
+                          {isGroupOpen ? "▾" : "▸"}
+                        </span>
+                        {group.event_name ?? "Untitled event"}
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            color: `${C.textMuted}`,
+                            marginLeft: 8,
+                          }}
+                        >
+                          {group.order_count} order
+                          {group.order_count === 1 ? "" : "s"} · net{" "}
+                          {money(group.vendor_net)}
+                        </span>
+                      </td>
+                    </tr>
+
+                    {/* Header repeats above the print copy of each group so a
+                        printed invoice still reads as one continuous table
+                        even though the header cell above is hidden. */}
+                    <tr
+                      style={{
+                        display: "none",
+                      }}
+                      className="print-timeline"
+                    >
+                      <td colSpan={11} style={{ fontWeight: 600, padding: "8px 4px" }}>
+                        {group.event_name ?? "Untitled event"} — {group.order_count} order
+                        {group.order_count === 1 ? "" : "s"}
+                      </td>
+                    </tr>
+                  </tbody>
+
+                  {/* GROUP ORDERS — visually hidden (not unmounted) when the
+                      group is collapsed, so print/PDF export always has the
+                      full order list regardless of what's expanded on
+                      screen (see the "group-body" print rule above). */}
+                  <tbody
+                    className="group-body"
+                    style={{ display: isGroupOpen ? "table-row-group" : "none" }}
+                  >
+                {group.orders.map((o) => {
                   const isOpen = expandedId === o.id;
 
                   const refunded = Number(o.refund_amount ?? 0);
@@ -1072,8 +1209,13 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                     </React.Fragment>
                   );
                 })}
+                  </tbody>
+                </React.Fragment>
+                );
+              })}
 
-                {orders.length === 0 && (
+              {orders.length === 0 && (
+                <tbody>
                   <tr>
                     <td
                       colSpan={11}
@@ -1086,8 +1228,8 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                       No orders are attached to this payout.
                     </td>
                   </tr>
-                )}
-              </tbody>
+                </tbody>
+              )}
 
               {/* TOTALS */}
               <tfoot>

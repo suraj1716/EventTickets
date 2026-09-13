@@ -10,6 +10,8 @@ type User = {
   orders_count: number;
   roles: string[];
   referral_code: string;
+  stripe_account_id: string | null;
+  stripe_account_active: boolean;
   created_at: string;
 };
 
@@ -46,6 +48,16 @@ export default function UsersIndex({ users, filters, roles }: Props) {
               { value: "1", label: "Read" },
             ],
           },
+          {
+            key: "stripe_status",
+            type: "select",
+            placeholder: "All / Stripe status",
+            options: [
+              { value: "connected", label: "Stripe Connected" },
+              { value: "pending", label: "Stripe Pending" },
+              { value: "none", label: "Not Connected" },
+            ],
+          },
         ]}
       />
 
@@ -58,6 +70,7 @@ export default function UsersIndex({ users, filters, roles }: Props) {
           "Roles",
           "Orders",
           "Referral Code",
+          "Stripe Connect",
           "Joined",
         ]}
       >
@@ -98,6 +111,17 @@ export default function UsersIndex({ users, filters, roles }: Props) {
               >
                 {u.referral_code ?? "—"}
               </span>
+            </Td>
+            <Td>
+              {u.stripe_account_active ? (
+                <StatusBadge status="approved" label="Connected" />
+              ) : u.stripe_account_id ? (
+                <StatusBadge status="pending" label="Pending" />
+              ) : (
+                <span style={{ color: `${C.textFaint}`, fontSize: "12px" }}>
+                  Not connected
+                </span>
+              )}
             </Td>
             <Td muted>{u.created_at}</Td>
           </tr>
