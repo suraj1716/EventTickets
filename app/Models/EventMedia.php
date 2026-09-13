@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Storage;
 
 class EventMedia extends Model
 {
-    protected $fillable = ['event_id', 'type', 'path', 'mime_type', 'size', 'position'];
+    protected $fillable = ['event_id', 'type', 'path', 'thumb_path', 'mime_type', 'size', 'position'];
 
-    protected $appends = ['url'];
+    protected $appends = ['url', 'thumb_url'];
 
     public function event()
     {
@@ -30,5 +30,26 @@ class EventMedia extends Model
         $disk = strtolower(config('media-library.disk_name', 'public'));
 
         return Storage::disk($disk)->url($this->path);
+    }
+
+    /**
+     * Card-grid-sized image. Falls back to the full-size url() for:
+     *  - videos (never thumbnailed)
+     *  - rows uploaded before thumb_path existed (until re-uploaded or
+     *    backfilled) — so nothing breaks mid-rollout.
+     */
+    public function getThumbUrlAttribute(): string
+    {
+        if ($this->type !== 'image' || !$this->thumb_path) {
+            return $this->url;
+        }
+
+        if (str_starts_with($this->thumb_path, 'http')) {
+            return $this->thumb_path;
+        }
+
+        $disk = strtolower(config('media-library.disk_name', 'public'));
+
+        return Storage::disk($disk)->url($this->thumb_path);
     }
 }

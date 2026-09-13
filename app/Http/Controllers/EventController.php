@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Spatie\Image\Image;
 
 class EventController extends Controller
 {
@@ -831,6 +832,19 @@ class EventController extends Controller
             );
 
             /*
+             * Card-grid-sized copy (~600px wide) so every listing page,
+             * search result, and watchlist card stops shipping the full
+             * original upload just to render a small poster thumbnail.
+             * Best-effort: a failure here never blocks the actual upload.
+             */
+            $thumbPath = $isVideo
+                ? null
+                : $this->generateEventMediaThumbnail(
+                    $file,
+                    "events/{$event->id}"
+                );
+
+            /*
              * Create media record.
              */
             $event->media()->create([
@@ -842,6 +856,9 @@ class EventController extends Controller
                 'path' =>
                 $path,
 
+                'thumb_path' =>
+                $thumbPath,
+
                 'mime_type' =>
                 $mimeType,
 
@@ -851,6 +868,42 @@ class EventController extends Controller
                 'position' =>
                 $position++,
             ]);
+        }
+    }
+
+    /**
+     * Generate a resized (~600px wide) copy of an uploaded event image
+     * and store it alongside the original on the same disk. Returns null
+     * (rather than throwing) on any failure — the full-size original is
+     * always the source of truth, this is purely a perf optimization for
+     * card grids, so it must never block or fail the upload itself.
+     */
+    protected function generateEventMediaThumbnail(
+        \Illuminate\Http\UploadedFile $file,
+        string $directory
+    ): ?string {
+        try {
+            $tempOutput = tempnam(sys_get_temp_dir(), 'evt_thumb_') . '.jpg';
+
+            Image::load($file->getRealPath())
+                ->width(600)
+                ->quality(80)
+                ->save($tempOutput);
+
+            $thumbPath = "{$directory}/thumb_" . uniqid() . '.jpg';
+
+            Storage::disk('r2')->put(
+                $thumbPath,
+                file_get_contents($tempOutput)
+            );
+
+            @unlink($tempOutput);
+
+            return $thumbPath;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
         }
     }
 

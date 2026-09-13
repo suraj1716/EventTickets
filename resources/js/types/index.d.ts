@@ -215,6 +215,10 @@ export interface EventMedia {
   type: 'image' | 'video';
   path: string;
   url: string;
+  // Card-grid-sized (~600px) copy. Falls back to `url` server-side for
+  // videos and for rows uploaded before thumbnails existed, so this is
+  // always safe to use directly wherever a small poster is rendered.
+  thumb_url: string;
   position: number;
   mime_type?: string;
   size?: number;

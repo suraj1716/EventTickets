@@ -21,22 +21,17 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $dpts = Cache::remember('shared:dpts', 300, function () {
-            return Department::whereHas('categories.products')
-                ->withCount(['products as products_count'])
-                ->get(['id', 'name', 'slug']);
-        });
-
-        $categories = Cache::remember('shared:categories', 300, function () {
-            return \App\Models\Category::whereHas('products')
-                ->where('active', true)
-                ->get(['id', 'name', 'slug']);
-        });
+        // NOTE: dpts/categories/cart totals moved to fn() closures below.
+        // They used to run eagerly on every request — including partial
+        // reloads like the "Load more" button on Events/Index (which only
+        // asks for the `events` prop via router.reload({ only: ['events'] }))
+        // and full-page filter navigations that don't touch the cart or nav
+        // menu at all. Wrapping them in closures lets Inertia skip
+        // evaluating them entirely when they're not part of what a given
+        // request actually needs, instead of paying for 5+ queries every
+        // single visit regardless of relevance.
 
         $cartService = app(CartService::class);
-        $totalQuantity = $cartService->getTotalQuantity();
-        $totalPrice = $cartService->getTotalPrice();
-        $cartItems = $cartService->getCartItems();
 
         return array_merge(parent::share($request), [
 
@@ -51,10 +46,14 @@ class HandleInertiaRequests extends Middleware
                 'message' => session('success'),
                 'time' => microtime(true),
             ],
-            'totalPrice' => $totalPrice,
-            'totalQuantity' => $totalQuantity,
-            'miniCartItems' => $cartItems,
-            'dpts' => $dpts->map(function ($department) {
+            'totalPrice' => fn() => $cartService->getTotalPrice(),
+            'totalQuantity' => fn() => $cartService->getTotalQuantity(),
+            'miniCartItems' => fn() => $cartService->getCartItems(),
+            'dpts' => fn() => Cache::remember('shared:dpts', 300, function () {
+                return Department::whereHas('categories.products')
+                    ->withCount(['products as products_count'])
+                    ->get(['id', 'name', 'slug']);
+            })->map(function ($department) {
                 return [
                     'id' => $department->id,
                     'name' => $department->name,
@@ -64,7 +63,11 @@ class HandleInertiaRequests extends Middleware
                     'active' => $department->active,
                 ];
             }),
-            'categories' => $categories->map(function ($category) {
+            'categories' => fn() => Cache::remember('shared:categories', 300, function () {
+                return \App\Models\Category::whereHas('products')
+                    ->where('active', true)
+                    ->get(['id', 'name', 'slug']);
+            })->map(function ($category) {
                 return [
                     'id' => $category->id,
                     'name' => $category->name,
