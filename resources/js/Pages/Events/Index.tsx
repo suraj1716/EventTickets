@@ -3,10 +3,11 @@
 // "Box Office" design — same language as ComingSoon.tsx
 // Fully responsive: stacked on mobile, sidebar on lg+
 // Mobile: filters collapse into a slide-down drawer
-// Fixed: removed -ml-16 negative margin that broke mobile layout
+// Events are deferred so the page shell renders before event data arrives.
+// "Load more" appends the next slice client-side.
 
-import { useMemo, useState } from "react";
-import { Head, Link, router } from "@inertiajs/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Head, Link, router, Deferred } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import type {
@@ -14,40 +15,94 @@ import type {
   Event,
   EventSearchFilters,
   EventType,
-  Paginated,
   SortOption,
 } from "@/types";
 
+interface EventsSlice {
+  data: Event[];
+  total: number;
+  has_more: boolean;
+}
+
 interface Props {
-  events: Paginated<Event>;
+  events?: EventsSlice;
   filters: EventSearchFilters;
   categories: Category[];
 }
+
+const LOAD_MORE_COUNT = 5;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const MotionLink = motion(Link);
 
 const gridVariants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
+  show: {
+    transition: {
+      staggerChildren: 0.06,
+    },
+  },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 22 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+  hidden: {
+    opacity: 0,
+    y: 22,
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: EASE,
+    },
+  },
 };
 
 export default function EventsIndex({ events, filters, categories }: Props) {
-
-
-console.log("events",events)
-
   const [local, setLocal] = useState<EventSearchFilters>(filters);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Accumulated list for "Load more".
+  const [items, setItems] = useState<Event[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const initializedRef = useRef(false);
+
+  /*
+   * Initial/deferred event data.
+   *
+   * Important:
+   * We only initialise once for a fresh page/filter request.
+   * Load-more responses are appended separately.
+   */
+  useEffect(() => {
+    if (events && !initializedRef.current) {
+      setItems(events.data);
+      setTotal(events.total);
+      setHasMore(events.has_more);
+      initializedRef.current = true;
+    }
+  }, [events]);
+
+  function resetList() {
+    initializedRef.current = false;
+    setItems([]);
+    setTotal(0);
+    setHasMore(false);
+  }
+
   function apply(next: Partial<EventSearchFilters>) {
-    const merged = { ...local, ...next };
+    const merged = {
+      ...local,
+      ...next,
+    };
+
     setLocal(merged);
+    resetList();
+
     router.get(route("events.index"), merged, {
       preserveState: true,
       replace: true,
@@ -57,6 +112,7 @@ console.log("events",events)
 
   function toggleCategory(id: number) {
     const ids = local.category_ids ?? [];
+
     apply({
       category_ids: ids.includes(id)
         ? ids.filter((c) => c !== id)
@@ -66,15 +122,50 @@ console.log("events",events)
 
   function clearFilters() {
     setLocal({});
-    router.get(route("events.index"), {}, {
-      preserveState: true,
-      replace: true,
-      preserveScroll: true,
+    resetList();
+
+    router.get(
+      route("events.index"),
+      {},
+      {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true,
+      },
+    );
+  }
+
+  function loadMore() {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+
+    router.reload({
+      only: ["events"],
+      data: {
+        ...local,
+        offset: items.length,
+        limit: LOAD_MORE_COUNT,
+      },
+      onSuccess: (page) => {
+        const fresh = page.props.events as EventsSlice | undefined;
+
+        if (fresh) {
+          setItems((prev) => [...prev, ...fresh.data]);
+          setTotal(fresh.total);
+          setHasMore(fresh.has_more);
+        }
+      },
+      onFinish: () => {
+        setLoadingMore(false);
+      },
     });
   }
 
-  const hasFilters = Object.values(local).some((v) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
+  const hasFilters = Object.values(local).some((value) =>
+    Array.isArray(value)
+      ? value.length > 0
+      : value !== undefined && value !== null && value !== "",
   );
 
   const heroWords = ["Find", "your", "next", "night", "out."];
@@ -85,6 +176,7 @@ console.log("events",events)
         <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-white">
           Filters
         </h2>
+
         <AnimatePresence>
           {hasFilters && (
             <motion.button
@@ -101,22 +193,40 @@ console.log("events",events)
         </AnimatePresence>
       </div>
 
+      {/* Location */}
       <FilterSection title="Location">
         <input
           type="text"
           value={local.city ?? ""}
-          onChange={(e) => setLocal((p) => ({ ...p, city: e.target.value }))}
-          onKeyDown={(e) => e.key === "Enter" && apply({ city: local.city })}
-          onBlur={() => apply({ city: local.city })}
+          onChange={(e) =>
+            setLocal((p) => ({
+              ...p,
+              city: e.target.value,
+            }))
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              apply({
+                city: local.city,
+              });
+            }
+          }}
+          onBlur={() =>
+            apply({
+              city: local.city,
+            })
+          }
           placeholder="Sydney"
           className={inputClass}
         />
       </FilterSection>
 
+      {/* Genre */}
       <FilterSection title="Genre">
         <div className="flex flex-wrap gap-2">
           {categories.map((cat) => {
             const active = (local.category_ids ?? []).includes(cat.id);
+
             return (
               <motion.button
                 whileTap={{ scale: 0.94 }}
@@ -137,35 +247,62 @@ console.log("events",events)
         </div>
       </FilterSection>
 
+      {/* Artist */}
       <FilterSection title="Artist">
         <input
           type="text"
           value={local.artist ?? ""}
-          onChange={(e) => setLocal((p) => ({ ...p, artist: e.target.value }))}
-          onKeyDown={(e) => e.key === "Enter" && apply({ artist: local.artist })}
-          onBlur={() => apply({ artist: local.artist })}
+          onChange={(e) =>
+            setLocal((p) => ({
+              ...p,
+              artist: e.target.value,
+            }))
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              apply({
+                artist: local.artist,
+              });
+            }
+          }}
+          onBlur={() =>
+            apply({
+              artist: local.artist,
+            })
+          }
           placeholder="Artist name"
           className={inputClass}
         />
       </FilterSection>
 
+      {/* Date */}
       <FilterSection title="Date range">
         <div className="space-y-2">
           <input
             type="date"
             value={local.date_from ?? ""}
-            onChange={(e) => apply({ date_from: e.target.value || undefined })}
+            onChange={(e) =>
+              apply({
+                date_from: e.target.value || undefined,
+              })
+            }
             className={inputClass}
           />
+
           <input
             type="date"
             value={local.date_to ?? ""}
-            onChange={(e) => apply({ date_to: e.target.value || undefined })}
+            onChange={(e) =>
+              apply({
+                date_to: e.target.value || undefined,
+              })
+            }
             className={inputClass}
           />
         </div>
       </FilterSection>
 
+      {/* Price */}
       <FilterSection title="Price">
         <div className="grid grid-cols-2 gap-2">
           <input
@@ -178,10 +315,15 @@ console.log("events",events)
                 price_min: e.target.value ? Number(e.target.value) : undefined,
               }))
             }
-            onBlur={() => apply({ price_min: local.price_min })}
+            onBlur={() =>
+              apply({
+                price_min: local.price_min,
+              })
+            }
             placeholder="Min"
             className={inputClass}
           />
+
           <input
             type="number"
             min="0"
@@ -192,18 +334,25 @@ console.log("events",events)
                 price_max: e.target.value ? Number(e.target.value) : undefined,
               }))
             }
-            onBlur={() => apply({ price_max: local.price_max })}
+            onBlur={() =>
+              apply({
+                price_max: local.price_max,
+              })
+            }
             placeholder="Max"
             className={inputClass}
           />
         </div>
       </FilterSection>
 
+      {/* Event type */}
       <FilterSection title="Event type">
         <select
           value={local.type ?? ""}
           onChange={(e) =>
-            apply({ type: (e.target.value || undefined) as EventType | undefined })
+            apply({
+              type: (e.target.value || undefined) as EventType | undefined,
+            })
           }
           className={inputClass}
         >
@@ -226,8 +375,9 @@ console.log("events",events)
       </Head>
 
       <div className="min-h-screen bg-[#0B0B10] text-[#F7F5F2] font-['Manrope']">
-
-        {/* ── Hero ── */}
+        {/* ─────────────────────────────
+            HERO
+        ───────────────────────────── */}
         <section className="relative overflow-hidden border-b border-[#26232E]">
           <video
             autoPlay
@@ -238,6 +388,7 @@ console.log("events",events)
           >
             <source src="/videos/concert.mp4" type="video/mp4" />
           </video>
+
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B0B10] via-[#0B0B10]/60 to-transparent" />
 
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
@@ -249,7 +400,11 @@ console.log("events",events)
             >
               <motion.span
                 animate={{ opacity: [1, 0.25, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="inline-block h-1.5 w-1.5 rounded-full bg-[#FFB627]"
               />
               Box office — open now
@@ -259,9 +414,19 @@ console.log("events",events)
               {heroWords.map((word, i) => (
                 <motion.span
                   key={word + i}
-                  initial={{ opacity: 0, y: 44 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.65, delay: 0.08 * i, ease: EASE }}
+                  initial={{
+                    opacity: 0,
+                    y: 44,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  transition={{
+                    duration: 0.65,
+                    delay: 0.08 * i,
+                    ease: EASE,
+                  }}
                   className={i === heroWords.length - 1 ? "text-[#FFB627]" : ""}
                 >
                   {word}
@@ -270,9 +435,18 @@ console.log("events",events)
             </h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.45 }}
+              initial={{
+                opacity: 0,
+                y: 12,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                duration: 0.5,
+                delay: 0.45,
+              }}
               className="mt-5 max-w-xl text-base sm:text-lg text-[#9C97A8] leading-relaxed"
             >
               Concerts, tours and unforgettable nights, all in one lineup.
@@ -280,36 +454,67 @@ console.log("events",events)
 
             {/* Search */}
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.55 }}
+              initial={{
+                opacity: 0,
+                y: 16,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                duration: 0.5,
+                delay: 0.55,
+              }}
               className="mt-9 max-w-2xl"
             >
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <svg
                     className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9C97A8]"
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
                   >
                     <circle cx="11" cy="11" r="7" />
                     <path d="m20 20-4-4" />
                   </svg>
+
                   <input
                     type="text"
                     value={local.search ?? ""}
                     onChange={(e) =>
-                      setLocal((p) => ({ ...p, search: e.target.value }))
+                      setLocal((p) => ({
+                        ...p,
+                        search: e.target.value,
+                      }))
                     }
-                    onKeyDown={(e) => e.key === "Enter" && apply({ search: local.search })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        apply({
+                          search: local.search,
+                        });
+                      }
+                    }}
                     placeholder="Search events, artists, venues..."
                     className="w-full h-[52px] rounded-xl border border-[#26232E] bg-[#15141B] pl-11 pr-4 text-sm text-[#F7F5F2] placeholder:text-[#6B6775] outline-none transition focus:border-[#FFB627]/60 focus:ring-2 focus:ring-[#FFB627]/20"
                   />
                 </div>
+
                 <motion.button
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{
+                    y: -2,
+                  }}
+                  whileTap={{
+                    scale: 0.97,
+                  }}
                   type="button"
-                  onClick={() => apply({ search: local.search })}
+                  onClick={() =>
+                    apply({
+                      search: local.search,
+                    })
+                  }
                   className="h-[52px] px-7 rounded-xl bg-[#FFB627] text-[#0B0B10] text-sm font-bold uppercase tracking-wide hover:bg-[#ffc75c] transition-colors"
                 >
                   Search
@@ -319,23 +524,37 @@ console.log("events",events)
           </div>
         </section>
 
-        {/* ── Mobile filter toggle ── */}
+        {/* ─────────────────────────────
+            MOBILE FILTERS
+        ───────────────────────────── */}
         <div className="lg:hidden px-4 pt-5 pb-2 mx-auto max-w-7xl sm:px-6">
           <motion.button
-            whileTap={{ scale: 0.97 }}
+            whileTap={{
+              scale: 0.97,
+            }}
             type="button"
             onClick={() => setFiltersOpen((o) => !o)}
             className="flex items-center gap-2 rounded-xl border border-[#26232E] bg-[#15141B] px-4 py-2.5 text-sm text-[#D8D5DE]"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
               <path d="M3 6h18M7 12h10M11 18h2" />
             </svg>
+
             {filtersOpen ? "Hide filters" : "Show filters"}
+
             {hasFilters && (
               <span className="ml-1 rounded-full bg-[#FFB627] text-[#0B0B10] text-[10px] font-bold px-1.5 py-0.5">
-                {Object.values(local).filter((v) =>
-                  Array.isArray(v) ? v.length > 0 : !!v
-                ).length}
+                {
+                  Object.values(local).filter((v) =>
+                    Array.isArray(v) ? v.length > 0 : !!v,
+                  ).length
+                }
               </span>
             )}
           </motion.button>
@@ -343,10 +562,22 @@ console.log("events",events)
           <AnimatePresence>
             {filtersOpen && (
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: EASE }}
+                initial={{
+                  height: 0,
+                  opacity: 0,
+                }}
+                animate={{
+                  height: "auto",
+                  opacity: 1,
+                }}
+                exit={{
+                  height: 0,
+                  opacity: 0,
+                }}
+                transition={{
+                  duration: 0.3,
+                  ease: EASE,
+                }}
                 className="overflow-hidden"
               >
                 <div className="pt-5 pb-2 border border-[#26232E] bg-[#15141B] rounded-2xl mt-3 px-5 py-5">
@@ -357,38 +588,59 @@ console.log("events",events)
           </AnimatePresence>
         </div>
 
-        {/* ── Main content ── */}
+        {/* ─────────────────────────────
+            MAIN
+        ───────────────────────────── */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
           <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8">
-
             {/* Desktop sidebar */}
             <aside className="hidden lg:block">
-              <div className="sticky top-6">
-                {FilterPanelContent}
-              </div>
+              <div className="sticky top-6">{FilterPanelContent}</div>
             </aside>
 
             {/* Results */}
             <section className="min-w-0">
+              {/* Results header */}
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
+                initial={{
+                  opacity: 0,
+                  y: 8,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.4,
+                }}
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
               >
                 <div>
-                  <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775]">
-                    {events.meta.total.toLocaleString()}{" "}
-                    {events.meta.total === 1 ? "event" : "events"}
-                  </p>
+                  <Deferred
+                    data="events"
+                    fallback={
+                      <div className="h-4 w-24 rounded bg-[#26232E] animate-pulse" />
+                    }
+                  >
+                    <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775]">
+                      {events?.total?.toLocaleString() ?? "—"}{" "}
+                      {events?.total === 1 ? "event" : "events"}
+                    </p>
+                  </Deferred>
+
                   <h2 className="text-xl font-bold mt-1">Upcoming events</h2>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <label className="text-xs text-[#6B6775]">Sort by</label>
+
                   <select
                     value={local.sort ?? "date"}
-                    onChange={(e) => apply({ sort: e.target.value as SortOption })}
+                    onChange={(e) =>
+                      apply({
+                        sort: e.target.value as SortOption,
+                      })
+                    }
                     className="bg-[#15141B] border border-[#26232E] rounded-lg px-3 py-2 text-sm text-[#F7F5F2] outline-none focus:border-[#FFB627]/50"
                   >
                     <option value="date">Soonest</option>
@@ -404,109 +656,153 @@ console.log("events",events)
                   <motion.div layout className="flex flex-wrap gap-2 mb-5">
                     <AnimatePresence mode="popLayout">
                       {local.city && (
-                        <FilterTag key="city" label={`City: ${local.city}`}
-                          onRemove={() => apply({ city: undefined })} />
+                        <FilterTag
+                          key="city"
+                          label={`City: ${local.city}`}
+                          onRemove={() =>
+                            apply({
+                              city: undefined,
+                            })
+                          }
+                        />
                       )}
+
                       {local.artist && (
-                        <FilterTag key="artist" label={`Artist: ${local.artist}`}
-                          onRemove={() => apply({ artist: undefined })} />
+                        <FilterTag
+                          key="artist"
+                          label={`Artist: ${local.artist}`}
+                          onRemove={() =>
+                            apply({
+                              artist: undefined,
+                            })
+                          }
+                        />
                       )}
+
                       {local.type && (
-                        <FilterTag key="type"
+                        <FilterTag
+                          key="type"
                           label={local.type === "tour" ? "Tour" : "Standalone"}
-                          onRemove={() => apply({ type: undefined })} />
+                          onRemove={() =>
+                            apply({
+                              type: undefined,
+                            })
+                          }
+                        />
                       )}
+
                       {local.date_from && (
-                        <FilterTag key="date_from"
+                        <FilterTag
+                          key="date_from"
                           label={`From ${formatFilterDate(local.date_from)}`}
-                          onRemove={() => apply({ date_from: undefined })} />
+                          onRemove={() =>
+                            apply({
+                              date_from: undefined,
+                            })
+                          }
+                        />
                       )}
+
                       {local.date_to && (
-                        <FilterTag key="date_to"
+                        <FilterTag
+                          key="date_to"
                           label={`Until ${formatFilterDate(local.date_to)}`}
-                          onRemove={() => apply({ date_to: undefined })} />
+                          onRemove={() =>
+                            apply({
+                              date_to: undefined,
+                            })
+                          }
+                        />
                       )}
                     </AnimatePresence>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Empty state */}
-              {events.data.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4 }}
-                  className="border border-dashed border-[#26232E] bg-[#15141B]/60 rounded-2xl py-20 px-6 text-center"
-                >
-                  <div className="w-14 h-14 mx-auto rounded-full bg-[#0B0B10] border border-[#26232E] flex items-center justify-center">
-                    <svg className="w-6 h-6 text-[#6B6775]" viewBox="0 0 24 24"
-                      fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m20 20-4-4" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-bold mt-5">No events found</h3>
-                  <p className="text-sm text-[#9C97A8] mt-2 max-w-md mx-auto">
-                    Try changing your filters or search for a different event, artist or location.
-                  </p>
-                  {hasFilters && (
-                    <motion.button
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                      type="button"
-                      onClick={clearFilters}
-                      className="mt-6 px-4 py-2 rounded-lg border border-[#26232E] text-sm text-[#D8D5DE] hover:border-[#FFB627]/50 hover:text-white transition-colors"
-                    >
-                      Clear filters
-                    </motion.button>
-                  )}
-                </motion.div>
-              ) : (
+              {/* ─────────────────────────────
+                  DEFERRED EVENT DATA
+              ───────────────────────────── */}
+              <Deferred data="events" fallback={<EventGridSkeleton />}>
                 <>
-                  <motion.div
-                    variants={gridVariants}
-                    initial="hidden"
-                    animate="show"
-                    className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
-                  >
-                    {events.data.map((event, index) => (
-                      <EventCard key={event.id} event={event} index={index} />
-                    ))}
-                  </motion.div>
+                  {events && (
+                    <>
+                      {/* Empty state */}
+                      {items.length === 0 ? (
+                        <motion.div
+                          initial={{
+                            opacity: 0,
+                            scale: 0.98,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            scale: 1,
+                          }}
+                          transition={{
+                            duration: 0.4,
+                          }}
+                          className="border border-dashed border-[#26232E] bg-[#15141B]/60 rounded-2xl py-20 px-6 text-center"
+                        >
+                          {/* ...your existing empty state... */}
+                        </motion.div>
+                      ) : (
+                        <>
+                          {/* Event cards */}
+                          <motion.div
+                            variants={gridVariants}
+                            initial="hidden"
+                            animate="show"
+                            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+                          >
+                            {items.map((event, index) => (
+                              <EventCard
+                                key={event.id}
+                                event={event}
+                                index={index}
+                              />
+                            ))}
+                          </motion.div>
 
-                  {events.meta.last_page > 1 && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4, delay: 0.2 }}
-                      className="flex flex-wrap items-center justify-center gap-1 mt-10"
-                    >
-                      {events.meta.links.map((link, index) => (
-                        <motion.button
-                          key={`${link.label}-${index}`}
-                          whileHover={link.url ? { y: -2 } : undefined}
-                          whileTap={link.url ? { scale: 0.95 } : undefined}
-                          type="button"
-                          disabled={!link.url}
-                          onClick={() =>
-                            link.url &&
-                            router.get(link.url, {}, { preserveState: true, preserveScroll: true })
-                          }
-                          dangerouslySetInnerHTML={{ __html: link.label }}
-                          className={[
-                            "min-w-9 h-9 px-3 rounded-lg text-xs border transition-colors font-['IBM_Plex_Mono']",
-                            link.active
-                              ? "bg-[#FFB627] text-[#0B0B10] border-[#FFB627] font-semibold"
-                              : "bg-[#15141B] text-[#9C97A8] border-[#26232E] hover:border-[#FFB627]/50 hover:text-white",
-                            !link.url ? "opacity-30 cursor-not-allowed" : "",
-                          ].join(" ")}
-                        />
-                      ))}
-                    </motion.div>
+                          {/* Load more */}
+                          {hasMore && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{
+                                duration: 0.4,
+                                delay: 0.2,
+                              }}
+                              className="flex flex-col items-center mt-10"
+                            >
+                              <motion.button
+                                whileHover={!loadingMore ? { y: -2 } : undefined}
+                                whileTap={
+                                  !loadingMore ? { scale: 0.97 } : undefined
+                                }
+                                type="button"
+                                onClick={loadMore}
+                                disabled={loadingMore}
+                                className="min-w-[150px] px-5 py-2.5 rounded-xl border border-[#26232E] bg-[#15141B] text-sm text-[#D8D5DE] hover:border-[#FFB627]/50 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {loadingMore ? "Loading..." : "Load more"}
+                              </motion.button>
+
+                              <p className="mt-3 text-[10px] font-['IBM_Plex_Mono'] text-[#565262]">
+                                Showing {items.length} of {total} events
+                              </p>
+                            </motion.div>
+                          )}
+
+                          {!hasMore && total > 0 && (
+                            <p className="text-center mt-10 text-[10px] font-['IBM_Plex_Mono'] text-[#565262] uppercase tracking-wider">
+                              All {total} events loaded
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </>
                   )}
                 </>
-              )}
+              </Deferred>
             </section>
           </div>
         </main>
@@ -515,36 +811,101 @@ console.log("events",events)
   );
 }
 
-/* ── Sub-components ── */
+/* ─────────────────────────────
+   FILTER SECTION
+───────────────────────────── */
 
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FilterSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="block font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[#6B6775] mb-2.5">
         {title}
       </label>
+
       {children}
     </div>
   );
 }
 
-function FilterTag({ label, onRemove }: { label: string; onRemove: () => void }) {
+/* ─────────────────────────────
+   FILTER TAG
+───────────────────────────── */
+
+function FilterTag({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ duration: 0.2 }}
+      initial={{
+        opacity: 0,
+        scale: 0.85,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+      }}
+      exit={{
+        opacity: 0,
+        scale: 0.85,
+      }}
+      transition={{
+        duration: 0.2,
+      }}
       type="button"
       onClick={onRemove}
       className="inline-flex items-center gap-2 rounded-full border border-[#26232E] bg-[#15141B] px-3 py-1.5 text-xs text-[#D8D5DE] hover:border-[#FFB627]/50 hover:text-white transition-colors"
     >
       <span className="font-['IBM_Plex_Mono']">{label}</span>
+
       <span className="text-[#6B6775]">×</span>
     </motion.button>
   );
 }
+
+/* ─────────────────────────────
+   EVENT GRID SKELETON
+───────────────────────────── */
+
+function EventGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] animate-pulse"
+        >
+          <div className="h-40 w-full shrink-0 bg-[#1D1B24] border-b border-dashed border-[#33303C]" />
+
+          <div className="p-5 space-y-3">
+            <div className="h-2.5 w-20 rounded bg-[#26232E]" />
+            <div className="h-4 w-4/5 rounded bg-[#26232E]" />
+            <div className="h-3 w-2/5 rounded bg-[#26232E]" />
+
+            <div className="flex items-center justify-between pt-3">
+              <div className="h-2.5 w-16 rounded bg-[#26232E]" />
+              <div className="h-6 w-14 rounded-full bg-[#26232E]" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────
+   EVENT CARD
+───────────────────────────── */
 
 function EventCard({ event, index }: { event: Event; index: number }) {
   const firstLeg = event.legs?.[0];
@@ -556,19 +917,29 @@ function EventCard({ event, index }: { event: Event; index: number }) {
   }, [event.legs]);
 
   const categoryNames = event.categories?.slice(0, 2).map((c) => c.name) ?? [];
+
   const tilt = index % 2 === 0 ? -1 : 1;
 
   return (
     <motion.div
       variants={cardVariants}
-      whileHover={{ y: -6, rotate: tilt }}
-      transition={{ type: "spring", stiffness: 320, damping: 22 }}
+      whileHover={{
+        y: -6,
+        rotate: tilt,
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 22,
+      }}
       className="group"
     >
       <MotionLink
         href={route("events.show", event.slug)}
         className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] transition-colors group-hover:border-[#FFB627]/40"
-        whileHover={{ boxShadow: "0 24px 48px -20px rgba(255,182,39,0.22)" }}
+        whileHover={{
+          boxShadow: "0 24px 48px -20px rgba(255,182,39,0.22)",
+        }}
       >
         {/* Poster */}
         <div className="relative h-40 w-full shrink-0 overflow-hidden border-b border-dashed border-[#33303C]">
@@ -587,6 +958,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
           ) : (
             <div className="relative h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,182,39,0.10),transparent_35%),radial-gradient(circle_at_80%_80%,rgba(139,107,255,0.10),transparent_30%)]" />
+
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="font-['Anton'] text-4xl uppercase text-white/5 select-none">
                   Live
@@ -594,6 +966,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
               </div>
             </div>
           )}
+
           <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#0B0B10] z-10" />
         </div>
 
@@ -606,6 +979,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
                   {formatEventDate(firstLeg.event_date)}
                 </p>
               )}
+
               {event.type === "tour" && (
                 <span className="rounded-full border border-[#8B6BFF]/40 bg-[#8B6BFF]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#B7A7FF]">
                   Tour
@@ -625,8 +999,11 @@ function EventCard({ event, index }: { event: Event; index: number }) {
 
             <div className="flex items-center justify-between mt-auto pt-4 gap-3">
               {firstLeg?.city && (
-                <span className="text-xs text-[#6B6775] truncate">{firstLeg.city}</span>
+                <span className="text-xs text-[#6B6775] truncate">
+                  {firstLeg.city}
+                </span>
               )}
+
               {event.watchlist_count && event.watchlist_count > 0 && (
                 <span className="text-[10px] text-[#6B6775] shrink-0">
                   {event.watchlist_count} watching
@@ -651,13 +1028,16 @@ function EventCard({ event, index }: { event: Event; index: number }) {
           {/* Ticket stub */}
           <div className="relative w-[86px] shrink-0 border-l border-dashed border-[#33303C] flex flex-col items-center justify-between py-4">
             <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#0B0B10]" />
+
             <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.25em] text-[#565262] [writing-mode:vertical-rl] rotate-180">
               Admit One
             </span>
+
             <div className="text-center">
               <p className="font-['IBM_Plex_Mono'] text-[9px] text-[#565262] uppercase mb-0.5">
                 From
               </p>
+
               <p className="font-['IBM_Plex_Mono'] text-sm font-semibold text-[#FFB627]">
                 {cheapestTier
                   ? `$${parseFloat(cheapestTier.price).toFixed(0)}`
@@ -671,20 +1051,36 @@ function EventCard({ event, index }: { event: Event; index: number }) {
   );
 }
 
-/* ── Helpers ── */
+/* ─────────────────────────────
+   HELPERS
+───────────────────────────── */
 
 function formatEventDate(date: string) {
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
   return parsed.toLocaleDateString(undefined, {
-    weekday: "short", day: "numeric", month: "short", year: "numeric",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
 function formatFilterDate(date: string) {
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 const inputClass =

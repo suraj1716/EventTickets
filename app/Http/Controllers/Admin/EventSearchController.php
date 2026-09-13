@@ -12,63 +12,17 @@ use App\Models\Product;
 
 class EventSearchController extends Controller
 {
-    // Homepage / browse page. 'Events/Index' doesn't exist as a .tsx yet —
-    // build it whenever you're ready, this controller is already correct
-    // for it.
+    // Homepage / browse page. Departments/categories (the filter sidebar)
+    // stay as normal eager props — they're small, cached-friendly, and
+    // needed immediately for the page to feel interactive. 'events' is
+    // the heavy, relation-loaded, paginated query — wrapped in
+    // Inertia::defer() so the initial response ships the page shell
+    // (navbar, filters, empty grid) immediately, and the event query
+    // itself only runs when Inertia's follow-up request for deferred
+    // props comes in. See Events/Index.tsx for the matching <Deferred>
+    // + skeleton-card fallback on the frontend.
     public function index(Request $request)
     {
-        $events = Event::query()
-            ->where('status', 'published')
-            ->with([
-                'legs.ticketTiers',
-                'legs.seats',
-                'artists',
-                'categories',
-                'media'
-            ])
-            ->withCount('watchlist')
-
-            ->when(
-                $request->filled('search'),
-                fn($q) => $q->where(
-                    'name',
-                    'like',
-                    '%' . $request->input('search') . '%'
-                )
-            )
-
-            ->when(
-                $request->filled('category'),
-                function ($q) use ($request) {
-                    $q->whereHas(
-                        'categories',
-                        fn($categoryQuery) =>
-                        $categoryQuery->where(
-                            'categories.id',
-                            $request->input('category')
-                        )
-                    );
-                }
-            )
-
-            ->when(
-                $request->filled('department'),
-                function ($q) use ($request) {
-                    $q->whereHas(
-                        'categories',
-                        fn($categoryQuery) =>
-                        $categoryQuery->where(
-                            'department_id',
-                            $request->input('department')
-                        )
-                    );
-                }
-            )
-
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
-
         $departments = Department::query()
             ->where('active', true)
             ->with([
@@ -92,27 +46,102 @@ class EventSearchController extends Controller
             ]);
 
         return Inertia::render('Events/Index', [
-            'events' => [
-                'data' => $events->items(),
+            // "Load more" pagination instead of numbered pages: the
+            // frontend requests offset/limit directly (10 on first load,
+            // +5 per click) and appends results client-side, so this
+            // returns a plain slice + has_more flag rather than a full
+            // Laravel paginator shape.
+            'events' => Inertia::defer(function () use ($request) {
+                $query = Event::query()
+                    ->where('status', 'published')
+                    ->with([
+                        'legs.ticketTiers',
+                        'artists',
+                        'categories',
+                        'media'
+                    ])
+                    ->withCount('watchlist')
 
-                'links' => [
-                    'first' => $events->url(1),
-                    'last' => $events->url($events->lastPage()),
-                    'prev' => $events->previousPageUrl(),
-                    'next' => $events->nextPageUrl(),
-                ],
+                    ->when(
+                        $request->filled('search'),
+                        fn($q) => $q->where(
+                            'name',
+                            'like',
+                            '%' . $request->input('search') . '%'
+                        )
+                    )
 
-                'meta' => [
-                    'current_page' => $events->currentPage(),
-                    'from' => $events->firstItem(),
-                    'last_page' => $events->lastPage(),
-                    'links' => $events->linkCollection()->toArray(),
-                    'path' => $events->path(),
-                    'per_page' => $events->perPage(),
-                    'to' => $events->lastItem(),
-                    'total' => $events->total(),
-                ],
-            ],
+                    ->when(
+                        $request->filled('category'),
+                        function ($q) use ($request) {
+                            $q->whereHas(
+                                'categories',
+                                fn($categoryQuery) =>
+                                $categoryQuery->where(
+                                    'categories.id',
+                                    $request->input('category')
+                                )
+                            );
+                        }
+                    )
+
+                    ->when(
+                        $request->filled('department'),
+                        function ($q) use ($request) {
+                            $q->whereHas(
+                                'categories',
+                                fn($categoryQuery) =>
+                                $categoryQuery->where(
+                                    'department_id',
+                                    $request->input('department')
+                                )
+                            );
+                        }
+                    );
+
+                // Sort dropdown was previously decorative — the query
+                // always used ->latest() (created_at) no matter which
+                // option was selected. Wired up for real now:
+                match ($request->input('sort', 'date')) {
+                    // Nearest upcoming date first. withMin() only looks at
+                    // legs that haven't happened yet, so a mid-tour event
+                    // sorts by its NEXT stop, not a leg that already
+                    // passed — and an event with no remaining legs sorts
+                    // to the bottom (NULL, which Postgres puts last on
+                    // ASC by default) instead of jumping to the top.
+                    'date' => $query
+                        ->withMin(
+                            ['legs as next_event_date' => fn($q) => $q->where('event_date', '>=', now()->toDateString())],
+                            'event_date'
+                        )
+                        ->orderBy('next_event_date'),
+
+                    'trending' => $query->orderByDesc('watchlist_count'),
+
+                    'price_low' => $query
+                        ->withMin('ticketTiers as min_price', 'price')
+                        ->orderBy('min_price'),
+
+                    default => $query->latest(),
+                };
+
+                $offset = max(0, (int) $request->input('offset', 0));
+                $limit = min(50, max(1, (int) $request->input('limit', 10)));
+
+                // Count against a clone taken BEFORE skip/take — count()
+                // on the live query would otherwise be thrown off by
+                // those. withCount/withMin add subquery select columns,
+                // not joins, so they don't affect the row count here.
+                $total = (clone $query)->count();
+
+                $events = $query->skip($offset)->take($limit)->get();
+
+                return [
+                    'data' => $events,
+                    'total' => $total,
+                    'has_more' => ($offset + $events->count()) < $total,
+                ];
+            }),
 
             'departments' => $departments,
             'categories' => $categories,
@@ -121,6 +150,7 @@ class EventSearchController extends Controller
                 'search',
                 'department',
                 'category',
+                'sort',
             ]),
         ]);
     }

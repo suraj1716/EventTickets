@@ -44,11 +44,11 @@ class EventController extends Controller
         'vendor',
         'media',
         'legs.ticketTiers',
-        'legs.tickets:id,event_leg_id,status',
         'artists',
         'categories',
     ])
     ->withCount('watchlist')
+    ->withCount(['tickets as tickets_sold' => fn ($q) => $q->whereIn('status', ['valid', 'used'])])
     ->when(
         $request->filled('status'),
         fn ($q) => $q->where(
@@ -75,18 +75,12 @@ class EventController extends Controller
     ->paginate(20)
     ->withQueryString();
 
-        // "Sold" must come from actual ticket rows, not ticket_tiers.quantity
-        // minus .remaining — remaining is only ever decremented (on reserve),
-        // never restored on void/refund, so tier arithmetic silently drifts
-        // upward forever and never reflects a void. Ground truth is the
-        // tickets table itself.
+        // "Sold" now comes straight from withCount('tickets_sold') above —
+        // a single DB-level count per event instead of eager-loading
+        // every ticket row just to count them in PHP. Capacity still
+        // needs the tier rows themselves (already eager-loaded above),
+        // so that part stays as a PHP sum.
         $events->through(function (Event $event) {
-            $tickets = $event->legs->flatMap->tickets;
-
-            $event->setAttribute(
-                'tickets_sold',
-                $tickets->whereIn('status', ['valid', 'used'])->count()
-            );
             $event->setAttribute(
                 'capacity',
                 $event->legs->flatMap->ticketTiers->sum('quantity')
@@ -905,11 +899,13 @@ class EventController extends Controller
     | Cancel
     |--------------------------------------------------------------------------
     |
-    | Refunds every ticket's CURRENT owner (via EventCancellationService /
-    | TicketRefundService — resale-aware, one ticket at a time, exact
-    | amount paid) and marks the event cancelled. Buyers have no route
-    | to this — only whoever owns the event can trigger it (same guard
-    | as publish()/destroy() above); a buyer's only self-service option
+    | Refunds every ticket's ENTIRE resale chain — the original buyer
+    | AND every reseller in between, not just the current owner (via
+    | EventCancellationService / TicketRefundService::refundResaleChain,
+    | one ticket at a time, each party refunded exactly what they paid)
+    | and marks the event cancelled. Buyers have no route to this —
+    | only whoever owns the event can trigger it (same guard as
+    | publish()/destroy() above); a buyer's only self-service option
     | stays resale.
     */
 

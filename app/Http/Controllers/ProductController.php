@@ -30,7 +30,7 @@ public function home(Request $request)
         ->latest()
         ->get();
 
-    $categories = Cache::remember('home:categories', 1, function () {
+    $categories = Cache::remember('home:categories', 300, function () {
         return Category::whereHas('products', function ($q) {
             $q->where('status', 'published');
         })

@@ -84,6 +84,19 @@ public function media()
         return $this->hasMany(EventLeg::class)->orderBy('sequence');
     }
 
+    /**
+     * DB-level count of sold tickets, for the admin/browse listing pages.
+     * Added so EventController::index() can use withCount() instead of
+     * eager-loading every ticket row for every event on the page just
+     * to count them in PHP — with a few hundred tickets per event and
+     * 20 events on a page, that's thousands of rows shipped over the
+     * wire and re-serialized purely to compute a single number.
+     */
+    public function tickets(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(Ticket::class, EventLeg::class);
+    }
+
     public function artists(): BelongsToMany
     {
         return $this->belongsToMany(Artist::class);

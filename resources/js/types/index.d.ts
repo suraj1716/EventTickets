@@ -411,6 +411,8 @@ export interface EventSearchFilters {
 
   city?: string;
 
+  search?: string;
+
   category_ids?: number[];
 
   languages?: string[];
