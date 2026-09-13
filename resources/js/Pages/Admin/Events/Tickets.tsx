@@ -10,6 +10,7 @@ import {
   Tr,
   Td,
   Pagination,
+  FlashMessage,
   C,
   fontMono,
 } from '@/Components/Admin/AdminComponents';
@@ -25,6 +26,8 @@ interface Props {
   tickets: Paginated<Ticket>;
   events: EventOption[];
   filters: { event_id?: number; status?: TicketStatus; search?: string };
+  flash?: { success?: string; error?: string };
+  errors?: { error?: string };
 }
 
 const STATUS_COLOR: Record<TicketStatus, string> = {
@@ -39,12 +42,30 @@ const STATUS_LABEL: Record<TicketStatus, string> = {
   void: 'Void',
 };
 
-export default function EventTickets({ tickets, events, filters }: Props) {
+export default function EventTickets({ tickets, events, filters, flash, errors }: Props) {
+  const handleUndoScan = (ticket: Ticket) => {
+    if (!confirm(`Revert ticket ${ticket.code} back to "Not scanned"?`)) return;
+    router.post(route('admin.events.tickets.undo-scan', ticket.id), {}, { preserveScroll: true });
+  };
+
+  const handleCheckIn = (ticket: Ticket) => {
+    if (!confirm(`Manually check in ticket ${ticket.code}? Use this only when scanning isn't possible.`)) return;
+    router.post(route('admin.events.tickets.check-in', ticket.id), {}, { preserveScroll: true });
+  };
+
+  const handleVoid = (ticket: Ticket) => {
+    const reason = prompt(`Void ticket ${ticket.code}. Reason (optional):`);
+    if (reason === null) return; // cancelled
+    router.post(route('admin.events.tickets.void', ticket.id), { reason }, { preserveScroll: true });
+  };
+
   return (
     <AdminLayout>
       <Head title="Tickets" />
 
       <AdminPageHeader eyebrow="Admin · Events" title="Tickets" />
+
+      <FlashMessage flash={{ ...flash, error: flash?.error ?? errors?.error }} />
 
       <FilterBar
         routeName="admin.events.tickets.index"
@@ -70,7 +91,7 @@ export default function EventTickets({ tickets, events, filters }: Props) {
         ]}
       />
 
-      <AdminTable headers={['Code', 'Event', 'Tier', 'Buyer', 'Attendance']} empty="No tickets match these filters.">
+      <AdminTable headers={['Code', 'Event', 'Tier', 'Buyer', 'Attendance', 'Actions']} empty="No tickets match these filters.">
         {tickets.data.map((ticket) => {
           const color = STATUS_COLOR[ticket.status];
           return (
@@ -96,6 +117,46 @@ export default function EventTickets({ tickets, events, filters }: Props) {
                     {new Date(ticket.scanned_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
+              </Td>
+              <Td>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {ticket.status === 'valid' && (
+                    <button
+                      onClick={() => handleCheckIn(ticket)}
+                      style={{
+                        fontSize: 11, fontWeight: 600, color: C.success,
+                        background: `${C.success}18`, border: `1px solid ${C.success}40`,
+                        padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                      }}
+                    >
+                      Check in
+                    </button>
+                  )}
+                  {ticket.status === 'used' && (
+                    <button
+                      onClick={() => handleUndoScan(ticket)}
+                      style={{
+                        fontSize: 11, fontWeight: 600, color: C.info,
+                        background: `${C.info}18`, border: `1px solid ${C.info}40`,
+                        padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                      }}
+                    >
+                      Undo scan
+                    </button>
+                  )}
+                  {ticket.status !== 'void' && (
+                    <button
+                      onClick={() => handleVoid(ticket)}
+                      style={{
+                        fontSize: 11, fontWeight: 600, color: C.error,
+                        background: `${C.error}18`, border: `1px solid ${C.error}40`,
+                        padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                      }}
+                    >
+                      Void
+                    </button>
+                  )}
+                </div>
               </Td>
             </Tr>
           );

@@ -12,6 +12,7 @@ interface Order {
   customer_phone: string;
   vendor: string;
   vendor_type: string;
+  event?: { id: number; name: string; slug?: string } | null;
   total_price: number;
   status: string;
   is_paid: boolean;
@@ -29,10 +30,14 @@ interface Props {
     search?: string;
     date?: string;
     status?: string;
+    is_read?: string;
+    is_paid?: string;
+    event_id?: string;
     sort?: string;
     direction?: "asc" | "desc";
   };
   statuses: string[];
+  events: { id: number; name: string }[];
   flash: { success?: string; error?: string };
   errors?: { error?: string };
 }
@@ -41,6 +46,7 @@ export default function OrdersIndex({
   orders,
   filters,
   statuses,
+  events,
   flash,
   errors,
 }: Props) {
@@ -140,6 +146,15 @@ export default function OrdersIndex({
               options: statuses.map((s) => ({ value: s, label: s })),
             },
             {
+              key: "event_id",
+              type: "select",
+              placeholder: "All events",
+              options: events.map((e) => ({
+                value: String(e.id),
+                label: e.name,
+              })),
+            },
+            {
               key: "is_paid",
               type: "select",
               placeholder: "Payment",
@@ -158,6 +173,7 @@ export default function OrdersIndex({
             "#",
             "Customer",
             "Vendor",
+            "Event",
             "Total",
             "Method",
             "Tickets",
@@ -192,6 +208,8 @@ export default function OrdersIndex({
               </Td>
 
               <Td muted>{o.vendor}</Td>
+
+              <Td muted>{o.event?.name ?? "—"}</Td>
 
               <Td>
                 <span

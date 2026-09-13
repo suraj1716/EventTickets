@@ -26,11 +26,22 @@ class EventController extends Controller
 
     public function index(Request $request)
     {
-        $events = Event::where(
-        'vendor_user_id',
-        $request->user()->actingVendorId()
+        $user = $request->user();
+
+        $events = Event::query()
+    ->when(
+        // Admins manage the whole marketplace and must see every vendor's
+        // events by default; vendors/staff only ever see their own.
+        !$user->isAdmin(),
+        fn ($q) => $q->where('vendor_user_id', $user->actingVendorId())
+    )
+    ->when(
+        // Admins can optionally narrow down to one vendor via the filter.
+        $user->isAdmin() && $request->filled('vendor_id'),
+        fn ($q) => $q->where('vendor_user_id', $request->input('vendor_id'))
     )
     ->with([
+        'vendor',
         'media',
         'legs.ticketTiers',
         'artists',
@@ -97,7 +108,17 @@ class EventController extends Controller
                 'status' => $request->input('status'),
                 'search' => $request->input('search'),
                 'type' => $request->input('type'),
+                'vendor_id' => $request->input('vendor_id'),
             ],
+
+            // Only admins get a vendor filter — vendors/staff are already
+            // scoped to their own inventory, so this would be redundant.
+            'vendors' => $user->isAdmin()
+                ? \App\Models\Vendor::orderBy('store_name')
+                    ->get(['user_id', 'store_name'])
+                    ->map(fn($v) => ['id' => $v->user_id, 'name' => $v->store_name])
+                    ->values()
+                : [],
         ]);
     }
 

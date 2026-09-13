@@ -27,10 +27,14 @@ class Ticket extends Model
     'times_resold',
     'scanned_at',
     'scanned_by',
+    'voided_at',
+    'voided_by',
+    'void_reason',
 ];
 
     protected $casts = [
         'scanned_at' => 'datetime',
+        'voided_at' => 'datetime',
     ];
 
     protected $appends = [
@@ -117,6 +121,11 @@ public function seat(): BelongsTo
         return $this->belongsTo(User::class, 'scanned_by');
     }
 
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
+
     public function isValid(): bool
     {
         return $this->status === 'valid';
@@ -161,6 +170,60 @@ public function seat(): BelongsTo
             'status' => 'used',
             'scanned_at' => now(),
             'scanned_by' => $scannedByUserId,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Corrective action for a mis-scan (wrong ticket tapped, staff error).
+     * Only reverses a 'used' ticket back to 'valid' — never touches a
+     * voided ticket, since voiding is a deliberate revoke, not a mistake
+     * to undo. Clears the scan record entirely rather than leaving a
+     * stale scanned_at/scanned_by that no longer reflects reality.
+     */
+    public function undoScan(): bool
+    {
+        if ($this->status !== 'used') {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'valid',
+            'scanned_at' => null,
+            'scanned_by' => null,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Manual check-in for when scanning isn't possible (dead phone,
+     * unreadable code, printed ticket). Same end state as a real scan —
+     * deliberately routed through markScanned() so there's exactly one
+     * place that flips a ticket to 'used'.
+     */
+    public function checkInManually(?int $staffUserId = null): bool
+    {
+        return $this->markScanned($staffUserId);
+    }
+
+    /**
+     * Revoke a ticket outright (fraud, refund, chargeback). Distinct from
+     * undoScan(): this is adversarial/permanent, not corrective — a voided
+     * ticket must never scan valid again, regardless of its prior status.
+     */
+    public function voidTicket(?int $voidedByUserId = null, ?string $reason = null): bool
+    {
+        if ($this->status === 'void') {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'void',
+            'voided_at' => now(),
+            'voided_by' => $voidedByUserId,
+            'void_reason' => $reason,
         ]);
 
         return true;

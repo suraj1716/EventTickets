@@ -32,6 +32,16 @@ class Vendor extends Model
     'youtube_url',
 ];
 
+    // Frontend code across the app reads `vendor.name` in a few places,
+    // but the actual column is `store_name`. Alias it so those reads
+    // keep working without touching every consumer.
+    protected $appends = ['name'];
+
+    public function getNameAttribute(): ?string
+    {
+        return $this->store_name;
+    }
+
     protected $casts = [
         'vendor_type' => VendorType::class,
         'recurring_closed_days' => 'array',

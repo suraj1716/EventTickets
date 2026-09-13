@@ -201,6 +201,7 @@ class CartController extends Controller
             'available_keys' => array_keys($allCartItems),
             'full_items' => $allCartItems,
         ]);
+
         if ($vendorId && ! array_key_exists($vendorId, $allCartItems)) {
             return back()->withErrors(['error' => 'Your cart is empty.']);
         }

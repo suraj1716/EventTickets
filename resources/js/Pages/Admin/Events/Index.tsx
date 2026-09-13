@@ -29,7 +29,9 @@ filters?: {
   status?: EventStatus;
   search?: string;
   type?: string;
+  vendor_id?: string;
 };
+vendors?: { id: number; name: string }[];
 }
 
 const C = {
@@ -261,10 +263,10 @@ function CardMenu({
   );
 }
 
-export default function EventsIndex({ events, filters }: Props) {
+export default function EventsIndex({ events, filters, vendors = [] }: Props) {
   const [search, setSearch] = useState(filters?.search ?? '');
   const [statusChip, setStatusChip] = useState<EventStatus | 'all' | 'tour' | 'attention'>(filters?.status ?? 'all');
-  const [vendorFilter, setVendorFilter] = useState('all');
+  const [vendorFilter, setVendorFilter] = useState(filters?.vendor_id ?? 'all');
 const [typeFilter, setTypeFilter] = useState(filters?.type ?? 'all');
   const [sort, setSort] = useState<'attention' | 'newest' | 'name' | 'sold' | 'watch'>('attention');
   const [view, setView] = useState<'grid' | 'list'>('grid');
@@ -347,12 +349,6 @@ function handleChip(k: typeof statusChip) {
     router.post(route('admin.events.cancel', event.id), {}, { preserveScroll: true });
   }
 
-  const vendors = useMemo(() => {
-    const names = new Set<string>();
-    events.data.forEach((e) => e.vendor?.name && names.add(e.vendor.name));
-    return Array.from(names).sort();
-  }, [events.data]);
-
   const stats = useMemo(() => {
     const total = events.data.length;
     const published = events.data.filter((e) => e.status === 'published').length;
@@ -367,7 +363,6 @@ function handleChip(k: typeof statusChip) {
   const filteredSorted = useMemo(() => {
     let list = events.data.filter((e) => {
       if (statusChip === 'attention' && !needsAttention(e).flag) return false;
-      if (vendorFilter !== 'all' && e.vendor?.name !== vendorFilter) return false;
       if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -504,14 +499,22 @@ function handleChip(k: typeof statusChip) {
             />
           </div>
 
-          <select
-            value={vendorFilter}
-            onChange={(e) => setVendorFilter(e.target.value)}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: fontMono, fontSize: 11, letterSpacing: '0.04em', padding: '9px 10px', borderRadius: 8, outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="all">All vendors</option>
-            {vendors.map((v) => <option key={v} value={v}>{v}</option>)}
-          </select>
+          {vendors.length > 0 && (
+            <select
+              value={vendorFilter}
+              onChange={(e) => {
+                const value = e.target.value;
+                setVendorFilter(value);
+                applyServerFilters({ vendor_id: value === 'all' ? undefined : value });
+              }}
+              style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: fontMono, fontSize: 11, letterSpacing: '0.04em', padding: '9px 10px', borderRadius: 8, outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="all">All vendors</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          )}
 
           <select
             value={sort}

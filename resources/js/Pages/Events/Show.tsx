@@ -417,37 +417,71 @@ export default function EventShow({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const stripePromiseRef = useRef<Promise<Stripe | null> | null>(null);
+
+  // Laravel refreshes the XSRF-TOKEN cookie on every response — this is
+  // what Inertia's own axios client reads, and it's always current. The
+  // <meta name="csrf-token"> tag is only rendered once, on the initial
+  // full page load; on an Inertia app that stays on one page for a while
+  // (adding tickets to cart, picking seats) before this fetch ever fires,
+  // that tag can go stale — session regenerated elsewhere, token rotated,
+  // etc — and this manual fetch() (unlike Inertia's own requests) has no
+  // other way to pick up the change. Read the cookie first, meta tag only
+  // as a fallback if the cookie is somehow missing.
+  function readCsrfToken(): string {
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    if (cookieMatch) {
+      return decodeURIComponent(cookieMatch[1]);
+    }
+
+    return (
+      document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+        ?.content ?? ""
+    );
+  }
+
+  async function postCartAdd(body: string) {
+    return fetch(route("events.cart.add", event.id), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-XSRF-TOKEN": readCsrfToken(),
+      },
+      body,
+    });
+  }
+
   async function confirmAndPay() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setPaymentError(null);
 
     const { ticketLines, productLines } = buildLines();
+    const body = JSON.stringify({
+      event_id: event.id,
+      ticket_lines: ticketLines,
+      product_lines: productLines,
+    });
 
     try {
-      const csrf =
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-          ?.content ?? "";
+      let res = await postCartAdd(body);
 
-      const res = await fetch(route("events.cart.add", event.id), {
-        method: "POST",
-         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "X-CSRF-TOKEN": csrf,
-        },
-        body: JSON.stringify({
-          event_id: event.id,
-          ticket_lines: ticketLines,
-          product_lines: productLines,
-        }),
-      });
+      // A 419 here means the token we just read was already stale (e.g.
+      // the session regenerated in another tab moments ago) — any GET to
+      // the app reissues a fresh XSRF-TOKEN cookie, so refresh it once
+      // and retry before giving up.
+      if (res.status === 419) {
+        await fetch(window.location.href, { credentials: "same-origin" });
+        res = await postCartAdd(body);
+      }
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
+        const errBody = await res.json().catch(() => null);
         throw new Error(
-          body?.message ?? "Couldn't start checkout. Please try again.",
+          res.status === 419
+            ? "Your session expired — please try again."
+            : (errBody?.message ?? "Couldn't start checkout. Please try again."),
         );
       }
 

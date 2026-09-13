@@ -30,23 +30,34 @@ class OrderController extends Controller
     ══════════════════════════════════════════ */
     public function index(Request $request)
     {
-        $query = Order::with('user', 'vendorUser.vendor', 'refunds')->latest();
+        $query = Order::with('user', 'vendorUser.vendor', 'refunds', 'orderItems.ticketTier.eventLeg.event')->latest();
 
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
-                $q->where('id', $s)
-                    ->orWhereHas(
-                        'user',
-                        fn($q) =>
-                        $q->where('name', 'like', "%$s%")
-                            ->orWhere('email', 'like', "%$s%")
-                            ->orWhere('phone', 'like', "%$s%")
-                    );
+                if (ctype_digit((string) $s)) {
+                    $q->orWhere('id', (int) $s);
+                }
+                $q->orWhereHas(
+                    'user',
+                    fn($q) =>
+                    $q->where('name', 'like', "%$s%")
+                        ->orWhere('email', 'like', "%$s%")
+                        ->orWhere('phone', 'like', "%$s%")
+                )->orWhereHas(
+                    'orderItems.ticketTier.eventLeg.event',
+                    fn($q) =>
+                    $q->where('name', 'like', "%$s%")
+                );
             });
         }
 
         if ($request->filled('status'))    $query->where('status', $request->status);
+        if ($request->filled('is_read'))   $query->where('is_read', (bool) $request->is_read);
+        if ($request->filled('event_id'))  $query->whereHas(
+            'orderItems.ticketTier.eventLeg.event',
+            fn($q) => $q->where('events.id', $request->event_id)
+        );
         if ($request->filled('is_paid'))   $query->where('is_paid', (bool) $request->is_paid);
         if ($request->filled('date_from')) $query->whereDate('created_at', '>=', $request->date_from);
         if ($request->filled('date_to'))   $query->whereDate('created_at', '<=', $request->date_to);
@@ -58,6 +69,9 @@ class OrderController extends Controller
             'customer_phone' => $o->user?->phone ?? '—',
             'vendor'         => $o->vendorUser?->vendor?->store_name ?? '—',
             'vendor_type'    => $o->vendorUser?->vendor?->vendor_type?->value ?? '—',
+            'event'          => optional(
+                $o->orderItems->first(fn($i) => $i->ticket_tier_id)?->ticketTier?->eventLeg?->event
+            )?->only(['id', 'name', 'slug']),
             'total_price'    => $o->total_price,
             'voucher_discount' => $o->voucher_discount ?? 0,
             'gross_total'      => round(($o->total_price ?? 0) + ($o->voucher_discount ?? 0), 2),
@@ -78,8 +92,9 @@ class OrderController extends Controller
 
         return Inertia::render('Admin/Orders/Index', [
             'orders'   => $orders,
-            'filters'  => $request->only(['search', 'status', 'is_paid', 'date_from', 'date_to']),
+            'filters'  => $request->only(['search', 'status', 'is_read', 'is_paid', 'event_id', 'date_from', 'date_to']),
             'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],
+            'events'   => Event::orderBy('name')->get(['id', 'name']),
             'flash'    => ['success' => session('success'), 'error' => session('error')],
         ]);
     }
@@ -102,7 +117,15 @@ class OrderController extends Controller
 
         // Real, generated Ticket rows (post-payment) — separate from the
         // order_items ticket lines, which exist even before payment.
-        $tickets = $order->tickets()->with('seat')->get();
+        $tickets = $order->tickets()
+            ->with(['seat', 'ticketTier', 'eventLeg.event'])
+            ->get();
+
+        // Top-level event summary — derived from the first ticket line item,
+        // if this order contains any ticket purchases. Orders that are
+        // product-only (no ticket_tier_id on any line) will have this as null.
+        $firstTicketItem = $order->orderItems->first(fn($i) => $i->ticket_tier_id);
+        $event = $firstTicketItem?->ticketTier?->eventLeg?->event;
 
         return Inertia::render('Admin/Orders/Show', [
             'order' => [
@@ -112,6 +135,11 @@ class OrderController extends Controller
                 'customer_phone' => $order->user?->phone ?? '—',
                 'vendor'         => $order->vendorUser?->vendor?->store_name ?? '—',
                 'vendor_type'    => $order->vendorUser?->vendor?->vendor_type?->value ?? '—',
+                'event'          => $event ? [
+                    'id'   => $event->id,
+                    'name' => $event->name,
+                    'slug' => $event->slug,
+                ] : null,
                 'voucher_discount' => $order->voucher_discount ?? 0,
                 'total_price'    => $order->total_price,
                 'gross_total'    => round(($order->total_price ?? 0) + ($order->voucher_discount ?? 0), 2),
@@ -152,12 +180,26 @@ class OrderController extends Controller
                 // Real issued tickets — only present once the order has been
                 // paid and TicketGenerationService::generate() has run.
                 'tickets' => $tickets->map(fn($t) => [
-                    'id'         => $t->id,
-                    'code'       => $t->code,
-                    'status'     => $t->status,
-                    'qr_url'     => $t->qr_url,
-                    'seat_label' => $t->seat?->label,
+                    'id'          => $t->id,
+                    'code'        => $t->code,
+                    'status'      => $t->status,
+                    'qr_url'      => $t->qr_url,
+                    'seat_label'  => $t->seat?->label,
                     'holder_name' => $t->holder_name,
+                    'tier_name'   => $t->ticketTier?->name,
+                    'tier_price'  => $t->ticketTier?->price,
+                    'event'       => $t->eventLeg?->event ? [
+                        'id'   => $t->eventLeg->event->id,
+                        'name' => $t->eventLeg->event->name,
+                        'slug' => $t->eventLeg->event->slug,
+                    ] : null,
+                    'event_leg'   => $t->eventLeg ? [
+                        'id'           => $t->eventLeg->id,
+                        'date'         => $t->eventLeg->event_date?->format('Y-m-d'),
+                        'venue_name'   => $t->eventLeg->venue_name,
+                        'venue_city'   => $t->eventLeg->city,
+                        'seating_type' => $t->eventLeg->seating_type,
+                    ] : null,
                 ]),
             ],
             'statuses' => ['draft', 'paid', 'delivered', 'cancelled', 'refunded'],

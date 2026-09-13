@@ -155,6 +155,15 @@ Route::middleware(['auth', 'verified', 'account_type:Admin|Vendor|Staff', 'actin
         Route::get('/events/tickets', [\App\Http\Controllers\EventTicketsController::class, 'index'])
             ->name('events.tickets.index');
 
+        Route::post('/events/tickets/{ticket}/undo-scan', [\App\Http\Controllers\EventTicketsController::class, 'undoScan'])
+            ->name('events.tickets.undo-scan');
+
+        Route::post('/events/tickets/{ticket}/check-in', [\App\Http\Controllers\EventTicketsController::class, 'checkIn'])
+            ->name('events.tickets.check-in');
+
+        Route::post('/events/tickets/{ticket}/void', [\App\Http\Controllers\EventTicketsController::class, 'void'])
+            ->name('events.tickets.void');
+
         Route::get('/events/orders', [\App\Http\Controllers\EventOrdersController::class, 'index'])
             ->name('events.orders.index');
 
