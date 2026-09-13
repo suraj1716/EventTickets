@@ -23,6 +23,30 @@ class PayoutController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Event ticketing vendors care which event(s) a payout batch actually
+        // covers, not just an order count — show up to 2 event names per
+        // payout row, "+N more" beyond that. One query for the whole page,
+        // not one per row.
+        $payoutIds = $payouts->getCollection()->pluck('id');
+
+        $eventNamesByPayout = Order::whereIn('payout_id', $payoutIds)
+            ->with('orderItems.ticketTier.eventLeg.event:id,name', 'orderItems.product.event:id,name')
+            ->get(['id', 'payout_id'])
+            ->groupBy('payout_id')
+            ->map(fn ($orders) => $orders
+                ->flatMap(fn ($order) => $order->orderItems->map(
+                    fn ($item) => $item->ticketTier?->eventLeg?->event
+                        ?? $item->product?->event
+                ))
+                ->filter()
+                ->unique('id')
+                ->pluck('name')
+                ->values());
+
+        $payouts->getCollection()->each(function ($payout) use ($eventNamesByPayout) {
+            $payout->event_names = $eventNamesByPayout->get($payout->id, collect());
+        });
+
         // Only vendors who are actually payable show up in the dropdown.
         $vendors = Vendor::eligibleForPayout()
             ->select('vendors.user_id', 'vendors.store_name')
@@ -116,6 +140,8 @@ class PayoutController extends Controller
             ->with([
                 'user:id,name,email',
                 'refunds',
+                'orderItems.ticketTier.eventLeg.event:id,name',
+                'orderItems.product.event:id,name',
             ])
             ->orderBy('created_at'),
     ]);

@@ -158,4 +158,16 @@ class EventTicketsController extends Controller
 
         return back()->with('success', "Ticket {$ticket->code} voided.");
     }
+
+    public function unvoid(Request $request, Ticket $ticket)
+    {
+        $ticket->load('eventLeg.event');
+        $this->authorizeTicketAccess($request, $ticket);
+
+        if (! $ticket->unvoidTicket()) {
+            return back()->withErrors(['error' => 'Only a void ticket can be unvoided.']);
+        }
+
+        return back()->with('success', "Ticket {$ticket->code} unvoided — reverted to valid.");
+    }
 }

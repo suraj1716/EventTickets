@@ -59,6 +59,11 @@ export default function EventTickets({ tickets, events, filters, flash, errors }
     router.post(route('admin.events.tickets.void', ticket.id), { reason }, { preserveScroll: true });
   };
 
+  const handleUnvoid = (ticket: Ticket) => {
+    if (!confirm(`Unvoid ticket ${ticket.code}? It will be reverted to "Not scanned".`)) return;
+    router.post(route('admin.events.tickets.unvoid', ticket.id), {}, { preserveScroll: true });
+  };
+
   return (
     <AdminLayout>
       <Head title="Tickets" />
@@ -154,6 +159,18 @@ export default function EventTickets({ tickets, events, filters, flash, errors }
                       }}
                     >
                       Void
+                    </button>
+                  )}
+                  {ticket.status === 'void' && (
+                    <button
+                      onClick={() => handleUnvoid(ticket)}
+                      style={{
+                        fontSize: 11, fontWeight: 600, color: C.info,
+                        background: `${C.info}18`, border: `1px solid ${C.info}40`,
+                        padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                      }}
+                    >
+                      Unvoid
                     </button>
                   )}
                 </div>

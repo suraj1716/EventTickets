@@ -111,6 +111,7 @@ const NAV_GROUPS: { group: string | null; items: NavItem[] }[] = [
       { label: "Vouchers", href: "admin.vouchers.index", icon: Gift, countKey: "vouchers", hideForStaff: true },
       { label: "Gift-Cards", href: "admin.gift-card-templates.index", icon: CreditCard, countKey: null, hideForStaff: true },
       { label: "Payouts", href: "admin.payouts.index", icon: Wallet, countKey: null, hideForStaff: true },
+      { label: "Resale Payouts", href: "admin.resale-payouts.index", icon: Repeat, countKey: null, hideForStaff: true },
     ],
   },
   {

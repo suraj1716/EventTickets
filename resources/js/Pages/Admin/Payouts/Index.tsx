@@ -18,6 +18,7 @@ interface Payout {
   until: string;
   created_at: string;
   orders_count: number;
+  event_names: string[];
 }
 
 interface Props {
@@ -204,7 +205,7 @@ export default function PayoutsIndex({ payouts, vendors, filters, flash }: Props
         />
 
         <AdminTable
-          headers={["#", "Vendor", "Period", "Amount", "Orders", "Recorded", "Actions"]}
+          headers={["#", "Vendor", "Period", "Events", "Amount", "Orders", "Recorded", "Actions"]}
           empty="✦ No payouts yet"
         >
           {payouts.data.map((p) => (
@@ -213,6 +214,24 @@ export default function PayoutsIndex({ payouts, vendors, filters, flash }: Props
               <Td>{p.vendor?.store_name ?? "—"}</Td>
               <Td muted>
                 {formatDate(p.starting_from)} → {formatDate(p.until)}
+              </Td>
+              <Td>
+                {(() => {
+                  const names = p.event_names ?? [];
+                  if (names.length === 0) {
+                    return <span style={{ color: C.textFaint }}>—</span>;
+                  }
+                  return (
+                    <span title={names.join(", ")}>
+                      {names.slice(0, 2).join(", ")}
+                      {names.length > 2 && (
+                        <span style={{ color: C.textMuted }}>
+                          {" "}+{names.length - 2} more
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
               </Td>
               <Td>
                 <span style={{ color: `${C.amber}`, fontWeight: 500 }}>

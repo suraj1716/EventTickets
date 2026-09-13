@@ -907,17 +907,9 @@ class StripeController extends Controller
                         break;
                     }
 
-                    $isActive = (bool) ($account->charges_enabled && $account->payouts_enabled);
-
-                    if ($user->stripe_account_active !== $isActive) {
-                        $user->stripe_account_active = $isActive;
-                        $user->save();
-
-                        Log::info('Stripe account status synced', [
-                            'user_id' => $user->id,
-                            'stripe_account_active' => $isActive,
-                        ]);
-                    }
+                    // One method, one definition of "active" — see
+                    // syncStripeAccountStatus() at the bottom of this class.
+                    $this->syncStripeAccountStatus($user, $account);
                 } catch (\Exception $e) {
                     Log::error('account.updated handler failed: ' . $e->getMessage());
                 }
@@ -1445,19 +1437,20 @@ class StripeController extends Controller
             $account = \Stripe\Account::retrieve($user->stripe_account_id);
 
             if ($account->details_submitted && empty($account->requirements->currently_due)) {
-                // ✅ Onboarding complete
-                if (!$user->stripe_account_active && $user->charges_enabled) {
-                    $user->stripe_account_active = true;
-                    $user->save();
-                }
+                // ✅ Onboarding details submitted with Stripe.
+                // One method, one definition of "active" — see
+                // syncStripeAccountStatus() at the bottom of this class.
+                // Both this and the account.updated webhook call it, so
+                // they can't disagree the way $user->charges_enabled
+                // (a typo bug — that property doesn't exist) used to.
+                $isActive = $this->syncStripeAccountStatus($user, $account);
 
-                // Optionally approve vendor if linked
-                if ($user->vendor && $user->vendor->status !== 'approved') {
-                    $user->vendor->status = 'approved';
-                    $user->vendor->save();
-                }
-
-                return redirect()->route('home')->with('success', 'Stripe onboarding complete and account active!');
+                return redirect()->route('home')->with(
+                    'success',
+                    $isActive
+                        ? 'Stripe onboarding complete and account active!'
+                        : 'Stripe details submitted — your account is finishing verification with Stripe and will activate shortly.'
+                );
             }
 
             // Step 3: Onboarding not complete → redirect to Stripe onboarding
@@ -1472,5 +1465,35 @@ class StripeController extends Controller
         }
 
         abort(500, 'Unexpected error. Please try again.');
+    }
+
+    /**
+     * The one place that decides whether a Stripe Connect account is
+     * "active" and writes that to the user. Called from both connect()
+     * and the account.updated webhook above, so there's exactly one
+     * definition instead of two that can quietly drift apart (which is
+     * what caused this whole bug: $user->charges_enabled doesn't exist
+     * on User, so the old connect() check silently always failed).
+     */
+    private function syncStripeAccountStatus(User $user, Account $account): bool
+    {
+        $isActive = (bool) ($account->charges_enabled && $account->payouts_enabled);
+
+        if ($user->stripe_account_active !== $isActive) {
+            $user->stripe_account_active = $isActive;
+            $user->save();
+
+            Log::info('Stripe account status synced', [
+                'user_id' => $user->id,
+                'stripe_account_active' => $isActive,
+            ]);
+        }
+
+        if ($isActive && $user->vendor && $user->vendor->status !== 'approved') {
+            $user->vendor->status = 'approved';
+            $user->vendor->save();
+        }
+
+        return $isActive;
     }
 }

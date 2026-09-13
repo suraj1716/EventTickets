@@ -26,21 +26,53 @@ import {
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend, ArcElement);
 
+type Scope = "admin" | "vendor";
+
+type Stats = {
+  total_revenue: number;
+  total_orders: number;
+  pending_orders: number;
+  published_events: number;
+  upcoming_events: number;
+  tickets_sold: number;
+  tickets_used: number;
+  checked_in_today: number;
+  total_vendors?: number;
+  pending_vendors?: number;
+};
+
+type UpcomingEvent = {
+  id: number;
+  event_name: string;
+  venue: string;
+  city: string | null;
+  date: string | null;
+  tickets_sold: number;
+  capacity: number | null;
+};
+
+type RecentOrder = {
+  id: number;
+  customer: string;
+  total: number;
+  status: string;
+  created_at: string;
+};
+
+type TopEvent = {
+  id: number;
+  name: string;
+  tickets_sold: number;
+};
+
 type Props = {
-  stats: {
-    total_revenue: number;
-    total_orders: number;
-    pending_orders: number;
-    total_bookings: number;
-    today_bookings: number;
-    total_products: number;
-    total_users: number;
-    total_vendors: number;
-  };
+  scope: Scope;
+  stats: Stats;
   salesChart: { labels: string[]; data: number[] };
-  ordersByStatus: Record<string, number>;
-  recentOrders: any[];
-  upcomingBookings: any[];
+  ticketsByStatus: { valid: number; used: number; void: number };
+  upcomingEvents: UpcomingEvent[];
+  recentOrders: RecentOrder[];
+  topEvents: TopEvent[];
 };
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
@@ -88,7 +120,27 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
   );
 }
 
-export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrders, upcomingBookings }: Props) {
+function SectionHeading({ title, viewAllRoute }: { title: string; viewAllRoute?: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px" }}>
+      <span style={{ fontFamily: fontDisplay, textTransform: "uppercase", fontSize: "1.1rem", fontWeight: 400, color: C.text }}>
+        {title}
+      </span>
+      {viewAllRoute && (
+        <a
+          href={route(viewAllRoute)}
+          style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: C.amber, textDecoration: "none" }}
+        >
+          View all →
+        </a>
+      )}
+    </div>
+  );
+}
+
+export default function Dashboard({ scope, stats, salesChart, ticketsByStatus, upcomingEvents, recentOrders, topEvents }: Props) {
+  const isAdmin = scope === "admin";
+
   const lineData = {
     labels: salesChart.labels,
     datasets: [{
@@ -105,10 +157,10 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
   };
 
   const doughnutData = {
-    labels: Object.keys(ordersByStatus),
+    labels: ["Not scanned", "Attended", "Void"],
     datasets: [{
-      data: Object.values(ordersByStatus),
-      backgroundColor: [C.textFaint, C.amber, C.info, C.success, C.error],
+      data: [ticketsByStatus.valid, ticketsByStatus.used, ticketsByStatus.void],
+      backgroundColor: [C.info, C.success, C.error],
       borderWidth: 0,
     }],
   };
@@ -130,34 +182,44 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
 
   return (
     <AdminLayout>
-      <Head title="Admin Dashboard" />
+      <Head title="Dashboard" />
 
-      <AdminPageHeader eyebrow="Admin · Overview" title="Dashboard" />
+      <AdminPageHeader
+        eyebrow={isAdmin ? "Admin · Marketplace overview" : "Vendor · Your events"}
+        title="Dashboard"
+      />
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1px", background: C.border, border: `1px solid ${C.border}`, marginBottom: "28px" }}>
         <StatCard label="Total Revenue" value={`A$${stats.total_revenue.toLocaleString()}`} accent />
-        <StatCard label="Total Orders"   value={stats.total_orders} />
+        <StatCard label="Total Orders" value={stats.total_orders} />
         <StatCard label="Pending Orders" value={stats.pending_orders} sub="awaiting action" />
-        <StatCard label="Total Bookings" value={stats.total_bookings} />
-        <StatCard label="Today's Bookings" value={stats.today_bookings} sub="scheduled today" />
-        <StatCard label="Products"       value={stats.total_products} />
-        <StatCard label="Users"          value={stats.total_users} />
-        <StatCard label="Vendors"        value={stats.total_vendors} sub="approved" />
+        <StatCard label={isAdmin ? "Published Events" : "Your Published Events"} value={stats.published_events} />
+        <StatCard label="Upcoming Events" value={stats.upcoming_events} sub="from today" />
+        <StatCard label="Tickets Sold" value={stats.tickets_sold} />
+        <StatCard label="Checked In Today" value={stats.checked_in_today} sub="scanned / manual" />
+        {isAdmin ? (
+          <>
+            <StatCard label="Approved Vendors" value={stats.total_vendors ?? 0} />
+            <StatCard label="Pending Vendors" value={stats.pending_vendors ?? 0} sub="awaiting approval" />
+          </>
+        ) : (
+          <StatCard label="Tickets Attended" value={stats.tickets_used} />
+        )}
       </div>
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "20px", marginBottom: "28px" }}>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "24px" }}>
           <p style={{ fontFamily: fontMono, fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: C.textMuted, marginBottom: "20px" }}>
-            Sales — Last 30 Days
+            Revenue — Last 30 Days
           </p>
           <Line data={lineData} options={chartOptions} />
         </div>
 
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "24px" }}>
           <p style={{ fontFamily: fontMono, fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: C.textMuted, marginBottom: "20px" }}>
-            Orders by Status
+            Ticket Status
           </p>
           <Doughnut
             data={doughnutData}
@@ -175,14 +237,11 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
       </div>
 
       {/* Tables row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: isAdmin ? "20px" : 0 }}>
 
         {/* Recent orders */}
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px" }}>
-            <span style={{ fontFamily: fontDisplay, textTransform: "uppercase", fontSize: "1.1rem", fontWeight: 400, color: C.text }}>Recent Orders</span>
-            <a href={route("admin.orders.index")} style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: C.amber, textDecoration: "none" }}>View all →</a>
-          </div>
+          <SectionHeading title="Recent Orders" viewAllRoute="admin.orders.index" />
           <AdminTable headers={["#", "Customer", "Total", "Status"]} empty="No recent orders">
             {recentOrders.map((o) => (
               <Tr key={o.id}>
@@ -197,24 +256,38 @@ export default function Dashboard({ stats, salesChart, ordersByStatus, recentOrd
           </AdminTable>
         </div>
 
-        {/* Upcoming bookings */}
+        {/* Upcoming events */}
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px" }}>
-            <span style={{ fontFamily: fontDisplay, textTransform: "uppercase", fontSize: "1.1rem", fontWeight: 400, color: C.text }}>Upcoming Bookings</span>
-            <a href={route("admin.bookings.index")} style={{ fontFamily: fontMono, fontSize: "10.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: C.amber, textDecoration: "none" }}>View all →</a>
-          </div>
-          <AdminTable headers={["Customer", "Date", "Time", "Status"]} empty="No upcoming bookings">
-            {upcomingBookings.map((b) => (
-              <Tr key={b.id}>
-                <Td>{b.customer}</Td>
-                <Td muted>{b.booking_date}</Td>
-                <Td muted>{b.time_slot}</Td>
-                <Td><StatusBadge status={b.order_status} /></Td>
+          <SectionHeading title="Upcoming Events" viewAllRoute="admin.events.index" />
+          <AdminTable headers={["Event", "Venue", "Date", "Sold"]} empty="No upcoming events">
+            {upcomingEvents.map((e) => (
+              <Tr key={e.id}>
+                <Td>{e.event_name}</Td>
+                <Td muted>{e.venue}{e.city ? `, ${e.city}` : ""}</Td>
+                <Td muted>{e.date}</Td>
+                <Td>
+                  {e.tickets_sold}{e.capacity ? ` / ${e.capacity}` : ""}
+                </Td>
               </Tr>
             ))}
           </AdminTable>
         </div>
       </div>
+
+      {/* Admin-only: cross-marketplace leaderboard */}
+      {isAdmin && (
+        <div>
+          <SectionHeading title="Top Events by Tickets Sold" />
+          <AdminTable headers={["Event", "Tickets Sold"]} empty="No ticket sales yet">
+            {topEvents.map((e) => (
+              <Tr key={e.id}>
+                <Td>{e.name}</Td>
+                <Td><span style={{ color: C.amber, fontWeight: 600 }}>{e.tickets_sold}</span></Td>
+              </Tr>
+            ))}
+          </AdminTable>
+        </div>
+      )}
     </AdminLayout>
   );
 }

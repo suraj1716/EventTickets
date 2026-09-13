@@ -228,4 +228,28 @@ public function seat(): BelongsTo
 
         return true;
     }
+
+    /**
+     * Reverse an accidental void. Only acts on a 'void' ticket, and — like
+     * undoScan() — always lands on 'valid' rather than trying to guess
+     * whatever status the ticket held before voiding, since that prior
+     * status isn't stored. Clears the void record entirely so a re-voided
+     * ticket later gets a clean, unambiguous voided_at/voided_by/void_reason
+     * rather than stale leftovers from the reversed void.
+     */
+    public function unvoidTicket(): bool
+    {
+        if ($this->status !== 'void') {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'valid',
+            'voided_at' => null,
+            'voided_by' => null,
+            'void_reason' => null,
+        ]);
+
+        return true;
+    }
 }

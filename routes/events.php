@@ -164,6 +164,9 @@ Route::middleware(['auth', 'verified', 'account_type:Admin|Vendor|Staff', 'actin
         Route::post('/events/tickets/{ticket}/void', [\App\Http\Controllers\EventTicketsController::class, 'void'])
             ->name('events.tickets.void');
 
+        Route::post('/events/tickets/{ticket}/unvoid', [\App\Http\Controllers\EventTicketsController::class, 'unvoid'])
+            ->name('events.tickets.unvoid');
+
         Route::get('/events/orders', [\App\Http\Controllers\EventOrdersController::class, 'index'])
             ->name('events.orders.index');
 

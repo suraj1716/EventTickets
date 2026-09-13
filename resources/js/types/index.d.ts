@@ -293,6 +293,12 @@ export interface Event {
   categories?: Category[];
 
   watchlist_count?: number;
+
+  // Computed on the backend from actual ticket rows (excl. void) —
+  // never derive "sold" from ticket_tiers.quantity/remaining client-side,
+  // since remaining is never restored on void/refund and drifts from reality.
+  tickets_sold?: number;
+  capacity?: number;
 }
 
 

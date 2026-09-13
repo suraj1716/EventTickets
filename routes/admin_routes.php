@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\VendorController as AdminVendorController;
 use App\Http\Controllers\Admin\AdminVoucherController;
 use App\Http\Controllers\Admin\GalleryController;
 use App\Http\Controllers\Admin\PayoutController;
+use App\Http\Controllers\Admin\ResalePayoutController;
 use App\Http\Controllers\Admin\RosterController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\Admin\VendorStaffController;
@@ -174,6 +175,13 @@ Route::middleware(['auth', 'verified', 'account_type:Admin|Vendor|Staff', 'actin
             Route::get('/{payout}', [PayoutController::class, 'show'])->name('show');
             Route::post('/', [PayoutController::class, 'store'])->name('store');
             Route::delete('/{payout}', [PayoutController::class, 'destroy'])->name('destroy');
+        });
+
+        // Resale seller payouts (Stripe Connect transfers) — separate route
+        // and nav entry from vendor Payouts above; see ResalePayoutController.
+        Route::prefix('resale-payouts')->name('resale-payouts.')->group(function () {
+            Route::get('/', [ResalePayoutController::class, 'index'])->name('index');
+            Route::post('/{listing}/retry', [ResalePayoutController::class, 'retry'])->name('retry');
         });
 
         Route::resource('hero-banner', HeroBannerController::class)->except(['show']);

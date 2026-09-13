@@ -44,6 +44,7 @@ class EventController extends Controller
         'vendor',
         'media',
         'legs.ticketTiers',
+        'legs.tickets:id,event_leg_id,status',
         'artists',
         'categories',
     ])
@@ -73,6 +74,26 @@ class EventController extends Controller
     ->latest()
     ->paginate(20)
     ->withQueryString();
+
+        // "Sold" must come from actual ticket rows, not ticket_tiers.quantity
+        // minus .remaining — remaining is only ever decremented (on reserve),
+        // never restored on void/refund, so tier arithmetic silently drifts
+        // upward forever and never reflects a void. Ground truth is the
+        // tickets table itself.
+        $events->through(function (Event $event) {
+            $tickets = $event->legs->flatMap->tickets;
+
+            $event->setAttribute(
+                'tickets_sold',
+                $tickets->whereIn('status', ['valid', 'used'])->count()
+            );
+            $event->setAttribute(
+                'capacity',
+                $event->legs->flatMap->ticketTiers->sum('quantity')
+            );
+
+            return $event;
+        });
 
         return Inertia::render('Admin/Events/Index', [
             'events' => [

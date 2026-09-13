@@ -12,11 +12,14 @@ class EventWatchlistAdminController extends Controller
     public function index(Request $request)
     {
         $events = Event::where('vendor_user_id', $request->user()->id)
+            ->whereHas(
+                'watchlist',
+                fn ($query) => $query->whereNotNull('verified_at')
+            )
             ->withCount([
                 'watchlist as watchlist_count' => fn ($query) =>
                     $query->whereNotNull('verified_at'),
             ])
-            ->having('watchlist_count', '>', 0)
             ->orderByDesc('watchlist_count')
             ->paginate(30)
             ->withQueryString();

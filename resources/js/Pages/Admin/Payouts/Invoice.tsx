@@ -16,6 +16,22 @@ interface RefundRow {
   created_at: string;
 }
 
+interface OrderItemRow {
+  id: number;
+  quantity: number;
+  ticket_tier: {
+    id: number;
+    name: string;
+    event_leg: {
+      event: { id: number; name: string } | null;
+    } | null;
+  } | null;
+  product: {
+    id: number;
+    event: { id: number; name: string } | null;
+  } | null;
+}
+
 interface OrderRow {
   id: number;
   created_at: string;
@@ -64,6 +80,7 @@ interface OrderRow {
   } | null;
 
   refunds?: RefundRow[];
+  order_items?: OrderItemRow[];
 }
 
 interface Vendor {
@@ -91,6 +108,41 @@ interface Props {
   payout: Payout;
   isAdmin?: boolean;
 }
+
+/**
+ * "Skyline Sessions — GA x2, VIP x1" style summary of what was
+ * actually sold in this order. Falls back to "—" for orders with no
+ * items loaded (shouldn't happen, but keeps the invoice from crashing
+ * on older/edge-case data).
+ */
+const getEventSummary = (order: OrderRow): string => {
+  const items = order.order_items ?? [];
+  if (items.length === 0) return "—";
+
+  // Keyed by event id, not name — two different events that happen to
+  // share a display name must not get merged into one bucket. Items
+  // with no event at all (e.g. a plain product/gift card) bucket under
+  // a synthetic key so they don't collide with a real event id.
+  const byEventId = new Map<string, { label: string; tiers: string[] }>();
+
+  items.forEach((item) => {
+    const event =
+      item.ticket_tier?.event_leg?.event ?? item.product?.event ?? null;
+    const key = event ? `event:${event.id}` : "no-event";
+    const label = event?.name ?? "Other item";
+    const tierLabel = item.ticket_tier?.name
+      ? `${item.ticket_tier.name} x${item.quantity}`
+      : `x${item.quantity}`;
+
+    const existing = byEventId.get(key) ?? { label, tiers: [] };
+    existing.tiers.push(tierLabel);
+    byEventId.set(key, existing);
+  });
+
+  return Array.from(byEventId.values())
+    .map(({ label, tiers }) => `${label} — ${tiers.join(", ")}`)
+    .join(" · ");
+};
 
 const money = (n: number | null | undefined) =>
   `A$${Number(n ?? 0).toFixed(2)}`;
@@ -885,6 +937,16 @@ export default function PayoutInvoice({ payout, isAdmin = false }: Props) {
                           }}
                         >
                           #{o.id}
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 400,
+                              color: `${C.textMuted}`,
+                              marginTop: 2,
+                            }}
+                          >
+                            {getEventSummary(o)}
+                          </div>
                         </td>
 
                         <td
