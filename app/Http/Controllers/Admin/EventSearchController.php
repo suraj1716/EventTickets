@@ -226,7 +226,7 @@ class EventSearchController extends Controller
             'events' => Inertia::defer(function () use ($request) {
                 $events = Event::query()
                     ->where('status', 'proposed')
-                    ->select(['id', 'name', 'slug', 'type', 'image_url', 'status'])
+                    ->select(['id', 'name', 'slug', 'type', 'status'])
                     ->with([
                         'legs:id,event_id,city,event_date,sequence',
                         'artists:id,name,slug',
