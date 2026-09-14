@@ -177,86 +177,113 @@ class EventSearchController extends Controller
 
             'filteredVendor' => $request->filled('vendor')
                 ? \App\Models\Vendor::where('user_id', $request->input('vendor'))
-                    ->value('store_name')
+                ->value('store_name')
                 : null,
         ]);
     }
 
 
-    // EventSearchController.php — add this method
-
+    // `categories` (the filter chips) stays a normal eager prop — small,
+    // needed immediately so the hero renders interactive, and now
+    // cached under the SAME key index() uses above (identical query:
+    // active, top-level categories) so this page shares that cache
+    // entry instead of re-querying it on every request. `events` is the
+    // heavy, relation-loaded, paginated query — wrapped in
+    // Inertia::defer() so the page shell (hero, search box, category
+    // chips) ships immediately and the event query only runs on
+    // Inertia's follow-up request for deferred props. Same pattern as
+    // index() above and TicketResaleController::index() — see
+    // Events/ComingSoon.tsx for the matching <Deferred> + skeleton
+    // fallback.
+    //
+    // The remaining cost is the query itself: orderByDesc('watchlist_count')
+    // forces Postgres to evaluate the withCount('watchlist') subquery for
+    // every 'proposed' event before it can sort and limit — a real,
+    // unavoidable-without-denormalizing cost that grows with the number of
+    // proposed events. The event_watchlist_event_id_verified_at_index
+    // migration lets that subquery run as a pure index lookup per row
+    // instead of a heap scan, and relation eager-loads are now
+    // column-restricted (mirrors index() above) to cut what gets
+    // hydrated/serialized for the 20 rows that make it into the response.
+    // If proposed-event volume grows large enough that per-row subquery
+    // evaluation itself becomes the bottleneck, the next step is
+    // denormalizing watchlist_count onto the events table (incremented
+    // in EventWatchlistController on verify) so this can sort on an
+    // indexed column directly instead of a live subquery.
     public function comingSoon(Request $request)
     {
-        $events = Event::query()
-            ->where('status', 'proposed')
-            ->with([
-                'legs',
-                'artists',
-                'categories',
-                'media',
-            ])
-            ->withCount('watchlist')
-
-            ->when(
-                $request->filled('search'),
-                fn($q) => $q->where(
-                    'name',
-                    'like',
-                    '%' . $request->input('search') . '%'
-                )
-            )
-
-            ->when(
-                $request->filled('category'),
-                function ($q) use ($request) {
-                    $q->whereHas(
-                        'categories',
-                        fn($categoryQuery) =>
-                        $categoryQuery->where(
-                            'categories.id',
-                            $request->input('category')
-                        )
-                    );
-                }
-            )
-
-            ->orderByDesc('watchlist_count')
-            ->paginate(20)
-            ->withQueryString();
-
-        $categories = Category::query()
-            ->where('active', true)
-            ->whereNull('parent_id')
-            ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'slug',
-                'department_id'
-            ]);
+        $categories = Cache::remember(
+            'events.browse-categories',
+            now()->addMinutes(10),
+            fn() => Category::query()
+                ->where('active', true)
+                ->whereNull('parent_id')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'department_id'])
+        );
 
         return Inertia::render('Events/ComingSoon', [
-            'events' => [
-                'data' => $events->items(),
+            'events' => Inertia::defer(function () use ($request) {
+                $events = Event::query()
+                    ->where('status', 'proposed')
+                    ->select(['id', 'name', 'slug', 'type', 'image_url', 'status'])
+                    ->with([
+                        'legs:id,event_id,city,event_date,sequence',
+                        'artists:id,name,slug',
+                        'categories:id,name,slug',
+                        'media:id,event_id,type,path,thumb_path,position',
+                    ])
+                    ->withCount('watchlist')
 
-                'links' => [
-                    'first' => $events->url(1),
-                    'last' => $events->url($events->lastPage()),
-                    'prev' => $events->previousPageUrl(),
-                    'next' => $events->nextPageUrl(),
-                ],
+                    ->when(
+                        $request->filled('search'),
+                        fn($q) => $q->where(
+                            'name',
+                            'like',
+                            '%' . $request->input('search') . '%'
+                        )
+                    )
 
-                'meta' => [
-                    'current_page' => $events->currentPage(),
-                    'from' => $events->firstItem(),
-                    'last_page' => $events->lastPage(),
-                    'links' => $events->linkCollection()->toArray(),
-                    'path' => $events->path(),
-                    'per_page' => $events->perPage(),
-                    'to' => $events->lastItem(),
-                    'total' => $events->total(),
-                ],
-            ],
+                    ->when(
+                        $request->filled('category'),
+                        function ($q) use ($request) {
+                            $q->whereHas(
+                                'categories',
+                                fn($categoryQuery) =>
+                                $categoryQuery->where(
+                                    'categories.id',
+                                    $request->input('category')
+                                )
+                            );
+                        }
+                    )
+
+                    ->orderByDesc('watchlist_count')
+                    ->paginate(20)
+                    ->withQueryString();
+
+                return [
+                    'data' => $events->items(),
+
+                    'links' => [
+                        'first' => $events->url(1),
+                        'last' => $events->url($events->lastPage()),
+                        'prev' => $events->previousPageUrl(),
+                        'next' => $events->nextPageUrl(),
+                    ],
+
+                    'meta' => [
+                        'current_page' => $events->currentPage(),
+                        'from' => $events->firstItem(),
+                        'last_page' => $events->lastPage(),
+                        'links' => $events->linkCollection()->toArray(),
+                        'path' => $events->path(),
+                        'per_page' => $events->perPage(),
+                        'to' => $events->lastItem(),
+                        'total' => $events->total(),
+                    ],
+                ];
+            }),
 
             'categories' => $categories,
 
@@ -271,69 +298,105 @@ class EventSearchController extends Controller
     // Single event page — this is what resources/js/Pages/Events/Show.tsx
     // (already built) renders against. status is 'published' or 'proposed'
     // (watchlist-only) — Show.tsx already branches on that.
-    public function show(Event $event)
-    {
-        abort_unless(
-            in_array($event->status, ['published', 'proposed']),
-            404
-        );
+public function show(Event $event)
+{
+    abort_unless(
+        in_array($event->status, ['published', 'proposed']),
+        404
+    );
 
-        $event->load([
-            'categories',
-            'artists',
-            'legs.ticketTiers',
-            'legs.seats.venueSeat',
-            'media',
-            'vendor:user_id,store_name',
-            'products.media',
-            'products.variationTypes.options',   // NEW
-            'products.variations',               // NEW — needed by getPriceForOptions()
-        ])->loadCount('watchlist');
+    /*
+    |--------------------------------------------------------------------------
+    | Lightweight event shell
+    |--------------------------------------------------------------------------
+    |
+    | Keep only what the hero needs immediately.
+    |
+    */
+    $event->load([
+        'categories:id,name,slug',
+        'artists:id,name,slug',
+        'media:id,event_id,type,path,thumb_path,position',
+        'vendor:user_id,store_name',
+    ])->loadCount('watchlist');
 
- $relatedEvents = Event::query()
-    ->where('id', '!=', $event->id)
-    ->where('status', 'published')
-    ->with([
-        'legs.ticketTiers',
-        'media',
-    ])
-    ->latest()
-    ->take(6)
-    ->get()
-    ->map(fn ($relatedEvent) => [
-        'id' => $relatedEvent->id,
-        'name' => $relatedEvent->name,
-        'slug' => $relatedEvent->slug,
-        'image_url' => $relatedEvent->media->first()?->url,
-        'legs' => $relatedEvent->legs,
-    ]);
-        $products = Product::query()
-            ->where('event_id', $event->id)
-            ->where('status', 'published')
-            ->with(['variationTypes.options'])   // NEW
-            ->get()
-            ->map(fn($product) => [
-                'id' => $product->id,
-                'title' => $product->title,
-                'slug' => $product->slug,
-                'description' => $product->description,
-                'price' => $product->price,
-                'image_url' => $product->getFirstMediaUrl('images') ?: null,
-                'variation_types' => $product->variationTypes->map(fn($type) => [
-                    'id' => $type->id,
-                    'name' => $type->name,
-                    'options' => $type->options->map(fn($opt) => [
-                        'id' => $opt->id,
-                        'name' => $opt->name,
-                    ]),
-                ]),
+    return Inertia::render('Events/Show', [
+        'event' => $event,
+
+        /*
+        |--------------------------------------------------------------------------
+        | Heavy event data
+        |--------------------------------------------------------------------------
+        |
+        | Loaded by Inertia after the initial page shell.
+        |
+        */
+        'eventDetails' => Inertia::defer(function () use ($event) {
+            $event->load([
+                'legs:id,event_id,venue_name,address,city,event_date,sequence',
+                'legs.ticketTiers:id,event_leg_id,name,price,remaining,starts_at,ends_at',
+                'legs.seats:id,event_leg_id,venue_seat_id,ticket_tier_id,label,row_label,seat_number,sort_order,status',
+                'legs.seats.venueSeat:id,aisle_after',
+                'products.media',
+                'products.variationTypes.options',
+                'products.variations',
             ]);
-        return Inertia::render('Events/Show', [
-            'event' => $event,
-            'relatedEvents' => $relatedEvents,
-            'products' => $products,
-        ]);
-    }
+
+            $products = $event->products
+                ->where('status', 'published')
+                ->map(fn ($product) => [
+                    'id' => $product->id,
+                    'event_id' => $product->event_id,
+                    'title' => $product->title,
+                    'slug' => $product->slug,
+                    'description' => $product->description,
+                    'price' => $product->price,
+                    'status' => $product->status,
+                    'highlight' => $product->highlight,
+                    'quantity' => $product->quantity,
+
+                    'image_url' => $product->getFirstMediaUrl('images') ?: null,
+
+                    'variation_types' => $product->variationTypes->map(
+                        fn ($type) => [
+                            'id' => $type->id,
+                            'name' => $type->name,
+                            'options' => $type->options->map(
+                                fn ($option) => [
+                                    'id' => $option->id,
+                                    'name' => $option->name,
+                                ]
+                            ),
+                        ]
+                    ),
+                ])
+                ->values();
+
+            $relatedEvents = Event::query()
+                ->where('id', '!=', $event->id)
+                ->where('status', 'published')
+                ->select([
+                    'id',
+                    'name',
+                    'slug',
+                    'type',
+                ])
+                ->with([
+                    'legs:id,event_id,venue_name,city,event_date,sequence',
+                    'media:id,event_id,type,path,thumb_path,position',
+                ])
+                ->latest()
+                ->take(6)
+                ->get();
+
+            return [
+                'legs' => $event->legs,
+                'products' => $products,
+                'relatedEvents' => $relatedEvents,
+            ];
+        }),
+    ]);
+}
 
     protected function applyLocationFilter($query, Request $request): void
     {

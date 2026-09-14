@@ -1,7 +1,7 @@
 // resources/js/Pages/Events/Show.tsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Head, Link, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage, Deferred } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import type { Event, EventLeg, TicketTier } from "@/types";
@@ -42,10 +42,15 @@ interface Product {
 |--------------------------------------------------------------------------
 */
 
+interface EventDetails {
+  legs: EventLeg[];
+  relatedEvents: Event[];
+  products: Product[];
+}
+
 interface Props {
   event: Event;
-  relatedEvents?: Event[];
-  products?: Product[];
+  eventDetails?: EventDetails;
 }
 
 /*
@@ -130,18 +135,17 @@ const railCardVariants = {
 |--------------------------------------------------------------------------
 */
 
-export default function EventShow({
-  event,
-  relatedEvents = [],
-  products = [],
-}: Props) {
+export default function EventShow({ event, eventDetails }: Props) {
   /*
   |--------------------------------------------------------------------------
   | Event legs
   |--------------------------------------------------------------------------
   */
 
-  const legs = event.legs ?? [];
+  const detailsLoaded = !!eventDetails;
+  const legs = eventDetails?.legs ?? [];
+  const relatedEvents = eventDetails?.relatedEvents ?? [];
+  const products = eventDetails?.products ?? [];
 
   const isTour = event.type === "tour" && legs.length > 1;
   const CART_STORAGE_KEY = `event-cart-${event.id}`;
@@ -163,8 +167,19 @@ export default function EventShow({
   */
 
   const [activeLegId, setActiveLegId] = useState<number | undefined>(
-    storedCart?.activeLegId ?? legs[0]?.id,
+    storedCart?.activeLegId,
   );
+
+  useEffect(() => {
+    if (legs.length === 0) return;
+
+    const storedLegStillExists =
+      activeLegId != null && legs.some((leg) => leg.id === activeLegId);
+
+    if (!storedLegStillExists) {
+      setActiveLegId(legs[0].id);
+    }
+  }, [legs, activeLegId]);
 
   const { existingTicketSelection, existingProductSelection } = usePage()
     .props as unknown as {
@@ -385,10 +400,12 @@ export default function EventShow({
   // CHECKPOINT 0b — confirm seatLookup contents at render time
 
   useEffect(() => {
+    if (!detailsLoaded) return;
+
     setSelectedSeatIds((prev) =>
       prev.filter((id) => seatLookup.get(id)?.status === "available"),
     );
-  }, [seatLookup]);
+  }, [detailsLoaded, seatLookup]);
   /*
   |--------------------------------------------------------------------------
   | Ticket tier lookup
@@ -515,7 +532,7 @@ export default function EventShow({
       // event's props so seatLookup reflects current statuses. The
       // prune effect above then drops any seat that's no longer
       // available, instead of it silently riding along on the retry.
-      router.reload({ only: ["event"] });
+      router.reload({ only: ["event", "eventDetails"] });
     } finally {
       setIsSubmitting(false);
     }
@@ -603,8 +620,10 @@ export default function EventShow({
       productSelection,
     ]);
   useEffect(() => {
-    setShowSummary(ticketCount > 0 || merchCount > 0);
-  }, [ticketCount, merchCount]);
+    setShowSummary(
+      detailsLoaded && (ticketCount > 0 || merchCount > 0),
+    );
+  }, [detailsLoaded, ticketCount, merchCount]);
   /*
   |--------------------------------------------------------------------------
   | Ticket tier status
@@ -908,8 +927,14 @@ export default function EventShow({
             BODY
         ========================================================= */}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
+        <Deferred
+          data="eventDetails"
+          fallback={<EventShowContentSkeleton />}
+        >
+          <>
+            {eventDetails ? (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
             {/* =====================================================
                 MAIN CONTENT
             ===================================================== */}
@@ -1611,7 +1636,10 @@ export default function EventShow({
               </motion.div>
             </motion.section>
           )}
-        </div>
+              </div>
+            ) : null}
+          </>
+        </Deferred>
       </div>
 
       {/* ===========================================================
@@ -1692,6 +1720,67 @@ export default function EventShow({
         )}
       </AnimatePresence>
     </AuthenticatedLayout>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Deferred content skeletons
+|--------------------------------------------------------------------------
+*/
+
+function EventShowContentSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
+        <div className="space-y-10 min-w-0">
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-32 rounded bg-[#26232E]" />
+            <div className="h-4 w-full max-w-2xl rounded bg-[#26232E]" />
+            <div className="h-4 w-5/6 max-w-xl rounded bg-[#26232E]" />
+            <div className="flex gap-2 pt-2">
+              <div className="h-6 w-16 rounded-full bg-[#26232E]" />
+              <div className="h-6 w-20 rounded-full bg-[#26232E]" />
+              <div className="h-6 w-14 rounded-full bg-[#26232E]" />
+            </div>
+          </div>
+
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-20 rounded bg-[#26232E]" />
+            <div className="rounded-xl border border-[#26232E] bg-[#15141B] p-5">
+              <div className="h-4 w-48 rounded bg-[#26232E]" />
+              <div className="h-4 w-full max-w-md rounded bg-[#26232E] mt-3" />
+            </div>
+          </div>
+
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-28 rounded bg-[#26232E]" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="h-48 rounded-xl bg-[#15141B] border border-[#26232E]" />
+              <div className="h-48 rounded-xl bg-[#15141B] border border-[#26232E]" />
+            </div>
+          </div>
+        </div>
+
+        <EventShowSidebarSkeleton />
+      </div>
+    </div>
+  );
+}
+
+function EventShowSidebarSkeleton() {
+  return (
+    <div className="border border-[#26232E] bg-[#15141B] rounded-2xl p-5 animate-pulse">
+      <div className="h-3 w-28 rounded bg-[#26232E] mb-4" />
+
+      <div className="space-y-3">
+        <div className="h-14 rounded-xl bg-[#0B0B10] border border-[#26232E]" />
+        <div className="h-14 rounded-xl bg-[#0B0B10] border border-[#26232E]" />
+        <div className="h-14 rounded-xl bg-[#0B0B10] border border-[#26232E]" />
+      </div>
+
+      <div className="h-11 rounded-xl bg-[#26232E] mt-5" />
+    </div>
   );
 }
 

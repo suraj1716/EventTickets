@@ -1,3 +1,4 @@
+
 /* ============================================================
    MASTER THEME — index.css
    Change the variables below to rebrand the entire website.
@@ -124,6 +125,10 @@ input:-webkit-autofill:active {
     border: 1px solid rgba(135, 23, 23, 0.06) !important;
     border-radius: 2px !important;
 }
+
+
+
+
 
 /* ============================================================
    BUSINESS THEME PRESETS — uncomment to switch theme

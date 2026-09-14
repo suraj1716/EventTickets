@@ -1,5 +1,5 @@
-import { useMemo, useState, FormEvent } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { useEffect, useMemo, useState, FormEvent } from "react";
+import { Deferred, router, usePage } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import PageHero from "@/Components/Page/PageHero";
 import { loadStripe } from "@stripe/stripe-js";
@@ -19,7 +19,10 @@ type GiftCardTemplate = {
 };
 
 interface GiftVoucherShopProps {
-  giftCards: GiftCardTemplate[];
+  // Deferred on the backend (see VoucherController::shop()) — arrives
+  // undefined until Inertia's follow-up request for deferred props
+  // resolves it.
+  giftCards?: GiftCardTemplate[];
 }
 
 // Embedded payment form for a gift card purchase — same
@@ -177,11 +180,45 @@ function GiftCardCheckoutModal({
   );
 }
 
+// Matches the card grid's shape while `giftCards` (deferred — see
+// VoucherController::shop()) resolves.
+function GiftCardGridSkeleton() {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+        gap: "var(--space-md)",
+        marginBottom: "var(--space-2xl)",
+      }}
+    >
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            padding: "var(--space-xl) var(--space-md)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--space-sm)",
+            opacity: 0.6,
+            animation: "gvs-pulse 1.6s ease-in-out infinite",
+          }}
+        >
+          <div style={{ height: 28, width: 56, background: "var(--color-border)" }} />
+          <div style={{ height: 10, width: 64, background: "var(--color-border)" }} />
+        </div>
+      ))}
+      <style>{`@keyframes gvs-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.3; } }`}</style>
+    </div>
+  );
+}
+
 export default function GiftVoucherShop({ giftCards }: GiftVoucherShopProps) {
   const { csrf_token } = usePage().props as { csrf_token: string };
-  const [selectedId, setSelectedId] = useState<number | null>(
-    giftCards.length > 0 ? giftCards[0].id : null
-  );
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [giftedToEmail, setGiftedToEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkout, setCheckout] = useState<{
@@ -190,7 +227,14 @@ export default function GiftVoucherShop({ giftCards }: GiftVoucherShopProps) {
     totalDue: number;
   } | null>(null);
 
-  const selected = giftCards.find((g) => g.id === selectedId) ?? null;
+  // Default to the first gift card once the deferred prop resolves.
+  useEffect(() => {
+    if (giftCards && giftCards.length > 0 && selectedId === null) {
+      setSelectedId(giftCards[0].id);
+    }
+  }, [giftCards]);
+
+  const selected = giftCards?.find((g) => g.id === selectedId) ?? null;
 
   const handleAddToCart = () => {
     if (!selectedId) { alert("Please select a gift card."); return; }
@@ -267,59 +311,61 @@ export default function GiftVoucherShop({ giftCards }: GiftVoucherShopProps) {
 
 
         {/* Card grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-            gap: "var(--space-md)",
-            marginBottom: "var(--space-2xl)",
-          }}
-        >
-          {giftCards.map((card) => {
-            const isSelected = selectedId === card.id;
-            return (
-              <button
-                key={card.id}
-                onClick={() => setSelectedId(card.id)}
-                style={{
-                  background: isSelected ? "var(--color-primary)" : "var(--color-surface)",
-                  border: `1px solid ${isSelected ? "var(--color-primary)" : "var(--color-border)"}`,
-                  padding: "var(--space-xl) var(--space-md)",
-                  cursor: "pointer",
-                  textAlign: "center",
-                  transition: "all var(--transition-base)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "var(--space-sm)",
-                }}
-              >
-                <span
+        <Deferred data="giftCards" fallback={<GiftCardGridSkeleton />}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+              gap: "var(--space-md)",
+              marginBottom: "var(--space-2xl)",
+            }}
+          >
+            {giftCards?.map((card) => {
+              const isSelected = selectedId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => setSelectedId(card.id)}
                   style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-3xl)",
-                    fontWeight: 300,
-                    color: isSelected ? "#fff" : "var(--color-primary)",
-                    lineHeight: 1,
+                    background: isSelected ? "var(--color-primary)" : "var(--color-surface)",
+                    border: `1px solid ${isSelected ? "var(--color-primary)" : "var(--color-border)"}`,
+                    padding: "var(--space-xl) var(--space-md)",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all var(--transition-base)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "var(--space-sm)",
                   }}
                 >
-                  ${card.amount.toFixed(0)}
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: "var(--text-xs)",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: isSelected ? "rgba(255,255,255,0.75)" : "var(--color-text-light)",
-                  }}
-                >
-                  {card.title}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-3xl)",
+                      fontWeight: 300,
+                      color: isSelected ? "#fff" : "var(--color-primary)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ${card.amount.toFixed(0)}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: "var(--text-xs)",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: isSelected ? "rgba(255,255,255,0.75)" : "var(--color-text-light)",
+                    }}
+                  >
+                    {card.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Deferred>
 
         {/* Description */}
         {selected?.description && (

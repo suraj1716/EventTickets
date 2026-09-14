@@ -28,28 +28,36 @@ class ContactController extends Controller
         // No need to re-query it here — Inertia merges shared + page props
         // automatically, so it still reaches the page as usePage().props.vendor.
 
-        $departments = Cache::remember('contact:departments', 300, function () {
-            return Department::with([
-                'categories' => fn($q) => $q
-                    ->select('id', 'name', 'department_id')
-                    ->whereHas('products', fn($q) => $q->where('status', 'published')),
-                'categories.products' => fn($q) => $q
-                    ->select('id', 'title', 'category_id')
-                    ->where('status', 'published'),
-            ])->whereHas(
-                'categories',
-                fn($q) =>
-                $q->whereHas(
-                    'products',
-                    fn($q) =>
-                    $q->where('status', 'published')
-                )
-            )->get(['id', 'name', 'slug']);
-        });
-
+        // 'departments' (with nested categories/products) is the heavy,
+        // relation-loaded query on this page, and it's only needed once
+        // the visitor picks "Getting a quote" as their reason — so it's
+        // wrapped in Inertia::defer() the same way TicketResaleController
+        // and EventSearchController defer their heavy props: the page
+        // shell (hero, form, sidebar) ships immediately, and this query
+        // only runs on Inertia's follow-up request for deferred props.
+        // See Contact.tsx for the matching <Deferred> + skeleton fallback.
         return Inertia::render('Contact', [
             'contactReasons' => $contactReasons,
-            'departments' => $departments,
+            'departments' => Inertia::defer(function () {
+                return Cache::remember('contact:departments', 300, function () {
+                    return Department::with([
+                        'categories' => fn($q) => $q
+                            ->select('id', 'name', 'department_id')
+                            ->whereHas('products', fn($q) => $q->where('status', 'published')),
+                        'categories.products' => fn($q) => $q
+                            ->select('id', 'title', 'category_id')
+                            ->where('status', 'published'),
+                    ])->whereHas(
+                        'categories',
+                        fn($q) =>
+                        $q->whereHas(
+                            'products',
+                            fn($q) =>
+                            $q->where('status', 'published')
+                        )
+                    )->get(['id', 'name', 'slug']);
+                });
+            }),
         ]);
     }
 

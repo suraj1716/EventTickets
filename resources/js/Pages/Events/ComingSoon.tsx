@@ -9,7 +9,7 @@
 //   npm install framer-motion
 
 import { useState } from "react";
-import { Head, router } from "@inertiajs/react";
+import { Head, router, Deferred } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Category, Event, Paginated } from "@/types";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
@@ -20,7 +20,10 @@ interface ComingSoonFilters {
 }
 
 interface Props {
-  events: Paginated<Event>;
+  // Deferred on the backend (see comingSoon() in
+  // EventSearchController) — the page shell ships first, so this
+  // arrives undefined until Inertia's follow-up request resolves it.
+  events?: Paginated<Event>;
   filters: ComingSoonFilters;
   categories: Category[];
 }
@@ -38,7 +41,6 @@ const cardVariants = {
 };
 
 export default function ComingSoon({ events, filters, categories }: Props) {
-  console.log("ComingSoon props", events); // TEMP — remove after c
   const [local, setLocal] = useState<ComingSoonFilters>(filters);
 
   const [watchlistEvent, setWatchlistEvent] = useState<Event | null>(null);
@@ -217,6 +219,10 @@ export default function ComingSoon({ events, filters, categories }: Props) {
 
         {/* Results */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <Deferred data="events" fallback={<ComingSoonSkeleton />}>
+            <>
+            {events && (
+              <>
           <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775] mb-6">
             {events.meta.total.toLocaleString()}{" "}
             {events.meta.total === 1 ? "event" : "events"} not yet on sale
@@ -303,6 +309,10 @@ export default function ComingSoon({ events, filters, categories }: Props) {
               )}
             </>
           )}
+              </>
+            )}
+            </>
+          </Deferred>
         </main>
 
         <AnimatePresence>
@@ -522,6 +532,40 @@ function ComingSoonCard({
         </div>
       </div>
     </motion.a>
+  );
+}
+
+/* ─────────────────────────────
+   COMING SOON GRID SKELETON
+───────────────────────────── */
+
+function ComingSoonSkeleton() {
+  return (
+    <>
+      <div className="h-4 w-40 rounded bg-[#26232E] mb-6 animate-pulse" />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#26232E] bg-[#15141B] animate-pulse"
+          >
+            <div className="h-40 w-full shrink-0 border-b border-dashed border-[#33303C] bg-[#1D1B24]" />
+
+            <div className="flex flex-1 min-w-0">
+              <div className="flex-1 min-w-0 p-5 space-y-3">
+                <div className="h-3 w-24 rounded bg-[#26232E]" />
+                <div className="h-4 w-3/4 rounded bg-[#26232E]" />
+                <div className="h-3 w-1/2 rounded bg-[#26232E]" />
+                <div className="h-7 w-20 rounded-lg bg-[#26232E] mt-6" />
+              </div>
+
+              <div className="w-[86px] shrink-0 border-l border-dashed border-[#33303C]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

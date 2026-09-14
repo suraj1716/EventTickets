@@ -28,22 +28,29 @@ class VoucherController extends Controller
     /**
      * Show all purchasable gift card templates.
      */
+    // `giftCards` is wrapped in Inertia::defer() — same pattern as
+    // TicketResaleController::index() and EventSearchController: the
+    // page shell (hero, layout) ships immediately, and the template
+    // query (including per-row getImageUrl() calls) only runs on
+    // Inertia's follow-up request for deferred props. See
+    // GiftVoucherShop.tsx for the matching <Deferred> + skeleton
+    // fallback.
     public function shop()
     {
-        $giftCards = GiftCardTemplate::where('active', true)
-            ->orderBy('sort_order')
-            ->orderBy('amount')
-            ->get()
-            ->map(fn($t) => [
-                'id'          => $t->id,
-                'title'       => $t->title,
-                'description' => $t->description,
-                'amount'      => $t->amount,
-                'image_url'   => $t->getImageUrl(),
-            ]);
-
         return Inertia::render('GiftVoucher/GiftVoucherShop', [
-            'giftCards' => $giftCards,
+            'giftCards' => Inertia::defer(function () {
+                return GiftCardTemplate::where('active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('amount')
+                    ->get()
+                    ->map(fn($t) => [
+                        'id'          => $t->id,
+                        'title'       => $t->title,
+                        'description' => $t->description,
+                        'amount'      => $t->amount,
+                        'image_url'   => $t->getImageUrl(),
+                    ]);
+            }),
         ]);
     }
 

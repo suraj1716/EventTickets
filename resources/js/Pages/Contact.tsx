@@ -1,7 +1,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { PageProps } from "@/types";
 import { InertiaPage } from "@/types/InertiaPage";
-import { Link, useForm, usePage } from "@inertiajs/react";
+import { Deferred, Link, useForm, usePage } from "@inertiajs/react";
 import React, { useMemo, useRef } from "react";
 import {
   MapPin,
@@ -60,6 +60,26 @@ function formatTime(time?: string) {
   const period = hour >= 12 ? "PM" : "AM";
   const displayHour = hour % 12 === 0 ? 12 : hour % 12;
   return `${displayHour}:${minuteStr} ${period}`;
+}
+
+// Skeleton shown while `departments` (deferred — see ContactController::index())
+// resolves, matching the shape of the department/category/product select
+// fields it gates.
+function QuoteFieldsSkeleton() {
+  return (
+    <div className="cf-field">
+      <label>Department</label>
+      <div
+        style={{
+          height: 44,
+          borderRadius: 10,
+          border: `1px solid ${C.border}`,
+          background: C.surfaceWarm,
+        }}
+        className="cf-skeleton-pulse"
+      />
+    </div>
+  );
 }
 
 const Contact: InertiaPage = () => {
@@ -145,6 +165,8 @@ const Contact: InertiaPage = () => {
         */
         .cf-page { min-height: 100vh; background: ${C.bg}; color: ${C.text}; font-family: 'Manrope', sans-serif; }
         .cf-page * { box-sizing: border-box; }
+        .cf-skeleton-pulse { animation: cf-pulse 1.6s ease-in-out infinite; }
+        @keyframes cf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
         /* ── hero ── */
         .cf-hero { padding: 56px 20px 40px; border-bottom: 1px dashed ${C.borderDashed}; }
@@ -615,6 +637,8 @@ const Contact: InertiaPage = () => {
                         <span>Quote Details</span>
                       </div>
 
+                      <Deferred data="departments" fallback={<QuoteFieldsSkeleton />}>
+                        <>
                       <div className="cf-field">
                         <label htmlFor="department">Department</label>
                         <div className="cf-select-wrap">
@@ -682,6 +706,8 @@ const Contact: InertiaPage = () => {
                           {errors.product && <p className="cf-error">{errors.product}</p>}
                         </div>
                       )}
+                        </>
+                      </Deferred>
 
                       <div className="cf-row">
                         <div className="cf-field" style={{ marginBottom: 0 }}>
