@@ -19,7 +19,6 @@ class Event extends Model
         'name',
         'slug',
         'description',
-        'image_url',
         'type',
         'status',
         'languages',
