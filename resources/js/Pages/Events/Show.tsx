@@ -797,6 +797,32 @@ export default function EventShow({
               {event.name}
             </motion.h1>
 
+            {event.vendor?.name && (
+              <motion.p
+                initial={{
+                  opacity: 0,
+                  y: 10,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.5,
+                  delay: 0.08,
+                }}
+                className="text-sm text-[#9C97A8] mt-2"
+              >
+                Presented by{" "}
+                <Link
+                  href={route("events.index", { vendor: event.vendor_user_id })}
+                  className="text-[#FFB627] hover:underline"
+                >
+                  {event.vendor.name}
+                </Link>
+              </motion.p>
+            )}
+
             {event.artists && event.artists.length > 0 && (
               <motion.p
                 initial={{

@@ -58,7 +58,8 @@ class EventSearchController extends Controller
                         'legs.ticketTiers',
                         'artists',
                         'categories',
-                        'media'
+                        'media',
+                        'vendor:user_id,store_name',
                     ])
                     ->withCount('watchlist')
 
@@ -97,6 +98,18 @@ class EventSearchController extends Controller
                                 )
                             );
                         }
+                    )
+
+                    // "Browse this organizer's events" — the events-page
+                    // equivalent of Eventbrite's /o/organizer-name, but as
+                    // a filter on the same page rather than a separate
+                    // storefront template. See Event::vendor().
+                    ->when(
+                        $request->filled('vendor'),
+                        fn($q) => $q->where(
+                            'vendor_user_id',
+                            $request->input('vendor')
+                        )
                     );
 
                 // Sort dropdown was previously decorative — the query
@@ -151,7 +164,13 @@ class EventSearchController extends Controller
                 'department',
                 'category',
                 'sort',
+                'vendor',
             ]),
+
+            'filteredVendor' => $request->filled('vendor')
+                ? \App\Models\Vendor::where('user_id', $request->input('vendor'))
+                    ->value('store_name')
+                : null,
         ]);
     }
 
@@ -257,6 +276,7 @@ class EventSearchController extends Controller
             'legs.ticketTiers',
             'legs.seats.venueSeat',
             'media',
+            'vendor:user_id,store_name',
             'products.media',
             'products.variationTypes.options',   // NEW
             'products.variations',               // NEW — needed by getPriceForOptions()

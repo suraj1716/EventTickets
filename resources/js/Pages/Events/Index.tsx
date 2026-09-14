@@ -28,6 +28,7 @@ interface Props {
   events?: EventsSlice;
   filters: EventSearchFilters;
   categories: Category[];
+  filteredVendor?: string | null;
 }
 
 const LOAD_MORE_COUNT = 5;
@@ -59,7 +60,7 @@ const cardVariants = {
   },
 };
 
-export default function EventsIndex({ events, filters, categories }: Props) {
+export default function EventsIndex({ events, filters, categories, filteredVendor }: Props) {
   const [local, setLocal] = useState<EventSearchFilters>(filters);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -628,7 +629,18 @@ export default function EventsIndex({ events, filters, categories }: Props) {
                     </p>
                   </Deferred>
 
-                  <h2 className="text-xl font-bold mt-1">Upcoming events</h2>
+                  <h2 className="text-xl font-bold mt-1">
+                    {filteredVendor ? `Events by ${filteredVendor}` : "Upcoming events"}
+                  </h2>
+
+                  {filteredVendor && (
+                    <button
+                      onClick={() => apply({ vendor: undefined })}
+                      className="text-[11px] text-[#FFB627] hover:underline mt-1"
+                    >
+                      Clear organizer filter
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -994,6 +1006,12 @@ function EventCard({ event, index }: { event: Event; index: number }) {
             {event.artists && event.artists.length > 0 && (
               <p className="text-sm text-[#9C97A8] mt-1.5 line-clamp-1">
                 {event.artists.map((a) => a.name).join(", ")}
+              </p>
+            )}
+
+            {event.vendor?.name && (
+              <p className="text-[11px] text-[#565262] mt-1 line-clamp-1">
+                By {event.vendor.name}
               </p>
             )}
 

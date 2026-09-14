@@ -2,10 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Department;
-use App\Services\CartService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -21,66 +18,54 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        // NOTE: dpts/categories/cart totals moved to fn() closures below.
-        // They used to run eagerly on every request — including partial
-        // reloads like the "Load more" button on Events/Index (which only
-        // asks for the `events` prop via router.reload({ only: ['events'] }))
-        // and full-page filter navigations that don't touch the cart or nav
-        // menu at all. Wrapping them in closures lets Inertia skip
-        // evaluating them entirely when they're not part of what a given
-        // request actually needs, instead of paying for 5+ queries every
-        // single visit regardless of relevance.
-
-        $cartService = app(CartService::class);
-
         return array_merge(parent::share($request), [
 
             'vendorOwnerEmail' => config('services.vendor_owner_email'),
             'appName' => config('app.name'),
             'csrf_token' => csrf_token(),
-            'ziggy' => fn() => [
-                ...(new Ziggy)->toArray(),
-                'location' => $request->url(),
-            ],
+
+            // The full route table is already embedded once in the initial
+            // HTML via the @routes Blade directive in app.blade.php, which
+            // sets window.Ziggy for the whole session. Re-sending it here on
+            // every request duplicated it on the very first load and then
+            // re-shipped the entire table again on every single SPA
+            // navigation after that, even though the client never discards
+            // it. Only the classic (non-XHR) request — the one @routes
+            // actually renders for — needs the full table; every subsequent
+            // Inertia visit only needs the current URL for route()'s
+            // current()/active-state checks.
+            'ziggy' => fn () => $request->header('X-Inertia')
+                ? ['location' => $request->url()]
+                : [...(new Ziggy)->toArray(), 'location' => $request->url()],
+
             'success' => [
                 'message' => session('success'),
                 'time' => microtime(true),
             ],
-            'totalPrice' => fn() => $cartService->getTotalPrice(),
-            'totalQuantity' => fn() => $cartService->getTotalQuantity(),
-            'miniCartItems' => fn() => $cartService->getCartItems(),
-            'dpts' => fn() => Cache::remember('shared:dpts', 300, function () {
-                return Department::whereHas('categories.products')
-                    ->withCount(['products as products_count'])
-                    ->get(['id', 'name', 'slug']);
-            })->map(function ($department) {
-                return [
-                    'id' => $department->id,
-                    'name' => $department->name,
-                    'slug' => $department->slug,
-                    'productsCount' => $department->products_count,
-                    'image' => $department->image,
-                    'active' => $department->active,
-                ];
-            }),
-            'categories' => fn() => Cache::remember('shared:categories', 300, function () {
-                return \App\Models\Category::whereHas('products')
-                    ->where('active', true)
-                    ->get(['id', 'name', 'slug']);
-            })->map(function ($category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                ];
-            }),
-            // Shared globally so Navbar/Footer/every page can read it via
-            // usePage().props.vendor with zero client-side requests.
-            // VendorDetailService already caches the underlying query for 6hrs,
-            // so this closure is cheap even though it runs on every request.
-            'vendor' => fn() => new \App\Http\Resources\VendorUserResource(
-                app(\App\Services\VendorDetailService::class)->getVendorDetails()
-            ),
+
+            // NOTE: 'totalPrice' / 'totalQuantity' / 'miniCartItems' and
+            // 'dpts' / 'categories' were removed from here — dead globals.
+            // Nothing live reads them:
+            //  - MiniCartDropdown(.Bottom) are the only consumers of the
+            //    cart totals, and neither is mounted (NavbarBottom, their
+            //    only host, is imported in AuthenticatedLayout but never
+            //    rendered). Cart/Index.tsx — the one real cart page — gets
+            //    its own totals straight from CartController::index already.
+            //  - Department.tsx is the only consumer of dpts/categories,
+            //    and its one render site in AuthenticatedLayout is inside a
+            //    commented-out block.
+            // If either comes back, pass it as a page-specific prop from
+            // the controller that actually needs it, not a global share —
+            // that's what was making every single page (including every
+            // Events/Admin page that has nothing to do with a cart or a
+            // department nav) pay for a CartService call and two cached
+            // queries on every full load.
+
+            // Was a live User::whereHas('vendor')... lookup (cached, but
+            // still a cache-store round-trip on every request). Footer/
+            // Navbar contact info doesn't need a DB record behind it —
+            // see config/site.php.
+            'siteSettings' => fn () => config('site'),
             'adminCounts' => function () use ($request) {
                 $user = $request->user();
                 if (!$user) {

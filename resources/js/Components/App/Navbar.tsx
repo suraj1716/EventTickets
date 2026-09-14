@@ -10,7 +10,6 @@ import { Bars3Icon } from "@heroicons/react/24/outline";
 import { useAuthModal } from "@/Contexts/AuthModalContext";
 import UserCircleIcon from "@heroicons/react/24/solid/UserCircleIcon";
 import { formatAustralianPhone } from "@/utils/PhoneFormat";
-import { useVendorDetails } from "@/hooks/useVendorData";
 
 /*
 |--------------------------------------------------------------------------
@@ -234,7 +233,7 @@ function SearchOverlay({
 }
 
 export default function Navbar() {
-  const { auth } = usePage<PageProps<{ auth?: { user: any } }>>().props;
+  const { auth, siteSettings } = usePage<PageProps<{ auth?: { user: any }; siteSettings?: Record<string, any> | null }>>().props;
   const user = auth?.user ?? null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -250,7 +249,7 @@ const canAccessDashboard =
   (isVendor && auth?.user?.vendor?.status === "approved") ||
   isStaff;
   const { url } = usePage();
-  const vendor = useVendorDetails();
+  const vendorData = siteSettings ?? null;
 
   const { openLogin, openRegister } = useAuthModal();
 
@@ -580,9 +579,9 @@ const canAccessDashboard =
               Box office — open now
             </span>
 
-            {vendor?.phone ? (
-              <a href={`tel:${vendor.phone}`} style={{ color: C.text, fontWeight: 600 }}>
-                {formatAustralianPhone(vendor.phone)}
+            {vendorData?.phone ? (
+              <a href={`tel:${vendorData.phone}`} style={{ color: C.text, fontWeight: 600 }}>
+                {formatAustralianPhone(vendorData.phone)}
               </a>
             ) : (
               <span>Instant e-tickets — nothing to print</span>

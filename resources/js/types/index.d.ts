@@ -436,6 +436,8 @@ export interface EventSearchFilters {
   sort?: SortOption;
 
   page?: number;
+
+  vendor?: number | string;
 }
 
 export type EventSearchResponse =

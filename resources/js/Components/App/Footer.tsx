@@ -30,12 +30,12 @@ const C = {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 type FooterProps = {
-  vendor?: { data?: Record<string, any> | null };
+  siteSettings?: Record<string, any> | null;
 };
 
 export default function Footer() {
-  const { vendor } = usePage<PageProps<FooterProps>>().props;
-  const vendorData = vendor?.data ?? null;
+  const { siteSettings } = usePage<PageProps<FooterProps>>().props;
+  const vendorData = siteSettings ?? null;
 
   const NAV_COLS = [
     {

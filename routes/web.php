@@ -142,10 +142,11 @@ Route::post('/stripe/webhook', [StripeController::class, 'handle'])
 
 
 // ════════════════════════════════════════════════════════════════════════════
-// Vendor Details service
+// Vendor Details — removed. Navbar was the only caller of /api/vendor-details
+// and now reads the 'vendor' prop Inertia already shares on every page
+// (see HandleInertiaRequests), instead of firing a second, fully redundant
+// HTTP request for data the page response already contains.
 // ════════════════════════════════════════════════════════════════════════════
-Route::get('/api/vendor-details', [VendorController::class, 'public']);
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // AUTH-PROTECTED ROUTES
@@ -233,14 +234,9 @@ Route::middleware('auth')->group(function () {
 
 
 //footer
-Route::get('/api/footer-services', function () {
-    return \App\Models\Category::whereHas('products', fn($q) => $q->where('status', 'published'))
-        ->where('active', true)
-        ->select('id', 'name', 'department_id')
-        ->withCount('products')
-        ->orderByDesc('products_count')
-        ->get();
-});
+// /api/footer-services removed — dead code (useFooterServices existed but
+// was never called from any component) and its data duplicated the
+// 'categories' prop already shared on every Inertia request.
 
 // Cancellation policy
 Route::get('/cancellation-policy', fn () => Inertia::render('CancellationPolicy'))
