@@ -12,45 +12,60 @@ use Inertia\Inertia;
 
 class CategoryController extends Controller
 {
+    // `products` is wrapped in Inertia::defer() — same shell-first
+    // pattern as Events/Index and Resale/Index: category/department/
+    // categoryGroups render immediately (breadcrumb + sidebar image),
+    // and the heavy paginated, deeply-relation-loaded products query
+    // only runs on Inertia's follow-up request. See Category/Show.tsx
+    // for the matching <Deferred> + skeleton fallback.
     public function show(Category $category)
     {
         $category->load('department');
 
-        $products = Product::query()
-            ->where('category_id', $category->id)
-            ->filterApproved()
-            ->with([
-                'department',
-                'user.vendor',
-                'variationTypes.options.media',
-                'variations',
-                'media',
-                'reviews.user',
-            ])
-            ->withAvg('reviews', 'rating')
-            ->withCount('reviews')
-            ->latest()
-            ->paginate(12)
-            ->withQueryString();
-
-        $groups = CategoryGroup::with([
-            'categories' => function ($query) {
-                $query->select(
-                    'categories.id',
-                    'categories.name',
-                    'categories.image',
-                    'categories.department_id',
-                    'categories.parent_id',
-                    'categories.active'
-                )->with('department');
-            }
-        ])->where('active', true)->get();
+        // Active category groups barely change — same sidebar-caching
+        // reasoning as the Events browse page.
+        $groups = Cache::remember(
+            'category-groups:active',
+            now()->addMinutes(10),
+            fn() => CategoryGroup::with([
+                'categories' => function ($query) {
+                    $query->select(
+                        'categories.id',
+                        'categories.name',
+                        'categories.image',
+                        'categories.department_id',
+                        'categories.parent_id',
+                        'categories.active'
+                    )->with('department');
+                }
+            ])->where('active', true)->get()
+        );
 
         return Inertia::render('Category/Show', [
             'category' => $category,
             'department' => $category->department,
-            'products' => ProductListResource::collection($products),
             'categoryGroups' => $groups,
+
+            'products' => Inertia::defer(function () use ($category) {
+                $products = Product::query()
+                    ->where('category_id', $category->id)
+                    ->filterApproved()
+                    ->with([
+                        'department',
+                        'user.vendor',
+                        'variationTypes.options.media',
+                        'variations',
+                        'media',
+                        'reviews.user',
+                    ])
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews')
+                    ->latest()
+                    ->paginate(12)
+                    ->withQueryString();
+
+                return ProductListResource::collection($products);
+            }),
         ]);
     }
 

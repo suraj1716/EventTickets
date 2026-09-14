@@ -94,7 +94,23 @@ return [
     'prefix' => '',
     'prefix_indexes' => true,
     'search_path' => 'public',
-    'sslmode' => 'prefer'
+    // Supabase enforces SSL regardless; 'require' is honest about that
+    // instead of 'prefer' pretending a plaintext fallback is possible.
+    'sslmode' => 'require',
+    // Session pooler = one dedicated Postgres backend per connection,
+    // held open for the life of that connection — exactly what PHP's
+    // persistent-connection flag is for. Without this, every PHP-FPM
+    // request still pays a fresh TCP+TLS handshake to the pooler even
+    // though the pooler itself isn't the bottleneck; this reuses one
+    // connection per FPM worker process across requests instead of
+    // opening/closing one every time. Toggle-able via env because
+    // persistent connections carry the usual caveats: stale
+    // transactions/locks surviving a crashed request, and it only
+    // helps under PHP-FPM/FastCGI (not `php artisan serve` or queue
+    // workers that already live-process-per-run).
+    'options' => extension_loaded('pdo_pgsql') && env('DB_PERSISTENT', true)
+        ? [PDO::ATTR_PERSISTENT => true]
+        : [],
 ],
 
         'sqlsrv' => [

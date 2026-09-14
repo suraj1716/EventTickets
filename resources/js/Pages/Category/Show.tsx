@@ -8,13 +8,13 @@ import {
   PaginationProps,
   Product,
 } from "@/types"; // adjust path if needed
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, Deferred } from "@inertiajs/react";
 import { useMemo } from "react";
 
 type ShowProps = {
   category: Category & { department: Department };
   department: Department;
-  products: PaginationProps<Product>;
+  products?: PaginationProps<Product>;
   categoryGroups: CategoryGroup[];
 };
 
@@ -70,16 +70,18 @@ export default function Show({
           )}
         </aside>
 
-        <div className="grid grid-cols-1 xs:p-5 xs:mt-5 xs:grid-cols-2 lg:grid-cols-3 xs:gap-y-5 p-10">
-          {products.data.map((product) => (
-            <div
-              key={product.id}
-              className="w-full lg:h-[400px]"
-            >
-              <ProductItem product={product} />
-            </div>
-          ))}
-        </div>
+        <Deferred data="products" fallback={<ProductGridSkeleton count={4} />}>
+          <div className="grid grid-cols-1 xs:p-5 xs:mt-5 xs:grid-cols-2 lg:grid-cols-3 xs:gap-y-5 p-10">
+            {products?.data.map((product) => (
+              <div
+                key={product.id}
+                className="w-full lg:h-[400px]"
+              >
+                <ProductItem product={product} />
+              </div>
+            ))}
+          </div>
+        </Deferred>
       </div>
 
       {/* desktop */}
@@ -110,20 +112,46 @@ export default function Show({
 
           {/* Products Section */}
           <main className="w-full lg:w-3/4">
-            {products.data.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
-                No products found.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.data.map((product) => (
-                  <ProductItem key={product.id} product={product} />
-                ))}
-              </div>
-            )}
+            <Deferred data="products" fallback={<ProductGridSkeleton count={6} />}>
+              <>
+                {products && (
+                  products.data.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500">
+                      No products found.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {products.data.map((product) => (
+                        <ProductItem key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )
+                )}
+              </>
+            </Deferred>
           </main>
         </div>
       </div>
     </AuthenticatedLayout>
+  );
+}
+
+function ProductGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-lg border border-gray-200 bg-white overflow-hidden animate-pulse"
+        >
+          <div className="h-48 w-full bg-gray-200" />
+          <div className="p-4 space-y-2">
+            <div className="h-4 w-3/4 rounded bg-gray-200" />
+            <div className="h-3 w-1/2 rounded bg-gray-200" />
+            <div className="h-4 w-1/3 rounded bg-gray-200" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

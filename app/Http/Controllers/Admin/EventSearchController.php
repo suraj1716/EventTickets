@@ -7,15 +7,15 @@ use App\Models\Event;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Category;
-use App\Models\Department;
 use App\Models\Product;
+use Illuminate\Support\Facades\Cache;
 
 class EventSearchController extends Controller
 {
-    // Homepage / browse page. Departments/categories (the filter sidebar)
-    // stay as normal eager props — they're small, cached-friendly, and
-    // needed immediately for the page to feel interactive. 'events' is
-    // the heavy, relation-loaded, paginated query — wrapped in
+    // Homepage / browse page. `categories` (the filter sidebar) stays as
+    // a normal eager prop — it's small, cached below, and needed
+    // immediately for the page to feel interactive. 'events' is the
+    // heavy, relation-loaded, paginated query — wrapped in
     // Inertia::defer() so the initial response ships the page shell
     // (navbar, filters, empty grid) immediately, and the event query
     // itself only runs when Inertia's follow-up request for deferred
@@ -23,27 +23,28 @@ class EventSearchController extends Controller
     // + skeleton-card fallback on the frontend.
     public function index(Request $request)
     {
-        $departments = Department::query()
-            ->where('active', true)
-            ->with([
-                'categories' => fn($q) =>
-                $q->where('active', true)
-                    ->whereNull('parent_id')
-                    ->orderBy('name'),
-            ])
-            ->orderBy('name')
-            ->get();
-
-        $categories = Category::query()
-            ->where('active', true)
-            ->whereNull('parent_id')
-            ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'slug',
-                'department_id',
-            ]);
+        // Events/Index.tsx destructures { events, filters, categories,
+        // filteredVendor } — it never reads a `departments` prop. The old
+        // code still ran a full Department::with('categories') query
+        // (the single most expensive query on this page, ~4.4s against a
+        // remote DB) and shipped the result to a page that throws it
+        // away. Dropped entirely.
+        //
+        // The remaining sidebar list (flat, active, top-level categories)
+        // is identical for every visitor and only changes when an admin
+        // edits a category, so it's cached for 10 minutes instead of
+        // queried on every request. Bust with
+        // Cache::forget('events.browse-categories') from a Category
+        // observer/admin save action if near-real-time freshness matters.
+        $categories = Cache::remember(
+            'events.browse-categories',
+            now()->addMinutes(10),
+            fn() => Category::query()
+                ->where('active', true)
+                ->whereNull('parent_id')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'department_id'])
+        );
 
         return Inertia::render('Events/Index', [
             // "Load more" pagination instead of numbered pages: the
@@ -52,13 +53,21 @@ class EventSearchController extends Controller
             // returns a plain slice + has_more flag rather than a full
             // Laravel paginator shape.
             'events' => Inertia::defer(function () use ($request) {
+                // Column-restricted eager loads: EventCard (Index.tsx)
+                // only ever reads leg.event_date/city, tier.price,
+                // artist.name, category.name, media[].url (built from
+                // type/path/thumb_path) and vendor.store_name — not the
+                // full row for every related model. Cuts what Postgres
+                // has to read/sort and what gets serialized over the
+                // wire for every event on every page load.
                 $query = Event::query()
                     ->where('status', 'published')
                     ->with([
-                        'legs.ticketTiers',
-                        'artists',
-                        'categories',
-                        'media',
+                        'legs:id,event_id,city,event_date,sequence',
+                        'legs.ticketTiers:id,event_leg_id,price',
+                        'artists:id,name,slug',
+                        'categories:id,name,slug',
+                        'media:id,event_id,type,path,thumb_path,position',
                         'vendor:user_id,store_name',
                     ])
                     ->withCount('watchlist')
@@ -156,7 +165,6 @@ class EventSearchController extends Controller
                 ];
             }),
 
-            'departments' => $departments,
             'categories' => $categories,
 
             'filters' => $request->only([

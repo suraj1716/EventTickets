@@ -5,7 +5,7 @@
 // so anyone can see what's available before signing up.
 
 import { useMemo, useState, FormEvent } from "react";
-import { Head, Link, usePage } from "@inertiajs/react";
+import { Head, Link, usePage, Deferred } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import toast from "react-hot-toast";
 import PageHero from "@/Components/Page/PageHero";
@@ -45,7 +45,7 @@ interface Listing {
 }
 
 interface Props {
-  listings: {
+  listings?: {
     data: Listing[];
     links: { prev: string | null; next: string | null };
     meta: { current_page: number; last_page: number; total: number };
@@ -246,129 +246,152 @@ export default function ResaleIndex({ listings }: Props) {
 
 
 
-          {listings.data.length === 0 ? (
-            <div className="mt-10 border border-dashed border-[#26232E] rounded-2xl py-16 text-center">
-              <h3 className="font-bold">No resale tickets right now</h3>
-              <p className="text-sm text-[#9C97A8] mt-2">
-                Check back later, or browse events on sale.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-8 space-y-3">
-              {listings.data.map((listing) => (
-                <div
-                  key={listing.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-[#26232E] bg-[#15141B] p-4"
+      <Deferred data="listings" fallback={<ResaleListSkeleton />}>
+  <>
+    {listings ? (
+      <>
+        {listings.data.length === 0 ? (
+          <div className="mt-10 border border-dashed border-[#26232E] rounded-2xl py-16 text-center">
+            <h3 className="font-bold">No resale tickets right now</h3>
+            <p className="text-sm text-[#9C97A8] mt-2">
+              Check back later, or browse events on sale.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-8 space-y-3">
+            {listings.data.map((listing) => (
+              <div
+                key={listing.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-[#26232E] bg-[#15141B] p-4"
+              >
+                <Link
+                  href={
+                    listing.ticket.event_leg?.event?.slug
+                      ? route(
+                          "events.show",
+                          listing.ticket.event_leg.event.slug
+                        )
+                      : "#"
+                  }
+                  className="relative h-40 w-full sm:h-16 sm:w-28 shrink-0 overflow-hidden rounded-lg border border-[#26232E] block"
                 >
-                  {/* Event poster thumbnail — landscape, full-width on mobile */}
-{/* Event poster thumbnail */}
-<Link
-  href={
-    listing.ticket.event_leg?.event?.slug
-      ? route("events.show", listing.ticket.event_leg.event.slug)
-      : "#"
-  }
-  className="relative h-40 w-full sm:h-16 sm:w-28 shrink-0 overflow-hidden rounded-lg border border-[#26232E] block"
->
-  {listing.ticket.event_leg?.event?.media?.length ? (
-    <img
-      src={listing.ticket.event_leg.event.media[0].url}
-      alt={listing.ticket.event_leg.event.name}
-      className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
-    />
-  ) : (
-    <div className="h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
-      <span className="font-['Anton'] text-lg uppercase text-white/10 select-none">
-        Live
-      </span>
-    </div>
-  )}
-</Link>
+                  {listing.ticket.event_leg?.event?.media?.length ? (
+                    <img
+                      src={listing.ticket.event_leg.event.media[0].url}
+                      alt={listing.ticket.event_leg.event.name}
+                      className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
+                      <span className="font-['Anton'] text-lg uppercase text-white/10 select-none">
+                        Live
+                      </span>
+                    </div>
+                  )}
+                </Link>
 
-<div className="min-w-0 flex-1">
-  <Link
-    href={
-      listing.ticket.event_leg?.event?.slug
-        ? route("events.show", listing.ticket.event_leg.event.slug)
-        : "#"
-    }
-    className="font-semibold text-white truncate block hover:text-[#FFB627] transition-colors"
-  >
-    {listing.ticket.event_leg?.event?.name ?? "Event"}
-  </Link>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={
+                      listing.ticket.event_leg?.event?.slug
+                        ? route(
+                            "events.show",
+                            listing.ticket.event_leg.event.slug
+                          )
+                        : "#"
+                    }
+                    className="font-semibold text-white truncate block hover:text-[#FFB627] transition-colors"
+                  >
+                    {listing.ticket.event_leg?.event?.name ?? "Event"}
+                  </Link>
 
-  <p className="text-xs text-[#9C97A8] mt-1">
-    {listing.ticket.event_leg?.venue_name}
-    {listing.ticket.ticket_tier
-      ? ` · ${listing.ticket.ticket_tier.name}`
-      : ""}
-  </p>
+                  <p className="text-xs text-[#9C97A8] mt-1">
+                    {listing.ticket.event_leg?.venue_name}
+                    {listing.ticket.ticket_tier
+                      ? ` · ${listing.ticket.ticket_tier.name}`
+                      : ""}
+                  </p>
 
-  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-    {listing.ticket.event_leg?.event_date && (
-      <p className="font-['IBM_Plex_Mono'] text-[11px] text-[#6B6775]">
-        {new Date(
-          listing.ticket.event_leg.event_date
-        ).toLocaleDateString(undefined, {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
-      </p>
-    )}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                    {listing.ticket.event_leg?.event_date && (
+                      <p className="font-['IBM_Plex_Mono'] text-[11px] text-[#6B6775]">
+                        {new Date(
+                          listing.ticket.event_leg.event_date
+                        ).toLocaleDateString(undefined, {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
 
-    <span className="hidden sm:inline text-[11px] text-[#6B6775]">
-      ·
-    </span>
+                    <span className="hidden sm:inline text-[11px] text-[#6B6775]">
+                      ·
+                    </span>
 
-    <p className="text-[11px] text-[#6B6775]">
-      Sold by{" "}
-      <span className="text-[#9C97A8]">
-        {listing.seller.name}
-      </span>
-    </p>
-  </div>
-</div>
-
-
-                  <div className="flex items-center justify-between sm:flex-col sm:items-end shrink-0 gap-2 sm:gap-0">
-                    <p className="font-['IBM_Plex_Mono'] text-lg font-semibold text-[#FFB627]">
-                      ${listing.price}
+                    <p className="text-[11px] text-[#6B6775]">
+                      Sold by{" "}
+                      <span className="text-[#9C97A8]">
+                        {listing.seller.name}
+                      </span>
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => buy(listing)}
-                      disabled={buyingId === listing.id}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {buyingId === listing.id ? "Please wait…" : "Buy"}
-                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {listings.meta.last_page > 1 && (
-            <div className="flex items-center justify-between mt-6 text-sm text-[#6B6775]">
-              <span>
-                Page {listings.meta.current_page} of {listings.meta.last_page}
-              </span>
-              <div className="flex gap-3">
-                {listings.links.prev && (
-                  <Link href={listings.links.prev} className="hover:text-white">
-                    Previous
-                  </Link>
-                )}
-                {listings.links.next && (
-                  <Link href={listings.links.next} className="hover:text-white">
-                    Next
-                  </Link>
-                )}
+                <div className="flex items-center justify-between sm:flex-col sm:items-end shrink-0 gap-2 sm:gap-0">
+                  <p className="font-['IBM_Plex_Mono'] text-lg font-semibold text-[#FFB627]">
+                    ${listing.price}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => buy(listing)}
+                    disabled={buyingId === listing.id}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-[#FFB627] text-[#0B0B10] font-bold hover:bg-[#ffc75c] transition-colors sm:mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {buyingId === listing.id
+                      ? "Please wait…"
+                      : "Buy"}
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
+        )}
+
+        {listings.meta.last_page > 1 && (
+          <div className="flex items-center justify-between mt-6 text-sm text-[#6B6775]">
+            <span>
+              Page {listings.meta.current_page} of{" "}
+              {listings.meta.last_page}
+            </span>
+
+            <div className="flex gap-3">
+              {listings.links.prev && (
+                <Link
+                  href={listings.links.prev}
+                  className="hover:text-white"
+                >
+                  Previous
+                </Link>
+              )}
+
+              {listings.links.next && (
+                <Link
+                  href={listings.links.next}
+                  className="hover:text-white"
+                >
+                  Next
+                </Link>
+              )}
             </div>
-          )}
+          </div>
+        )}
+      </>
+    ) : null}
+  </>
+</Deferred>
         </div>
       </div>
 
@@ -381,5 +404,35 @@ export default function ResaleIndex({ listings }: Props) {
         />
       )}
     </AuthenticatedLayout>
+  );
+}
+
+/* ─────────────────────────────
+   RESALE LIST SKELETON
+───────────────────────────── */
+
+function ResaleListSkeleton() {
+  return (
+    <div className="mt-8 space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-[#26232E] bg-[#15141B] p-4 animate-pulse"
+        >
+          <div className="h-40 w-full sm:h-16 sm:w-28 shrink-0 rounded-lg bg-[#1D1B24]" />
+
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-4 w-2/3 rounded bg-[#26232E]" />
+            <div className="h-3 w-1/2 rounded bg-[#26232E]" />
+            <div className="h-2.5 w-1/3 rounded bg-[#26232E]" />
+          </div>
+
+          <div className="flex items-center justify-between sm:flex-col sm:items-end shrink-0 gap-2 sm:gap-3">
+            <div className="h-5 w-12 rounded bg-[#26232E]" />
+            <div className="h-7 w-16 rounded-lg bg-[#26232E]" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

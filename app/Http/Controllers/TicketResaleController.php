@@ -17,42 +17,51 @@ class TicketResaleController extends Controller
     // Public marketplace — active listings across all events, or
     // filtered to one event leg. No auth required to BROWSE; buying
     // requires login (see TicketResaleCheckoutController).
+    //
+    // `listings` is wrapped in Inertia::defer() — same pattern as
+    // Events/Index: the page shell (hero, verify-ticket link) ships
+    // immediately, and the relation-heavy listings query only runs on
+    // Inertia's follow-up request for deferred props. See
+    // Resale/Index.tsx for the matching <Deferred> + skeleton fallback.
     public function index(Request $request)
     {
-        $listings = TicketResaleListing::query()
-            ->where('status', 'active')
-            ->with([
-                'ticket.ticketTier',
-                'ticket.eventLeg.event.media',
-                'seller',
-            ])
-            ->when(
-                $request->filled('event_leg_id'),
-                fn($q) => $q->whereHas(
-                    'ticket',
-                    fn($t) => $t->where(
-                        'event_leg_id',
-                        $request->input('event_leg_id')
-                    )
-                )
-            )
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
-
         return Inertia::render('Resale/Index', [
-            'listings' => [
-                'data' => $listings->items(),
-                'links' => [
-                    'prev' => $listings->previousPageUrl(),
-                    'next' => $listings->nextPageUrl(),
-                ],
-                'meta' => [
-                    'current_page' => $listings->currentPage(),
-                    'last_page' => $listings->lastPage(),
-                    'total' => $listings->total(),
-                ],
-            ],
+            'listings' => Inertia::defer(function () use ($request) {
+                $listings = TicketResaleListing::query()
+                    ->where('status', 'active')
+                    ->with([
+                        'ticket.ticketTier:id,name',
+                        'ticket.eventLeg.event:id,name,slug',
+                        'ticket.eventLeg.event.media:id,event_id,type,path,thumb_path,position',
+                        'seller:id,name',
+                    ])
+                    ->when(
+                        $request->filled('event_leg_id'),
+                        fn($q) => $q->whereHas(
+                            'ticket',
+                            fn($t) => $t->where(
+                                'event_leg_id',
+                                $request->input('event_leg_id')
+                            )
+                        )
+                    )
+                    ->latest()
+                    ->paginate(20)
+                    ->withQueryString();
+
+                return [
+                    'data' => $listings->items(),
+                    'links' => [
+                        'prev' => $listings->previousPageUrl(),
+                        'next' => $listings->nextPageUrl(),
+                    ],
+                    'meta' => [
+                        'current_page' => $listings->currentPage(),
+                        'last_page' => $listings->lastPage(),
+                        'total' => $listings->total(),
+                    ],
+                ];
+            }),
         ]);
     }
 
