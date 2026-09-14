@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import InputError from "@/Components/Core/InputError";
-import { Link, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import type { FormEventHandler } from "react";
 import GoogleLoginButton from "@/Components/Core/GoogleLoginButton";
 
@@ -11,16 +10,24 @@ type LoginClientErrors = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const C = {
+  bg: "#0B0B10",
+  surface: "#15141B",
+  border: "#26232E",
+  borderDashed: "#33303C",
+  text: "#F7F5F2",
+  textMuted: "#9C97A8",
+  textFaint: "#6B6775",
+  textFainter: "#565262",
+  amber: "#FFB627",
+  amberHover: "#ffc75c",
+  success: "#7CE0A8",
+  error: "#FF6B6B",
+};
+
 function getFreshCsrfToken(): string {
   const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
-}
-function getCsrfToken(): string {
-  return (
-    document
-      .querySelector('meta[name="csrf-token"]')
-      ?.getAttribute("content") ?? ""
-  );
 }
 
 export default function LoginModal({
@@ -42,8 +49,8 @@ export default function LoginModal({
   const [clientErrors, setClientErrors] = useState<LoginClientErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const next: LoginClientErrors = {};
@@ -59,49 +66,49 @@ const [showPassword, setShowPassword] = useState(false);
     return Object.keys(next).length === 0;
   };
 
-const submit: FormEventHandler = async (e) => {
-  e.preventDefault();
-  setServerError(null);
-  if (!validate()) return;
+  const submit: FormEventHandler = async (e) => {
+    e.preventDefault();
+    setServerError(null);
+    if (!validate()) return;
 
-  setProcessing(true);
+    setProcessing(true);
 
-  try {
-    const response = await fetch(route("login"), {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-          "X-XSRF-TOKEN": getFreshCsrfToken(), // ← was "X-CSRF-TOKEN"
-      },
-      body: JSON.stringify({ email, password, remember }),
-    });
+    try {
+      const response = await fetch(route("login"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-XSRF-TOKEN": getFreshCsrfToken(),
+        },
+        body: JSON.stringify({ email, password, remember }),
+      });
 
-    if (response.status === 422) {
+      if (response.status === 422) {
+        const data = await response.json();
+        const msg =
+          data.errors?.email?.[0] ?? data.errors?.password?.[0] ?? "Invalid credentials.";
+        setServerError(msg);
+        setClientErrors((prev) => ({ ...prev, password: " " }));
+        setPassword("");
+        return;
+      }
+
+      if (!response.ok) {
+        setServerError("Something went wrong. Please try again.");
+        return;
+      }
+
       const data = await response.json();
-      const msg =
-        data.errors?.email?.[0] ?? data.errors?.password?.[0] ?? "Invalid credentials.";
-      setServerError(msg);
-      setClientErrors((prev) => ({ ...prev, password: " " }));
-      setPassword("");
-      return;
+      onClose();
+      router.visit(data.redirect ?? "/");
+    } catch {
+      setServerError("Network error. Please try again.");
+    } finally {
+      setProcessing(false);
     }
-
-    if (!response.ok) {
-      setServerError("Something went wrong. Please try again.");
-      return;
-    }
-
-    const data = await response.json();
-    onClose();
-    router.visit(data.redirect ?? "/"); // real, intentional navigation on success
-  } catch {
-    setServerError("Network error. Please try again.");
-  } finally {
-    setProcessing(false);
-  }
-};
+  };
 
   if (!isOpen) return null;
 
@@ -110,463 +117,268 @@ const submit: FormEventHandler = async (e) => {
       onClose();
     }
   };
+
   const emailError = clientErrors.email;
   const passwordError = clientErrors.password;
 
   return (
-    <div
-      onClick={handleOverlayClick}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        background: "rgba(10, 9, 8, 0.72)",
-        backdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "1rem",
-      }}
-    >
-      <div
-        ref={modalRef}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "relative",
-          background: "var(--color-primary)",
-          border: "1px solid rgba(212, 175, 90, 0.2)",
-          borderRadius: "2px",
-          width: "100%",
-          maxWidth: "420px",
-          padding: "3rem 2.5rem",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
-        }}
-      >
-        {/* Close */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          style={{
-            position: "absolute",
-            top: "1.25rem",
-            right: "1.25rem",
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.35)",
-            fontSize: "1.25rem",
-            lineHeight: 1,
-            cursor: "pointer",
-            padding: "0.25rem",
-            transition: "color 0.2s",
-          }}
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.color =
-              "rgba(212,175,90,0.9)")
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.color =
-              "rgba(255,255,255,0.35)")
-          }
-        >
-          ✕
-        </button>
+    <>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "2.25rem" }}>
-          <p
-            style={{
-              fontFamily: "Cormorant Garamond, Georgia, serif",
-              fontSize: "0.65rem",
-              letterSpacing: "0.25em",
-              textTransform: "uppercase",
-              color: "var(--color-accent)",
-              marginBottom: "0.6rem",
-            }}
-          >
-            Welcome back
-          </p>
-          <h2
-            style={{
-              fontFamily: "Cormorant Garamond, Georgia, serif",
-              fontSize: "2rem",
-              fontWeight: 300,
-              color: "rgba(255,255,255,0.92)",
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            Sign In
-          </h2>
-          <div
-            style={{
-              width: "2rem",
-              height: "1px",
-              background:"var(--color-accent)",
-              margin: "0.85rem auto 0",
-            }}
-          />
-        </div>
-
-        {status && (
-          <div
-            style={{
-              marginBottom: "1.25rem",
-              padding: "0.65rem 1rem",
-              background: "rgba(74,163,105,0.12)",
-              border: "1px solid rgba(74,163,105,0.3)",
-              borderRadius: "2px",
-              color: "rgba(120,210,140,0.9)",
-              fontSize: "0.8rem",
-              letterSpacing: "0.02em",
-            }}
-          >
-            {status}
-          </div>
-        )}
-
-        <form
-          onSubmit={submit}
-          noValidate
-          style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
-        >
-          {/* Email */}
-          <Field label="Email Address" error={emailError}>
-            <input
-              autoComplete="username"
-              type="text"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (clientErrors.email)
-                  setClientErrors((p) => ({ ...p, email: undefined }));
-              }}
-              placeholder="your@email.com"
-              style={inputStyle(!!emailError)}
-            />
-          </Field>
-
-       {/* Password */}
-<Field label="Password" error={passwordError}>
-  <div style={{ position: "relative" }}>
-    <input
-      autoComplete="current-password"
-      type={showPassword ? "text" : "password"}
-      value={password}
-      onChange={(e) => {
-        setPassword(e.target.value);
-
-        if (clientErrors.password) {
-          setClientErrors((p) => ({
-            ...p,
-            password: undefined,
-          }));
-          setServerError(null);
+      <style>{`
+        .bo-auth-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 99999;
+          background: rgba(11, 11, 16, 0.78);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
         }
-      }}
-      placeholder="••••••••"
-      style={{
-        ...inputStyle(!!passwordError),
-        paddingRight: "44px",
-      }}
-    />
+        .bo-auth-modal {
+          position: relative;
+          width: 100%;
+          max-width: 420px;
+          max-height: calc(100vh - 2rem);
+          overflow-y: auto;
+          background: ${C.surface};
+          border: 1px solid ${C.border};
+          border-radius: 16px;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+          font-family: 'Manrope', sans-serif;
+        }
+        .bo-auth-close {
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          background: none;
+          border: none;
+          color: ${C.textFaint};
+          font-size: 1.15rem;
+          line-height: 1;
+          cursor: pointer;
+          padding: 0.35rem;
+          transition: color 0.15s ease;
+          z-index: 2;
+        }
+        .bo-auth-close:hover { color: ${C.amber}; }
+        .bo-auth-top { padding: 30px 30px 22px; text-align: center; }
+        .bo-auth-eyebrow {
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+          letter-spacing: 0.3em; text-transform: uppercase; color: ${C.amber};
+          margin-bottom: 14px;
+        }
+        .bo-auth-eyebrow-dot { display: inline-block; height: 6px; width: 6px; border-radius: 50%; background: ${C.amber}; }
+        .bo-auth-title {
+          font-family: 'Anton', sans-serif; text-transform: uppercase;
+          font-size: 1.6rem; line-height: 1.15; letter-spacing: 0.01em;
+          color: ${C.text}; margin: 0 0 8px;
+        }
+        .bo-auth-sub { font-family: 'Manrope', sans-serif; font-size: 13px; color: ${C.textMuted}; line-height: 1.6; margin: 0; }
+        .bo-auth-perf { position: relative; height: 1px; border-top: 1px dashed ${C.borderDashed}; }
+        .bo-auth-perf::before, .bo-auth-perf::after {
+          content: ''; position: absolute; top: -10px; width: 20px; height: 20px;
+          border-radius: 50%; background: ${C.bg};
+        }
+        .bo-auth-perf::before { left: -10px; }
+        .bo-auth-perf::after { right: -10px; }
+        .bo-auth-bottom { padding: 24px 30px 30px; }
+        .bo-auth-status {
+          margin-bottom: 18px; padding: 12px 14px;
+          border: 1px solid rgba(124,224,168,0.25); background: rgba(124,224,168,0.08);
+          border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 1.5; color: ${C.success};
+        }
+        .bo-auth-form { display: flex; flex-direction: column; gap: 18px; }
+        .bo-auth-field { margin-bottom: 0; display: flex; flex-direction: column; gap: 7px; }
+        .bo-auth-field label {
+          font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 500;
+          letter-spacing: 0.12em; text-transform: uppercase; color: ${C.textMuted};
+        }
+        .bo-auth-input-wrap { position: relative; }
+        .bo-auth-field input {
+          width: 100%; background: ${C.bg}; border: 1px solid ${C.border}; border-radius: 8px;
+          padding: 0.8rem 1rem; font-family: 'Manrope', sans-serif; font-size: 14.5px;
+          color: ${C.text}; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          box-sizing: border-box;
+        }
+        .bo-auth-field input.has-error { border-color: rgba(255,107,107,0.5); }
+        .bo-auth-field input::placeholder { color: ${C.textFainter}; }
+        .bo-auth-field input:focus { border-color: ${C.amberHover}; box-shadow: 0 0 0 3px rgba(255,182,39,0.15); }
+        .bo-auth-eye {
+          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          border: none; background: transparent; padding: 4px; cursor: pointer;
+          color: ${C.textFaint}; display: flex; align-items: center; justify-content: center;
+        }
+        .bo-auth-eye:hover { color: ${C.amber}; }
+        .bo-auth-error {
+          font-size: 11.5px; color: ${C.error}; margin-top: 2px; font-family: 'IBM Plex Mono', monospace;
+        }
+        .bo-auth-row { display: flex; align-items: center; justify-content: space-between; }
+        .bo-auth-remember {
+          display: flex; align-items: center; gap: 8px; cursor: pointer;
+          color: ${C.textMuted}; font-size: 12px; letter-spacing: 0.02em;
+        }
+        .bo-auth-remember input { accent-color: ${C.amber}; }
+        .bo-auth-link-btn {
+          border: none; background: none; padding: 0; cursor: pointer;
+          font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.04em; color: ${C.amber};
+        }
+        .bo-auth-link-btn:hover { color: ${C.amberHover}; }
+        .bo-auth-server-error {
+          padding: 0.65rem 1rem; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3);
+          border-radius: 8px; color: ${C.error}; font-size: 12.5px; letter-spacing: 0.02em; text-align: center;
+        }
+        .bo-auth-submit {
+          width: 100%; border: none; border-radius: 10px; background: ${C.amber}; color: ${C.bg};
+          padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+          letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: background 0.15s ease;
+        }
+        .bo-auth-submit:hover:not(:disabled) { background: ${C.amberHover}; }
+        .bo-auth-submit:disabled { opacity: 0.6; cursor: default; }
+        .bo-auth-divider { display: flex; align-items: center; gap: 10px; }
+        .bo-auth-divider-line { flex: 1; height: 1px; background: ${C.border}; }
+        .bo-auth-divider-text { color: ${C.textFaint}; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+        .bo-auth-switch { text-align: center; font-size: 12.5px; color: ${C.textMuted}; margin: 0; }
+        .bo-auth-switch button {
+          background: none; border: none; padding: 0; color: ${C.amber}; font-size: 12.5px;
+          cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-family: 'Manrope', sans-serif;
+        }
+        .bo-auth-switch button:hover { color: ${C.amberHover}; }
+      `}</style>
 
-    <button
-      type="button"
-      onClick={() => setShowPassword((prev) => !prev)}
-      aria-label={showPassword ? "Hide password" : "Show password"}
-      style={{
-        position: "absolute",
-        right: "12px",
-        top: "50%",
-        transform: "translateY(-50%)",
-        border: "none",
-        background: "transparent",
-        padding: "4px",
-        cursor: "pointer",
-        color: "var(--color-surface)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {showPassword ? (
-        // Eye off
-        <svg
-          width="19"
-          height="19"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 3l18 18" />
-          <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-          <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9.3 4 10 8-.3 1.7-1.1 3.2-2.2 4.4" />
-          <path d="M6.6 6.6C4.5 7.9 3.1 9.9 2 12c.7 4 4.5 8 10 8 1.4 0 2.7-.3 3.9-.8" />
-        </svg>
-      ) : (
-        // Eye
-        <svg
-          width="19"
-          height="19"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-      )}
-    </button>
-  </div>
-</Field>
+      <div className="bo-auth-overlay" onClick={handleOverlayClick}>
+        <div className="bo-auth-modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
+          <button className="bo-auth-close" onClick={onClose} aria-label="Close">✕</button>
 
-          {/* Remember + Forgot */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: "-0.5rem",
-            }}
-          >
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                cursor: "pointer",
-                color: "rgba(255,255,255,0.45)",
-                fontSize: "0.75rem",
-                letterSpacing: "0.04em",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                style={{ accentColor: "rgb(212,175,90)" }}
-              />
-              Remember me
-            </label>
-
-         {canResetPassword && (
-    <button
-        type="button"
-        onClick={() => {
-            onClose();
-            router.visit(route("password.request"));
-        }}
-        style={{
-            border: "none",
-            background: "none",
-            padding: 0,
-            cursor: "pointer",
-            fontSize: "0.75rem",
-            letterSpacing: "0.04em",
-            color: "var(--color-accent)",
-        }}
-    >
-        Forgot password?
-    </button>
-)}
-          </div>
-
-          {/* Server error banner */}
-          {serverError && (
-            <div
-              style={{
-                padding: "0.65rem 1rem",
-                background: "rgba(220,60,60,0.1)",
-                border: "1px solid rgba(220,60,60,0.3)",
-                borderRadius: "2px",
-                color: "rgba(255,110,110,0.9)",
-                fontSize: "0.8rem",
-                letterSpacing: "0.02em",
-                textAlign: "center",
-              }}
-            >
-              {serverError}
+          <div className="bo-auth-top">
+            <div className="bo-auth-eyebrow">
+              <span className="bo-auth-eyebrow-dot" />
+              Account Access
             </div>
-          )}
-
-          {/* Submit */}
-         <button
-  type="submit"
-  disabled={processing}
-  style={{
-    width: "100%",
-    padding: "0.85rem",
-    background: processing
-      ? "var(--color-primary-200)"
-      : "var(--color-accent)",
-    border: "none",
-    borderRadius: "2px",
-    color: "var(--color-bg-dark-black)",
-    fontFamily: "var(--font-body)",
-    fontSize: "0.72rem",
-    fontWeight: 600,
-    letterSpacing: "0.18em",
-    textTransform: "uppercase",
-    cursor: processing ? "not-allowed" : "pointer",
-    transition: "background 0.2s",
-  }}
-  onMouseEnter={(e) => {
-    if (!processing) {
-      e.currentTarget.style.background = "var(--color-accent-dark)";
-    }
-  }}
-  onMouseLeave={(e) => {
-    if (!processing) {
-      e.currentTarget.style.background = "var(--color-accent)";
-    }
-  }}
->
-  {processing ? "Signing in…" : "Sign In"}
-</button>
-
-          {/* Divider */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                height: "1px",
-                background: "rgba(255,255,255,0.35)",
-              }}
-            />
-            <span
-              style={{
-                color: "rgba(255,255,255,0.35)",
-                fontSize: "0.7rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              or
-            </span>
-            <div
-              style={{
-                flex: 1,
-                height: "1px",
-                background: "rgba(255,255,255,0.35)",
-              }}
-            />
+            <h2 className="bo-auth-title">Sign In</h2>
+            <p className="bo-auth-sub">Enter your details to access your tickets.</p>
           </div>
 
-          <GoogleLoginButton className="w-full" />
+          <div className="bo-auth-perf" />
 
-          {/* Switch to register */}
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: "0.75rem",
-              letterSpacing: "0.04em",
-              color: "rgba(255,255,255,0.75)",
-              margin: 0,
-            }}
-          >
-            New to RB Hair & Beauty Lounge?{" "}
-            <button
-              type="button"
-              onClick={onSwitchToRegister}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                color: "var(--color-accent)",
-                fontSize: "0.75rem",
-                letterSpacing: "0.04em",
-                cursor: "pointer",
-                textDecoration: "underline",
-                textUnderlineOffset: "3px",
-                transition: "color 0.2s",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.color =
-                  "var(--color-accent-dark)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.color =
-                  "var(--color-accent)")
-              }
-            >
-              Create an account
-            </button>
-          </p>
-        </form>
+          <div className="bo-auth-bottom">
+            {status && <div className="bo-auth-status">{status}</div>}
+
+            <form onSubmit={submit} noValidate className="bo-auth-form">
+              <div className="bo-auth-field">
+                <label htmlFor="login-email">Email Address</label>
+                <input
+                  id="login-email"
+                  autoComplete="username"
+                  type="text"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (clientErrors.email) setClientErrors((p) => ({ ...p, email: undefined }));
+                  }}
+                  placeholder="you@example.com"
+                  className={emailError ? "has-error" : ""}
+                />
+                {emailError && emailError.trim() && <span className="bo-auth-error">{emailError}</span>}
+              </div>
+
+              <div className="bo-auth-field">
+                <label htmlFor="login-password">Password</label>
+                <div className="bo-auth-input-wrap">
+                  <input
+                    id="login-password"
+                    autoComplete="current-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (clientErrors.password) {
+                        setClientErrors((p) => ({ ...p, password: undefined }));
+                        setServerError(null);
+                      }
+                    }}
+                    placeholder="••••••••"
+                    style={{ paddingRight: "44px" }}
+                    className={passwordError ? "has-error" : ""}
+                  />
+                  <button
+                    type="button"
+                    className="bo-auth-eye"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 3l18 18" />
+                        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+                        <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9.3 4 10 8-.3 1.7-1.1 3.2-2.2 4.4" />
+                        <path d="M6.6 6.6C4.5 7.9 3.1 9.9 2 12c.7 4 4.5 8 10 8 1.4 0 2.7-.3 3.9-.8" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {passwordError && passwordError.trim() && <span className="bo-auth-error">{passwordError}</span>}
+              </div>
+
+              <div className="bo-auth-row" style={{ marginTop: "-6px" }}>
+                <label className="bo-auth-remember">
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  Remember me
+                </label>
+
+                {canResetPassword && (
+                  <button
+                    type="button"
+                    className="bo-auth-link-btn"
+                    onClick={() => {
+                      onClose();
+                      router.visit(route("password.request"));
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+
+              {serverError && <div className="bo-auth-server-error">{serverError}</div>}
+
+              <button type="submit" className="bo-auth-submit" disabled={processing}>
+                {processing ? "Signing in…" : "Sign In"}
+              </button>
+
+              <div className="bo-auth-divider">
+                <div className="bo-auth-divider-line" />
+                <span className="bo-auth-divider-text">or</span>
+                <div className="bo-auth-divider-line" />
+              </div>
+
+              <GoogleLoginButton className="w-full" />
+
+              <p className="bo-auth-switch">
+                New here?{" "}
+                <button type="button" onClick={onSwitchToRegister}>
+                  Create an account
+                </button>
+              </p>
+            </form>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-
-function inputStyle(hasError: boolean): React.CSSProperties {
-  return {
-    width: "100%",
-    background: "rgba(255,255,255,0.04)",
-    border: `1px solid ${
-      hasError
-        ? "rgba(255,255,255,0.1)"
-        : "rgba(255,255,255,0.1)"
-    }`,
-    borderRadius: "2px",
-    padding: "0.75rem 1rem",
-    color: "var(--color-surface)",
-    fontFamily: "Jost, sans-serif",
-    fontSize: "0.875rem",
-    letterSpacing: "0.02em",
-    outline: "none",
-    transition: "border-color 0.2s",
-    boxSizing: "border-box",
-  };
-}
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-      <label
-        style={{
-          fontFamily: "Jost, sans-serif",
-          fontSize: "0.68rem",
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color: "var(--color-surface-warm)",
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {error && error.trim() && (
-        <span
-          style={{
-            fontSize: "0.72rem",
-            color: "rgba(255,110,110,0.85)",
-            letterSpacing: "0.02em",
-          }}
-        >
-          {error}
-        </span>
-      )}
-    </div>
+    </>
   );
 }
