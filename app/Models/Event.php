@@ -14,6 +14,14 @@ class Event extends Model
 {
     use HasFactory, SoftDeletes;
 
+protected $appends = ['image_url'];
+
+public function getImageUrlAttribute(): ?string
+{
+    return $this->media->first()?->url;
+}
+
+    
     protected $fillable = [
         'vendor_user_id',
         'name',
