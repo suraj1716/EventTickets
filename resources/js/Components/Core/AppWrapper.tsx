@@ -26,7 +26,6 @@ const AppWrapper: React.FC<AppWrapperProps> = ({ App, props }) => {
     const [errorStatus, setErrorStatus] = useState<number>(500);
 
     useEffect(() => {
-        let lastUrl = window.location.pathname; // track current page before any navigation
         let timer: NodeJS.Timeout;
 
         const removeStart = router.on("start", (event: any) => {
@@ -53,24 +52,6 @@ const AppWrapper: React.FC<AppWrapperProps> = ({ App, props }) => {
             setLoading(false);
         });
 
-        const removeSuccess = router.on("success", (event: any) => {
-            const page = event.detail.page;
-            const isLoginPage = page.component === "Auth/LoginPage";
-            const cameFromRedirect = !page.props?.auth?.user;
-            if (isLoginPage && cameFromRedirect) {
-                const returnTo = lastUrl; // the page user was actually on before this redirect
-                router.visit(returnTo, {
-                    preserveScroll: true,
-                    preserveState: true,
-                    onSuccess: () => {
-                        setTimeout(() => openLogin(), 50);
-                    },
-                });
-                return; // don't update lastUrl to the login page itself
-            }
-            lastUrl = page.url; // remember this page for next time
-        });
-
         const onUnhandledRejection = (event: PromiseRejectionEvent) => {
             console.error("Unhandled rejection:", event.reason);
             // TEMP DEBUG: disabled so an unrelated JS promise rejection
@@ -86,10 +67,9 @@ const AppWrapper: React.FC<AppWrapperProps> = ({ App, props }) => {
             removeFinish();
             removeError();
             removeInvalid();
-            removeSuccess();
             window.removeEventListener("unhandledrejection", onUnhandledRejection);
         };
-    }, [openLogin]);
+    }, []);
 
     return (
         <>
