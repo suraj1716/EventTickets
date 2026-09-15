@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Head, router } from "@inertiajs/react";
 import type { FormEventHandler } from "react";
 import GoogleLoginButton from "@/Components/Core/GoogleLoginButton";
@@ -121,7 +122,7 @@ export default function LoginModal({
   const emailError = clientErrors.email;
   const passwordError = clientErrors.password;
 
-  return (
+  return createPortal(
     <>
       <Head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -379,6 +380,7 @@ export default function LoginModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
