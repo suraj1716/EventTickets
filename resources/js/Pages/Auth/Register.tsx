@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Head, useForm } from "@inertiajs/react";
 import type { FormEventHandler } from "react";
 import GoogleLoginButton from "@/Components/Core/GoogleLoginButton";
@@ -103,7 +104,7 @@ export default function RegisterModal({
   const passwordError = clientErrors.password || errors.password;
   const confirmError = clientErrors.password_confirmation || errors.password_confirmation;
 
-  return (
+  return createPortal(
     <>
       <Head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -151,6 +152,11 @@ export default function RegisterModal({
         .bo-auth-perf::before { left: -10px; }
         .bo-auth-perf::after { right: -10px; }
         .bo-auth-bottom { padding: 24px 30px 30px; }
+        .bo-auth-status {
+          margin-bottom: 18px; padding: 12px 14px;
+          border: 1px solid rgba(124,224,168,0.25); background: rgba(124,224,168,0.08);
+          border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 1.5; color: #7CE0A8;
+        }
         .bo-auth-form { display: flex; flex-direction: column; gap: 16px; }
         .bo-auth-field { margin-bottom: 0; display: flex; flex-direction: column; gap: 7px; }
         .bo-auth-field label {
@@ -353,6 +359,7 @@ export default function RegisterModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
