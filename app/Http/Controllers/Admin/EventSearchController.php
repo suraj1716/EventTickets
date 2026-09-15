@@ -231,7 +231,7 @@ class EventSearchController extends Controller
                         'legs:id,event_id,city,event_date,sequence',
                         'artists:id,name,slug',
                         'categories:id,name,slug',
-                        'media:id,event_id,type,path,thumb_path,position',
+                        'media:id,event_id,type,path,thumb_path,position',   // already here below
                     ])
                     ->withCount('watchlist')
 
@@ -298,14 +298,14 @@ class EventSearchController extends Controller
     // Single event page — this is what resources/js/Pages/Events/Show.tsx
     // (already built) renders against. status is 'published' or 'proposed'
     // (watchlist-only) — Show.tsx already branches on that.
-public function show(Event $event)
-{
-    abort_unless(
-        in_array($event->status, ['published', 'proposed']),
-        404
-    );
+    public function show(Event $event)
+    {
+        abort_unless(
+            in_array($event->status, ['published', 'proposed']),
+            404
+        );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Lightweight event shell
     |--------------------------------------------------------------------------
@@ -313,17 +313,17 @@ public function show(Event $event)
     | Keep only what the hero needs immediately.
     |
     */
-    $event->load([
-        'categories:id,name,slug',
-        'artists:id,name,slug',
-        'media:id,event_id,type,path,thumb_path,position',
-        'vendor:user_id,store_name',
-    ])->loadCount('watchlist');
+        $event->load([
+            'categories:id,name,slug',
+            'artists:id,name,slug',
+            'media:id,event_id,type,path,thumb_path,position',
+            'vendor:user_id,store_name',
+        ])->loadCount('watchlist');
 
-    return Inertia::render('Events/Show', [
-        'event' => $event,
+        return Inertia::render('Events/Show', [
+            'event' => $event,
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | Heavy event data
         |--------------------------------------------------------------------------
@@ -331,72 +331,72 @@ public function show(Event $event)
         | Loaded by Inertia after the initial page shell.
         |
         */
-        'eventDetails' => Inertia::defer(function () use ($event) {
-            $event->load([
-                'legs:id,event_id,venue_name,address,city,event_date,sequence',
-                'legs.ticketTiers:id,event_leg_id,name,price,remaining,starts_at,ends_at',
-                'legs.seats:id,event_leg_id,venue_seat_id,ticket_tier_id,label,row_label,seat_number,sort_order,status',
-                'legs.seats.venueSeat:id,aisle_after',
-                'products.media',
-                'products.variationTypes.options',
-                'products.variations',
-            ]);
+            'eventDetails' => Inertia::defer(function () use ($event) {
+                $event->load([
+                    'legs:id,event_id,venue_name,address,city,event_date,sequence',
+                    'legs.ticketTiers:id,event_leg_id,name,price,remaining,starts_at,ends_at',
+                    'legs.seats:id,event_leg_id,venue_seat_id,ticket_tier_id,label,row_label,seat_number,sort_order,status',
+                    'legs.seats.venueSeat:id,aisle_after',
+                    'products.media',
+                    'products.variationTypes.options',
+                    'products.variations',
+                ]);
 
-            $products = $event->products
-                ->where('status', 'published')
-                ->map(fn ($product) => [
-                    'id' => $product->id,
-                    'event_id' => $product->event_id,
-                    'title' => $product->title,
-                    'slug' => $product->slug,
-                    'description' => $product->description,
-                    'price' => $product->price,
-                    'status' => $product->status,
-                    'highlight' => $product->highlight,
-                    'quantity' => $product->quantity,
+                $products = $event->products
+                    ->where('status', 'published')
+                    ->map(fn($product) => [
+                        'id' => $product->id,
+                        'event_id' => $product->event_id,
+                        'title' => $product->title,
+                        'slug' => $product->slug,
+                        'description' => $product->description,
+                        'price' => $product->price,
+                        'status' => $product->status,
+                        'highlight' => $product->highlight,
+                        'quantity' => $product->quantity,
 
-                    'image_url' => $product->getFirstMediaUrl('images') ?: null,
+                        'image_url' => $product->getFirstMediaUrl('images') ?: null,
 
-                    'variation_types' => $product->variationTypes->map(
-                        fn ($type) => [
-                            'id' => $type->id,
-                            'name' => $type->name,
-                            'options' => $type->options->map(
-                                fn ($option) => [
-                                    'id' => $option->id,
-                                    'name' => $option->name,
-                                ]
-                            ),
-                        ]
-                    ),
-                ])
-                ->values();
+                        'variation_types' => $product->variationTypes->map(
+                            fn($type) => [
+                                'id' => $type->id,
+                                'name' => $type->name,
+                                'options' => $type->options->map(
+                                    fn($option) => [
+                                        'id' => $option->id,
+                                        'name' => $option->name,
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ])
+                    ->values();
 
-            $relatedEvents = Event::query()
-                ->where('id', '!=', $event->id)
-                ->where('status', 'published')
-                ->select([
-                    'id',
-                    'name',
-                    'slug',
-                    'type',
-                ])
-                ->with([
-                    'legs:id,event_id,venue_name,city,event_date,sequence',
-                    'media:id,event_id,type,path,thumb_path,position',
-                ])
-                ->latest()
-                ->take(6)
-                ->get();
+                $relatedEvents = Event::query()
+                    ->where('id', '!=', $event->id)
+                    ->where('status', 'published')
+                    ->select([
+                        'id',
+                        'name',
+                        'slug',
+                        'type',
+                    ])
+                    ->with([
+                        'legs:id,event_id,venue_name,city,event_date,sequence',
+                        'media:id,event_id,type,path,thumb_path,position',
+                    ])
+                    ->latest()
+                    ->take(6)
+                    ->get();
 
-            return [
-                'legs' => $event->legs,
-                'products' => $products,
-                'relatedEvents' => $relatedEvents,
-            ];
-        }),
-    ]);
-}
+                return [
+                    'legs' => $event->legs,
+                    'products' => $products,
+                    'relatedEvents' => $relatedEvents,
+                ];
+            }),
+        ]);
+    }
 
     protected function applyLocationFilter($query, Request $request): void
     {

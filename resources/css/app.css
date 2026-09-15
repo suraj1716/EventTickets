@@ -199,12 +199,18 @@ input:-webkit-autofill:active {
 }
 
 html {
+      overflow-x: hidden;
+  max-width: 100%;
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* old Edge / IE */
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
+html::-webkit-scrollbar { display: none; }
 body {
+     overflow-x: hidden;
+  max-width: 100%;
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--color-text);

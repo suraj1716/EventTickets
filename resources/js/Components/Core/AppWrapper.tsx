@@ -7,12 +7,15 @@ import LoginModal from "@/Pages/Auth/Login";
 import RegisterModal from "@/Pages/Auth/Register";
 
 const Loader = () =>
-    createPortal(
-        <div className="fixed inset-0 z-[9999] bg-white bg-opacity-60 flex items-center justify-center pointer-events-none">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        </div>,
-        document.body
-    );
+  createPortal(
+    <div
+      className="fixed top-0 left-0 right-0 z-[9999] flex justify-center pointer-events-none
+                 transition-opacity duration-200 opacity-100"
+    >
+      <div className="mt-2 w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>,
+    document.body
+  );
 
 interface AppWrapperProps {
     App: React.ComponentType<any>;
@@ -29,7 +32,7 @@ const AppWrapper: React.FC<AppWrapperProps> = ({ App, props }) => {
         let timer: NodeJS.Timeout;
 
         const removeStart = router.on("start", (event: any) => {
-            timer = setTimeout(() => setLoading(true), 300);
+            timer = setTimeout(() => setLoading(true), 150);
         });
 
         const removeFinish = router.on("finish", () => {
