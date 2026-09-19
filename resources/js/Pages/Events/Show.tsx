@@ -14,7 +14,8 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-
+import EventSponsors from "@/Components/Events/EventSponsors";
+import EventPolicy from "@/Components/Events/EventPolicy";
 /*
 |--------------------------------------------------------------------------
 | Local Product type
@@ -498,13 +499,14 @@ export default function EventShow({ event, eventDetails }: Props) {
         throw new Error(
           res.status === 419
             ? "Your session expired — please try again."
-            : (errBody?.message ?? "Couldn't start checkout. Please try again."),
+            : (errBody?.message ??
+                "Couldn't start checkout. Please try again."),
         );
       }
 
       const data = await res.json();
 
-         if (data.orderComplete) {
+      if (data.orderComplete) {
         // fully covered without Stripe (credit, free ticket, etc.)
         try {
           sessionStorage.removeItem(CART_STORAGE_KEY);
@@ -522,7 +524,7 @@ export default function EventShow({ event, eventDetails }: Props) {
       setClientSecret(data.clientSecret);
       setCheckoutStage("payment");
     } catch (err) {
-           setPaymentError(
+      setPaymentError(
         err instanceof Error
           ? err.message
           : "Something went wrong. Please try again.",
@@ -620,9 +622,7 @@ export default function EventShow({ event, eventDetails }: Props) {
       productSelection,
     ]);
   useEffect(() => {
-    setShowSummary(
-      detailsLoaded && (ticketCount > 0 || merchCount > 0),
-    );
+    setShowSummary(detailsLoaded && (ticketCount > 0 || merchCount > 0));
   }, [detailsLoaded, ticketCount, merchCount]);
   /*
   |--------------------------------------------------------------------------
@@ -751,23 +751,23 @@ export default function EventShow({ event, eventDetails }: Props) {
             </div>
           )}
 
-      <div className="absolute inset-0 z-0 bg-gradient-to-t from-[#0B0B10] via-[#0B0B10]/50 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 z-0 bg-gradient-to-t from-[#0B0B10] via-[#0B0B10]/50 to-transparent pointer-events-none" />
 
-<Link
-  href={route("events.index")}
-  className="absolute top-5 left-4 sm:left-6 lg:left-8 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 backdrop-blur px-3 py-1.5 text-xs text-white/80 hover:text-white hover:border-white/30 transition-colors"
->
-  <svg
-    className="w-3.5 h-3.5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="m15 18-6-6 6-6" />
-  </svg>
-  Back to events
-</Link>
+          <Link
+            href={route("events.index")}
+            className="absolute top-5 left-4 sm:left-6 lg:left-8 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 backdrop-blur px-3 py-1.5 text-xs text-white/80 hover:text-white hover:border-white/30 transition-colors"
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Back to events
+          </Link>
 
           <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-8">
             <motion.p
@@ -927,594 +927,608 @@ export default function EventShow({ event, eventDetails }: Props) {
             BODY
         ========================================================= */}
 
-        <Deferred
-          data="eventDetails"
-          fallback={<EventShowContentSkeleton />}
-        >
+        <Deferred data="eventDetails" fallback={<EventShowContentSkeleton />}>
           <>
             {eventDetails ? (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
-            {/* =====================================================
+                  {/* =====================================================
                 MAIN CONTENT
             ===================================================== */}
 
-            <div className="space-y-10 min-w-0">
-              {/* ===================================================
-                  ABOUT
-              =================================================== */}
+                  <div className="space-y-10 min-w-0">
+                    {/* ======= SPONSORS =================================== */}
 
-              <motion.section
-                initial={{
-                  opacity: 0,
-                  y: 12,
-                }}
-                whileInView={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                viewport={{
-                  once: true,
-                  margin: "-60px",
-                }}
-                transition={{
-                  duration: 0.5,
-                  ease: EASE,
-                }}
-              >
-                <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
-                  About this event
-                </h2>
+                    <EventSponsors sponsors={event.sponsors ?? []} />
+                    {/* ======== ABOUT ======================================== */}
 
-                <p className="text-[15px] leading-relaxed text-[#D8D5DE] whitespace-pre-line">
-                  {event.description ??
-                    "No description yet — check back soon for details on what to expect at this event."}
-                </p>
+                    <motion.section
+                      initial={{
+                        opacity: 0,
+                        y: 12,
+                      }}
+                      whileInView={{
+                        opacity: 1,
+                        y: 0,
+                      }}
+                      viewport={{
+                        once: true,
+                        margin: "-60px",
+                      }}
+                      transition={{
+                        duration: 0.5,
+                        ease: EASE,
+                      }}
+                    >
+                      <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
+                        About this event
+                      </h2>
 
-                {categoryNames.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-4">
-                    {categoryNames.map((name) => (
-                      <span
-                        key={name}
-                        className="rounded-full bg-[#15141B] border border-[#26232E] px-2.5 py-1 text-[11px] text-[#9C97A8]"
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </motion.section>
+                      <p className="text-[15px] leading-relaxed text-[#D8D5DE] whitespace-pre-line">
+                        {event.description ??
+                          "No description yet — check back soon for details on what to expect at this event."}
+                      </p>
 
-              {/* ===================================================
-                  LINEUP
-              =================================================== */}
-
-              {event.artists && event.artists.length > 0 && (
-                <motion.section
-                  initial={{
-                    opacity: 0,
-                    y: 12,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                    margin: "-60px",
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    ease: EASE,
-                  }}
-                >
-                  <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
-                    Lineup
-                  </h2>
-
-                  <div className="flex flex-wrap gap-2">
-                    {event.artists.map((artist) => (
-                      <span
-                        key={artist.id}
-                        className="rounded-full border border-[#26232E] bg-[#15141B] px-3.5 py-2 text-sm text-white"
-                      >
-                        {artist.name}
-                      </span>
-                    ))}
-                  </div>
-                </motion.section>
-              )}
-
-              {/* ===================================================
-                  TOUR DATES
-              =================================================== */}
-
-              {isTour && (
-                <motion.section
-                  initial={{
-                    opacity: 0,
-                    y: 12,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                    margin: "-60px",
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    ease: EASE,
-                  }}
-                >
-                  <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
-                    Tour dates
-                  </h2>
-
-                  <div className="space-y-2">
-                    {legs.map((leg) => {
-                      const active = leg.id === activeLegId;
-
-                      return (
-                        <button
-                          key={leg.id}
-                          onClick={() => selectLeg(leg.id)}
-                          className={`w-full flex items-center justify-between gap-4 rounded-xl border px-4 py-3.5 text-left transition-colors ${
-                            active
-                              ? "border-[#FFB627]/50 bg-[#FFB627]/[0.06]"
-                              : "border-[#26232E] bg-[#15141B] hover:border-[#3a3745]"
-                          }`}
-                        >
-                          <div>
-                            <p
-                              className={`text-sm font-semibold ${
-                                active ? "text-[#FFB627]" : "text-white"
-                              }`}
+                      {categoryNames.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-4">
+                          {categoryNames.map((name) => (
+                            <span
+                              key={name}
+                              className="rounded-full bg-[#15141B] border border-[#26232E] px-2.5 py-1 text-[11px] text-[#9C97A8]"
                             >
-                              {leg.venue_name}
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </motion.section>
 
-                              {leg.city ? `, ${leg.city}` : ""}
-                            </p>
+                    {/* ========= LINEUP ============================= */}
 
-                            <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775] mt-0.5">
-                              {new Date(leg.event_date).toLocaleDateString(
-                                undefined,
-                                {
-                                  weekday: "short",
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )}
-                            </p>
-                          </div>
+                    {event.artists && event.artists.length > 0 && (
+                      <motion.section
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                          margin: "-60px",
+                        }}
+                        transition={{
+                          duration: 0.5,
+                          ease: EASE,
+                        }}
+                      >
+                        <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
+                          Lineup
+                        </h2>
 
-                          <span
-                            className={`shrink-0 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide ${
-                              active ? "text-[#FFB627]" : "text-[#6B6775]"
-                            }`}
-                          >
-                            {active ? "Selected" : "Select"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.section>
-              )}
+                        <div className="flex flex-wrap gap-2">
+                          {event.artists.map((artist) => (
+                            <span
+                              key={artist.id}
+                              className="rounded-full border border-[#26232E] bg-[#15141B] px-3.5 py-2 text-sm text-white"
+                            >
+                              {artist.name}
+                            </span>
+                          ))}
+                        </div>
+                      </motion.section>
+                    )}
 
-              {/* ===================================================
+                    {/* ==== TOUR DATES ================================ */}
+
+                    {isTour && (
+                      <motion.section
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                          margin: "-60px",
+                        }}
+                        transition={{
+                          duration: 0.5,
+                          ease: EASE,
+                        }}
+                      >
+                        <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
+                          Tour dates
+                        </h2>
+
+                        <div className="space-y-2">
+                          {legs.map((leg) => {
+                            const active = leg.id === activeLegId;
+
+                            return (
+                              <button
+                                key={leg.id}
+                                onClick={() => selectLeg(leg.id)}
+                                className={`w-full flex items-center justify-between gap-4 rounded-xl border px-4 py-3.5 text-left transition-colors ${
+                                  active
+                                    ? "border-[#FFB627]/50 bg-[#FFB627]/[0.06]"
+                                    : "border-[#26232E] bg-[#15141B] hover:border-[#3a3745]"
+                                }`}
+                              >
+                                <div>
+                                  <p
+                                    className={`text-sm font-semibold ${
+                                      active ? "text-[#FFB627]" : "text-white"
+                                    }`}
+                                  >
+                                    {leg.venue_name}
+
+                                    {leg.city ? `, ${leg.city}` : ""}
+                                  </p>
+
+                                  <p className="font-['IBM_Plex_Mono'] text-xs text-[#6B6775] mt-0.5">
+                                    {new Date(
+                                      leg.event_date,
+                                    ).toLocaleDateString(undefined, {
+                                      weekday: "short",
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </p>
+                                </div>
+
+                                <span
+                                  className={`shrink-0 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide ${
+                                    active ? "text-[#FFB627]" : "text-[#6B6775]"
+                                  }`}
+                                >
+                                  {active ? "Selected" : "Select"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.section>
+                    )}
+
+                    {/* ===================================================
                   VENUE
               =================================================== */}
 
-              {activeLeg && (
-                <motion.section
-                  initial={{
-                    opacity: 0,
-                    y: 12,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                    margin: "-60px",
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    ease: EASE,
-                  }}
-                >
-                  <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
-                    Venue
-                  </h2>
-
-                  <div className="flex items-start gap-3 rounded-xl border border-[#26232E] bg-[#15141B] p-4">
-                    <div className="mt-0.5 h-9 w-9 shrink-0 rounded-full bg-[#0B0B10] border border-[#26232E] flex items-center justify-center">
-                      <svg
-                        className="w-4 h-4 text-[#FFB627]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
+                    {activeLeg && (
+                      <motion.section
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                          margin: "-60px",
+                        }}
+                        transition={{
+                          duration: 0.5,
+                          ease: EASE,
+                        }}
                       >
-                        <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" />
-                        <circle cx="12" cy="10" r="2.5" />
-                      </svg>
-                    </div>
+                        <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775] mb-3">
+                          Venue
+                        </h2>
 
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {activeLeg.venue_name}
-                      </p>
+                        <div className="flex items-start gap-3 rounded-xl border border-[#26232E] bg-[#15141B] p-4">
+                          <div className="mt-0.5 h-9 w-9 shrink-0 rounded-full bg-[#0B0B10] border border-[#26232E] flex items-center justify-center">
+                            <svg
+                              className="w-4 h-4 text-[#FFB627]"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                            >
+                              <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" />
+                              <circle cx="12" cy="10" r="2.5" />
+                            </svg>
+                          </div>
 
-                      <p className="text-sm text-[#9C97A8] mt-0.5">
-                        {activeLeg.venue_address ??
-                          activeLeg.address ??
-                          activeLeg.city ??
-                          "Address to be announced"}
-                      </p>
-                    </div>
-                  </div>
-                </motion.section>
-              )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-white">
+                              {activeLeg.venue_name}
+                            </p>
 
-              {/* ===================================================
+                            <p className="text-sm text-[#9C97A8] mt-0.5">
+                              {activeLeg.venue_address ??
+                                activeLeg.address ??
+                                activeLeg.city ??
+                                "Address to be announced"}
+                            </p>
+
+                            {activeLeg.venue?.notes && (
+                              <p className="text-xs text-[#6B6775] mt-2 whitespace-pre-line leading-relaxed break-words">
+                                {activeLeg.venue.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </motion.section>
+                    )}
+
+                    {/* ===================================================
                   MERCHANDISE
               =================================================== */}
 
-              {!isProposedOnly && products.length > 0 && (
-                <motion.section
-                  initial={{
-                    opacity: 0,
-                    y: 12,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                    margin: "-60px",
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    ease: EASE,
-                  }}
-                >
-                  <div className="flex items-end justify-between mb-3">
-                    <div>
-                      <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775]">
-                        Merchandise
-                      </h2>
+                    {!isProposedOnly && products.length > 0 && (
+                      <motion.section
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                          margin: "-60px",
+                        }}
+                        transition={{
+                          duration: 0.5,
+                          ease: EASE,
+                        }}
+                      >
+                        <div className="flex items-end justify-between mb-3">
+                          <div>
+                            <h2 className="font-['IBM_Plex_Mono'] text-xs uppercase tracking-[0.2em] text-[#6B6775]">
+                              Merchandise
+                            </h2>
 
-                      <p className="text-sm text-[#9C97A8] mt-1">
-                        Add official event merch to your order.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {products.map((product) => {
-                      const qty = productSelection[product.id] ?? 0;
-
-                      const soldOut =
-                        product.quantity !== null && product.quantity <= 0;
-
-                      const maxReached =
-                        product.quantity !== null && qty >= product.quantity;
-
-                      return (
-                        <motion.div
-                          key={product.id}
-                          whileHover={{
-                            y: -2,
-                          }}
-                          className="rounded-xl border border-[#26232E] bg-[#15141B] overflow-hidden"
-                        >
-                          {/* Product image */}
-
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.title}
-                              className="h-40 w-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-40 w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
-                              <span className="font-['Anton'] uppercase text-3xl text-white/5">
-                                Merch
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h3 className="text-sm font-semibold text-white">
-                                  {product.title}
-                                </h3>
-
-                                {product.description && (
-                                  <p className="text-xs text-[#6B6775] mt-1 line-clamp-2">
-                                    {product.description}
-                                  </p>
-                                )}
-                              </div>
-
-                              <span className="font-['IBM_Plex_Mono'] text-sm font-semibold text-[#FFB627] shrink-0">
-                                ${parseFloat(product.price).toFixed(2)}
-                              </span>
-                            </div>
-
-                            {/* Quantity */}
-
-                            <div className="flex items-center justify-between mt-4">
-                              <div>
-                                <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide text-[#6B6775]">
-                                  Quantity
-                                </span>
-
-                                {product.quantity !== null &&
-                                  product.quantity > 0 && (
-                                    <p className="text-[10px] text-[#565262] mt-0.5">
-                                      {product.quantity} available
-                                    </p>
-                                  )}
-                              </div>
-
-                              {soldOut ? (
-                                <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide text-[#6B6775]">
-                                  Sold out
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      changeProductQty(product, -1)
-                                    }
-                                    disabled={qty === 0}
-                                    className="w-8 h-8 rounded-lg border border-[#26232E] text-white disabled:opacity-30 hover:border-[#FFB627]/50 transition-colors"
-                                    aria-label={`Decrease ${product.title}`}
-                                  >
-                                    −
-                                  </button>
-
-                                  <span className="w-5 text-center font-['IBM_Plex_Mono'] text-sm text-white">
-                                    {qty}
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => changeProductQty(product, 1)}
-                                    disabled={maxReached}
-                                    className="w-8 h-8 rounded-lg border border-[#26232E] text-white disabled:opacity-30 hover:border-[#FFB627]/50 transition-colors"
-                                    aria-label={`Increase ${product.title}`}
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <p className="text-sm text-[#9C97A8] mt-1">
+                              Add official event merch to your order.
+                            </p>
                           </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </motion.section>
-              )}
-            </div>
+                        </div>
 
-            {/* =====================================================
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {products.map((product) => {
+                            const qty = productSelection[product.id] ?? 0;
+
+                            const soldOut =
+                              product.quantity !== null &&
+                              product.quantity <= 0;
+
+                            const maxReached =
+                              product.quantity !== null &&
+                              qty >= product.quantity;
+
+                            return (
+                              <motion.div
+                                key={product.id}
+                                whileHover={{
+                                  y: -2,
+                                }}
+                                className="rounded-xl border border-[#26232E] bg-[#15141B] overflow-hidden"
+                              >
+                                {/* Product image */}
+
+                                {product.image_url ? (
+                                  <img
+                                    src={product.image_url}
+                                    alt={product.title}
+                                    className="h-40 w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-40 w-full bg-gradient-to-br from-[#1D1B24] via-[#15141B] to-[#0B0B10] flex items-center justify-center">
+                                    <span className="font-['Anton'] uppercase text-3xl text-white/5">
+                                      Merch
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <h3 className="text-sm font-semibold text-white">
+                                        {product.title}
+                                      </h3>
+
+                                      {product.description && (
+                                        <p className="text-xs text-[#6B6775] mt-1 line-clamp-2">
+                                          {product.description}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <span className="font-['IBM_Plex_Mono'] text-sm font-semibold text-[#FFB627] shrink-0">
+                                      ${parseFloat(product.price).toFixed(2)}
+                                    </span>
+                                  </div>
+
+                                  {/* Quantity */}
+
+                                  <div className="flex items-center justify-between mt-4">
+                                    <div>
+                                      <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide text-[#6B6775]">
+                                        Quantity
+                                      </span>
+
+                                      {product.quantity !== null &&
+                                        product.quantity > 0 && (
+                                          <p className="text-[10px] text-[#565262] mt-0.5">
+                                            {product.quantity} available
+                                          </p>
+                                        )}
+                                    </div>
+
+                                    {soldOut ? (
+                                      <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wide text-[#6B6775]">
+                                        Sold out
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            changeProductQty(product, -1)
+                                          }
+                                          disabled={qty === 0}
+                                          className="w-8 h-8 rounded-lg border border-[#26232E] text-white disabled:opacity-30 hover:border-[#FFB627]/50 transition-colors"
+                                          aria-label={`Decrease ${product.title}`}
+                                        >
+                                          −
+                                        </button>
+
+                                        <span className="w-5 text-center font-['IBM_Plex_Mono'] text-sm text-white">
+                                          {qty}
+                                        </span>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            changeProductQty(product, 1)
+                                          }
+                                          disabled={maxReached}
+                                          className="w-8 h-8 rounded-lg border border-[#26232E] text-white disabled:opacity-30 hover:border-[#FFB627]/50 transition-colors"
+                                          aria-label={`Increase ${product.title}`}
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </motion.section>
+                    )}
+
+                    {/* ======== POLICY ========================= */}
+
+                    <EventPolicy policy={event.policy} />
+                  </div>
+
+                  {/* =====================================================
                 RIGHT SIDEBAR
             ===================================================== */}
 
-            <div className="lg:sticky lg:top-6">
-              {isProposedOnly ? (
-                <WatchlistPanel
-                  event={event}
-                  email={watchlistEmail}
-                  onEmailChange={setWatchlistEmail}
-                  onJoin={handleJoinWatchlist}
-                  joining={joiningWatchlist}
-                />
-              ) : (
-                <div className="space-y-4">
-                  {/* =================================================
+                  <div className="lg:sticky lg:top-6">
+                    {isProposedOnly ? (
+                      <WatchlistPanel
+                        event={event}
+                        email={watchlistEmail}
+                        onEmailChange={setWatchlistEmail}
+                        onJoin={handleJoinWatchlist}
+                        joining={joiningWatchlist}
+                      />
+                    ) : (
+                      <div className="space-y-4">
+                        {/* =================================================
                       TICKET PANEL
                   ================================================= */}
 
-                  <div className="border border-[#26232E] bg-[#15141B] rounded-2xl p-5">
-                    {isTour && (
-                      <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
-                        {legs.map((leg) => {
-                          const active = leg.id === activeLegId;
-
-                          return (
-                            <button
-                              key={leg.id}
-                              onClick={() => selectLeg(leg.id)}
-                              className={`relative whitespace-nowrap px-3.5 py-1.5 rounded-full font-['IBM_Plex_Mono'] text-xs uppercase tracking-wide transition-colors ${
-                                active
-                                  ? "text-[#0B0B10]"
-                                  : "text-[#9C97A8] border border-[#26232E] hover:border-[#FFB627]/40 hover:text-white"
-                              }`}
-                            >
-                              {active && (
-                                <motion.span
-                                  layoutId="activeLegPill"
-                                  className="absolute inset-0 rounded-full bg-[#FFB627]"
-                                  transition={{
-                                    type: "spring",
-                                    stiffness: 380,
-                                    damping: 30,
-                                  }}
-                                />
-                              )}
-
-                              <span className="relative z-10">
-                                {new Date(leg.event_date).toLocaleDateString(
-                                  undefined,
-                                  {
-                                    day: "numeric",
-                                    month: "short",
-                                  },
-                                )}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <p className="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.2em] text-[#6B6775] mb-3">
-                      {isReserved ? "Ticket prices" : "Select tickets"}
-                    </p>
-
-                    <AnimatePresence mode="wait">
-                      {isReserved ? (
-                        <motion.div
-                          key={`reserved-${activeLeg?.id ?? "none"}`}
-                          variants={listVariants}
-                          initial="hidden"
-                          animate="show"
-                          exit={{
-                            opacity: 0,
-                          }}
-                          className="space-y-4"
-                        >
-                          {/* Price legend */}
-
-                                               <div className="space-y-2">
-                            {(activeLeg?.ticket_tiers ?? []).map((tier, i) => {
-                              const legendStatus = tierStatus(tier);
-                              const legendUnavailable = legendStatus !== "open";
-                              const legendLabel = {
-                                open: null,
-                                upcoming: "Not on sale yet",
-                                closed: "Pricing window closed",
-                                sold_out: "Sold out",
-                              }[legendStatus];
-
-                              return (
-                                <div
-                                  key={tier.id}
-                                  className={`flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2 ${
-                                    legendUnavailable ? "opacity-55" : ""
-                                  }`}
-                                >
-                                  <span className="flex items-center gap-2 text-sm text-white">
-                                    <span
-                                      className="w-2.5 h-2.5 rounded-sm shrink-0"
-                                      style={{
-                                        background:
-                                          SEAT_TIER_COLORS[
-                                            i % SEAT_TIER_COLORS.length
-                                          ],
-                                      }}
-                                    />
-
-                                    {tier.name}
-                                  </span>
-
-                                  <span className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
-                                    {legendUnavailable
-                                      ? legendLabel
-                                      : `$${parseFloat(tier.price).toFixed(2)}`}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Selected seats */}
-
-                          {selectedSeatIds.length === 0 ? (
-                            <p className="text-sm text-[#6B6775]">
-                              Pick your seats from the seating chart below.
-                            </p>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775]">
-                                Your seats
-                              </p>
-
-                              {selectedSeatIds.map((seatId) => {
-                                const seat = seatLookup.get(seatId);
-
-                                if (!seat) {
-                                  return null;
-                                }
-
-                                const tier =
-                                  seat.ticket_tier_id != null
-                                    ? tierLookup.get(seat.ticket_tier_id)
-                                    : undefined;
+                        <div className="border border-[#26232E] bg-[#15141B] rounded-2xl p-5">
+                          {isTour && (
+                            <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
+                              {legs.map((leg) => {
+                                const active = leg.id === activeLegId;
 
                                 return (
-                                  <div
-                                    key={seatId}
-                                    className="flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2"
+                                  <button
+                                    key={leg.id}
+                                    onClick={() => selectLeg(leg.id)}
+                                    className={`relative whitespace-nowrap px-3.5 py-1.5 rounded-full font-['IBM_Plex_Mono'] text-xs uppercase tracking-wide transition-colors ${
+                                      active
+                                        ? "text-[#0B0B10]"
+                                        : "text-[#9C97A8] border border-[#26232E] hover:border-[#FFB627]/40 hover:text-white"
+                                    }`}
                                   >
-                                    <div>
-                                      <p className="text-sm text-white">
-                                        Seat {seat.label}
-                                      </p>
+                                    {active && (
+                                      <motion.span
+                                        layoutId="activeLegPill"
+                                        className="absolute inset-0 rounded-full bg-[#FFB627]"
+                                        transition={{
+                                          type: "spring",
+                                          stiffness: 380,
+                                          damping: 30,
+                                        }}
+                                      />
+                                    )}
 
-                                      <p className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
-                                        {tier?.name} · $
-                                        {tier
-                                          ? parseFloat(tier.price).toFixed(2)
-                                          : "—"}
-                                      </p>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleSeat(seat)}
-                                      className="text-[#6B6775] hover:text-white text-xs"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
+                                    <span className="relative z-10">
+                                      {new Date(
+                                        leg.event_date,
+                                      ).toLocaleDateString(undefined, {
+                                        day: "numeric",
+                                        month: "short",
+                                      })}
+                                    </span>
+                                  </button>
                                 );
                               })}
                             </div>
                           )}
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key={`ga-${activeLeg?.id ?? "none"}`}
-                          variants={listVariants}
-                          initial="hidden"
-                          animate="show"
-                          exit={{
-                            opacity: 0,
-                          }}
-                          className="space-y-2.5"
-                        >
-                          {(activeLeg?.ticket_tiers ?? []).map((tier) => (
-                            <TierRow
-                              key={tier.id}
-                              tier={tier}
-                              status={tierStatus(tier)}
-                              qty={selection[tier.id] ?? 0}
-                              onChange={(delta) => changeQty(tier, delta)}
-                            />
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
 
-                  {/* =================================================
+                          <p className="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.2em] text-[#6B6775] mb-3">
+                            {isReserved ? "Ticket prices" : "Select tickets"}
+                          </p>
+
+                          <AnimatePresence mode="wait">
+                            {isReserved ? (
+                              <motion.div
+                                key={`reserved-${activeLeg?.id ?? "none"}`}
+                                variants={listVariants}
+                                initial="hidden"
+                                animate="show"
+                                exit={{
+                                  opacity: 0,
+                                }}
+                                className="space-y-4"
+                              >
+                                {/* Price legend */}
+
+                                <div className="space-y-2">
+                                  {(activeLeg?.ticket_tiers ?? []).map(
+                                    (tier, i) => {
+                                      const legendStatus = tierStatus(tier);
+                                      const legendUnavailable =
+                                        legendStatus !== "open";
+                                      const legendLabel = {
+                                        open: null,
+                                        upcoming: "Not on sale yet",
+                                        closed: "Pricing window closed",
+                                        sold_out: "Sold out",
+                                      }[legendStatus];
+
+                                      return (
+                                        <div
+                                          key={tier.id}
+                                          className={`flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2 ${
+                                            legendUnavailable
+                                              ? "opacity-55"
+                                              : ""
+                                          }`}
+                                        >
+                                          <span className="flex items-center gap-2 text-sm text-white">
+                                            <span
+                                              className="w-2.5 h-2.5 rounded-sm shrink-0"
+                                              style={{
+                                                background:
+                                                  SEAT_TIER_COLORS[
+                                                    i % SEAT_TIER_COLORS.length
+                                                  ],
+                                              }}
+                                            />
+
+                                            {tier.name}
+                                          </span>
+
+                                          <span className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
+                                            {legendUnavailable
+                                              ? legendLabel
+                                              : `$${parseFloat(tier.price).toFixed(2)}`}
+                                          </span>
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+
+                                {/* Selected seats */}
+
+                                {selectedSeatIds.length === 0 ? (
+                                  <p className="text-sm text-[#6B6775]">
+                                    Pick your seats from the seating chart
+                                    below.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775]">
+                                      Your seats
+                                    </p>
+
+                                    {selectedSeatIds.map((seatId) => {
+                                      const seat = seatLookup.get(seatId);
+
+                                      if (!seat) {
+                                        return null;
+                                      }
+
+                                      const tier =
+                                        seat.ticket_tier_id != null
+                                          ? tierLookup.get(seat.ticket_tier_id)
+                                          : undefined;
+
+                                      return (
+                                        <div
+                                          key={seatId}
+                                          className="flex items-center justify-between rounded-lg border border-[#26232E] bg-[#0B0B10] px-3 py-2"
+                                        >
+                                          <div>
+                                            <p className="text-sm text-white">
+                                              Seat {seat.label}
+                                            </p>
+
+                                            <p className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
+                                              {tier?.name} · $
+                                              {tier
+                                                ? parseFloat(
+                                                    tier.price,
+                                                  ).toFixed(2)
+                                                : "—"}
+                                            </p>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleSeat(seat)}
+                                            className="text-[#6B6775] hover:text-white text-xs"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key={`ga-${activeLeg?.id ?? "none"}`}
+                                variants={listVariants}
+                                initial="hidden"
+                                animate="show"
+                                exit={{
+                                  opacity: 0,
+                                }}
+                                className="space-y-2.5"
+                              >
+                                {(activeLeg?.ticket_tiers ?? []).map((tier) => (
+                                  <TierRow
+                                    key={tier.id}
+                                    tier={tier}
+                                    status={tierStatus(tier)}
+                                    qty={selection[tier.id] ?? 0}
+                                    onChange={(delta) => changeQty(tier, delta)}
+                                  />
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* =================================================
                       ORDER SUMMARY
                   ================================================= */}
 
-                  {/* {(ticketCount > 0 || merchCount > 0) && (
+                        {/* {(ticketCount > 0 || merchCount > 0) && (
                     <OrderSummary
                       event={event}
                       activeLeg={activeLeg}
@@ -1535,107 +1549,74 @@ export default function EventShow({ event, eventDetails }: Props) {
                       onRemoveProductLine={removeProductLine}
                     />
                   )} */}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* =========================================================
+                {/* =========================================================
               SEATING CHART
           ========================================================= */}
 
-          {!isProposedOnly && isReserved && activeLeg && (
-            <motion.section
-              key={`seatmap-${activeLeg.id}`}
-              initial={{
-                opacity: 0,
-                y: 12,
-              }}
-              whileInView={{
-                opacity: 1,
-                y: 0,
-              }}
-              viewport={{
-                once: true,
-                margin: "-60px",
-              }}
-              transition={{
-                duration: 0.5,
-                ease: EASE,
-              }}
-              className="mt-16 pt-10 border-t border-[#26232E]"
-            >
-              <h2 className="text-xl font-bold mb-5">Choose your seats</h2>
+                {!isProposedOnly && isReserved && activeLeg && (
+                  <motion.section
+                    key={`seatmap-${activeLeg.id}`}
+                    initial={{
+                      opacity: 0,
+                      y: 12,
+                    }}
+                    whileInView={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    viewport={{
+                      once: true,
+                      margin: "-60px",
+                    }}
+                    transition={{
+                      duration: 0.5,
+                      ease: EASE,
+                    }}
+                    className="mt-16 pt-10 border-t border-[#26232E]"
+                  >
+                    <h2 className="text-xl font-bold mb-5">
+                      Choose your seats
+                    </h2>
 
-              <SeatChart
-                leg={activeLeg}
-                selectedSeatIds={selectedSeatIds}
-                onToggleSeat={toggleSeat}
-              />
-            </motion.section>
-          )}
+                    <SeatChart
+                      leg={activeLeg}
+                      selectedSeatIds={selectedSeatIds}
+                      onToggleSeat={toggleSeat}
+                    />
+                  </motion.section>
+                )}
 
-          {/* =========================================================
+                {/* =========================================================
     RELATED EVENTS
 ========================================================= */}
 
-          {relatedEvents.length > 0 && (
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, ease: EASE }}
-              className="mt-20"
-            >
-              {/* Header */}
-              <div className="mb-7 flex items-end justify-between gap-4">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
-                    Discover more
-                  </p>
-
-                  <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                    You might also like
-                  </h2>
-                </div>
-
-                <div className="hidden items-center gap-2 sm:flex">
-                  <button
-                    type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-                    aria-label="Previous events"
+                {relatedEvents.length > 0 && (
+                  <motion.section
+                    initial={{ opacity: 0, y: 12 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-60px" }}
+                    transition={{ duration: 0.5, ease: EASE }}
+                    className="mt-20"
                   >
-                    ←
-                  </button>
+                    {/* Header */}
+                    <div className="mb-7">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+                        Discover more
+                      </p>
 
-                  <button
-                    type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-                    aria-label="Next events"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
+                      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                        You might also like
+                      </h2>
+                    </div>
 
-              {/* Slider */}
-              <motion.div
-                variants={railVariants}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
-                style={{
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                }}
-              >
-                {relatedEvents.map((related) => (
-                  <RelatedEventCard key={related.id} event={related} />
-                ))}
-              </motion.div>
-            </motion.section>
-          )}
+                    <RelatedEventsCarousel events={relatedEvents} />
+                  </motion.section>
+                )}
               </div>
             ) : null}
           </>
@@ -1695,24 +1676,27 @@ export default function EventShow({ event, eventDetails }: Props) {
                   exit={{ opacity: 0, x: 12 }}
                   transition={{ duration: 0.25 }}
                 >
-                 {clientSecret && stripePromiseRef.current && (
-  <Elements stripe={stripePromiseRef.current} options={{ clientSecret }}>
-    <InlineCardForm
-      totalDue={total}
-      ticketTotal={ticketTotal}
-      merchTotal={merchTotal}
-      isReserved={isReserved}
-      selection={selection}
-      selectedSeatIds={selectedSeatIds}
-      seatLookup={seatLookup}
-      tierLookup={tierLookup}
-       products={products}
-      productSelection={productSelection}
-      cartStorageKey={CART_STORAGE_KEY}
-      onBack={() => setCheckoutStage("summary")}
-    />
-  </Elements>
-)}
+                  {clientSecret && stripePromiseRef.current && (
+                    <Elements
+                      stripe={stripePromiseRef.current}
+                      options={{ clientSecret }}
+                    >
+                      <InlineCardForm
+                        totalDue={total}
+                        ticketTotal={ticketTotal}
+                        merchTotal={merchTotal}
+                        isReserved={isReserved}
+                        selection={selection}
+                        selectedSeatIds={selectedSeatIds}
+                        seatLookup={seatLookup}
+                        tierLookup={tierLookup}
+                        products={products}
+                        productSelection={productSelection}
+                        cartStorageKey={CART_STORAGE_KEY}
+                        onBack={() => setCheckoutStage("summary")}
+                      />
+                    </Elements>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1989,8 +1973,7 @@ function SeatChart({
   selectedSeatIds: number[];
   onToggleSeat: (seat: Seat) => void;
 }) {
-
-   const tiers = leg.ticket_tiers ?? [];
+  const tiers = leg.ticket_tiers ?? [];
 
   const tierColorIndex = new Map(
     tiers.map((tier, i) => [tier.id, i % SEAT_TIER_COLORS.length]),
@@ -2075,7 +2058,7 @@ function SeatChart({
               .sort((a, b) => a.seat_number - b.seat_number)
               .map((seat, i, arr) => {
                 const isSelected = selectedSeatIds.includes(seat.id);
-                                const isUnavailable =
+                const isUnavailable =
                   seat.status !== "available" ||
                   seat.ticket_tier_id == null ||
                   !openTierIds.has(seat.ticket_tier_id);
@@ -2184,30 +2167,39 @@ function InlineCardForm({
     });
 
     if (error) {
-      setErrorMessage(error.message ?? "Payment failed. Please check your card details.");
+      setErrorMessage(
+        error.message ?? "Payment failed. Please check your card details.",
+      );
       setSubmitting(false);
       return;
     }
 
-   if (paymentIntent?.status === "succeeded") {
-  try {
-    sessionStorage.removeItem(cartStorageKey);
-  } catch {
-    // sessionStorage unavailable — nothing to clean up
-  }
-  router.visit(route("stripe.success", { payment_intent: paymentIntent.id }));
-  return;
-}
+    if (paymentIntent?.status === "succeeded") {
+      try {
+        sessionStorage.removeItem(cartStorageKey);
+      } catch {
+        // sessionStorage unavailable — nothing to clean up
+      }
+      router.visit(
+        route("stripe.success", { payment_intent: paymentIntent.id }),
+      );
+      return;
+    }
 
     setSubmitting(false);
-    setErrorMessage("Payment is still processing — please wait a moment and check your orders.");
+    setErrorMessage(
+      "Payment is still processing — please wait a moment and check your orders.",
+    );
   }
 
   const ticketLines = isReserved
     ? selectedSeatIds
         .map((seatId) => {
           const seat = seatLookup.get(seatId);
-          const tier = seat?.ticket_tier_id != null ? tierLookup.get(seat.ticket_tier_id) : undefined;
+          const tier =
+            seat?.ticket_tier_id != null
+              ? tierLookup.get(seat.ticket_tier_id)
+              : undefined;
           if (!seat || !tier) return null;
           return {
             key: `seat-${seatId}`,
@@ -2215,7 +2207,10 @@ function InlineCardForm({
             amount: parseFloat(tier.price),
           };
         })
-        .filter((l): l is { key: string; label: string; amount: number } => l !== null)
+        .filter(
+          (l): l is { key: string; label: string; amount: number } =>
+            l !== null,
+        )
     : Object.entries(selection)
         .filter(([, qty]) => qty > 0)
         .map(([tierId, qty]) => {
@@ -2227,7 +2222,10 @@ function InlineCardForm({
             amount: parseFloat(tier.price) * qty,
           };
         })
-        .filter((l): l is { key: string; label: string; amount: number } => l !== null);
+        .filter(
+          (l): l is { key: string; label: string; amount: number } =>
+            l !== null,
+        );
 
   const productLines = Object.entries(productSelection)
     .filter(([, qty]) => qty > 0)
@@ -2240,13 +2238,19 @@ function InlineCardForm({
         amount: parseFloat(product.price) * qty,
       };
     })
-    .filter((l): l is { key: string; label: string; amount: number } => l !== null);
+    .filter(
+      (l): l is { key: string; label: string; amount: number } => l !== null,
+    );
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white">Card details</h3>
-        <button type="button" onClick={onBack} className="text-xs text-[#6B6775] hover:text-white">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-xs text-[#6B6775] hover:text-white"
+        >
           ← Back to order
         </button>
       </div>
@@ -2259,7 +2263,10 @@ function InlineCardForm({
               Tickets
             </p>
             {ticketLines.map((line) => (
-              <div key={line.key} className="flex items-center justify-between text-sm py-0.5">
+              <div
+                key={line.key}
+                className="flex items-center justify-between text-sm py-0.5"
+              >
                 <span className="text-[#D8D5DE] truncate">{line.label}</span>
                 <span className="font-['IBM_Plex_Mono'] text-white shrink-0 ml-2">
                   ${line.amount.toFixed(2)}
@@ -2268,18 +2275,27 @@ function InlineCardForm({
             ))}
             <div className="flex items-center justify-between text-xs text-[#6B6775] mt-1 pt-1 border-t border-[#1c1a22]">
               <span>Subtotal</span>
-              <span className="font-['IBM_Plex_Mono']">${ticketTotal.toFixed(2)}</span>
+              <span className="font-['IBM_Plex_Mono']">
+                ${ticketTotal.toFixed(2)}
+              </span>
             </div>
           </div>
         )}
 
         {productLines.length > 0 && (
-          <div className={ticketLines.length > 0 ? "pt-2 border-t border-[#26232E]" : ""}>
+          <div
+            className={
+              ticketLines.length > 0 ? "pt-2 border-t border-[#26232E]" : ""
+            }
+          >
             <p className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-wider text-[#6B6775] mb-1.5">
               Merchandise
             </p>
             {productLines.map((line) => (
-              <div key={line.key} className="flex items-center justify-between text-sm py-0.5">
+              <div
+                key={line.key}
+                className="flex items-center justify-between text-sm py-0.5"
+              >
                 <span className="text-[#D8D5DE] truncate">{line.label}</span>
                 <span className="font-['IBM_Plex_Mono'] text-white shrink-0 ml-2">
                   ${line.amount.toFixed(2)}
@@ -2288,20 +2304,26 @@ function InlineCardForm({
             ))}
             <div className="flex items-center justify-between text-xs text-[#6B6775] mt-1 pt-1 border-t border-[#1c1a22]">
               <span>Subtotal</span>
-              <span className="font-['IBM_Plex_Mono']">${merchTotal.toFixed(2)}</span>
+              <span className="font-['IBM_Plex_Mono']">
+                ${merchTotal.toFixed(2)}
+              </span>
             </div>
           </div>
         )}
 
         <div className="flex items-center justify-between text-base font-bold text-white mt-3 pt-2 border-t border-[#26232E]">
           <span>Total</span>
-          <span className="font-['IBM_Plex_Mono'] text-[#FFB627]">${totalDue.toFixed(2)}</span>
+          <span className="font-['IBM_Plex_Mono'] text-[#FFB627]">
+            ${totalDue.toFixed(2)}
+          </span>
         </div>
       </div>
 
       <PaymentElement />
 
-      {errorMessage && <p className="mt-3 text-sm text-[#FF6F91]">{errorMessage}</p>}
+      {errorMessage && (
+        <p className="mt-3 text-sm text-[#FF6F91]">{errorMessage}</p>
+      )}
 
       <button
         type="submit"
@@ -2378,6 +2400,163 @@ function WatchlistPanel({
 |--------------------------------------------------------------------------
 */
 
+/* ─────────────────────────────
+   RELATED EVENTS CAROUSEL
+───────────────────────────── */
+
+const RELATED_CARD_WIDTH = 240;
+const RELATED_CARD_GAP = 16;
+const AUTO_SCROLL_PX_PER_SEC = 90;
+
+function RelatedEventsCarousel({ events }: { events: RelatedEvent[] }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const loopedEvents = [...events, ...events];
+
+  function singleSetWidth() {
+    const rail = railRef.current;
+    if (!rail) return 0;
+
+    return rail.scrollWidth / 2;
+  }
+
+  function wrapIfNeeded() {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const setWidth = singleSetWidth();
+    if (setWidth <= 0) return;
+
+    // Moving visually LEFT → RIGHT means scrollLeft decreases.
+    // When we reach the beginning, jump forward one complete set.
+    if (rail.scrollLeft <= 0) {
+      rail.scrollLeft += setWidth;
+    }
+  }
+
+  // IMPORTANT: Start on the second copy.
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    requestAnimationFrame(() => {
+      const setWidth = rail.scrollWidth / 2;
+
+      if (setWidth > 0) {
+        rail.scrollLeft = setWidth;
+      }
+    });
+  }, [events]);
+
+  function scrollByCards(direction: 1 | -1) {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    rail.scrollBy({
+      left: direction * (RELATED_CARD_WIDTH + RELATED_CARD_GAP) * 2,
+      behavior: "smooth",
+    });
+  }
+
+  // Handle manual scrolling/swiping.
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const handleScroll = () => {
+      wrapIfNeeded();
+    };
+
+    rail.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      rail.removeEventListener("scroll", handleScroll);
+    };
+  }, [events]);
+
+  // Continuous LEFT → RIGHT marquee.
+  useEffect(() => {
+    if (isPaused) return;
+
+    let frameId: number;
+    let lastTime: number | null = null;
+
+    function tick(time: number) {
+      const rail = railRef.current;
+
+      if (rail) {
+        if (lastTime !== null) {
+          const deltaSeconds = (time - lastTime) / 1000;
+
+          // DECREASE scrollLeft = visual movement LEFT → RIGHT
+          rail.scrollLeft -= AUTO_SCROLL_PX_PER_SEC * deltaSeconds;
+
+          wrapIfNeeded();
+        }
+
+        lastTime = time;
+      }
+
+      frameId = requestAnimationFrame(tick);
+    }
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [isPaused, events]);
+
+  return (
+    <div
+      className="group relative"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+    >
+      {/* Rail */}
+      <motion.div
+        ref={railRef}
+        variants={railVariants}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true }}
+        className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {loopedEvents.map((related, index) => (
+          <RelatedEventCard
+            key={`${related.id}-${index < events.length ? "a" : "b"}`}
+            event={related}
+          />
+        ))}
+      </motion.div>
+
+      {/* Left arrow */}
+      <button
+        type="button"
+        onClick={() => scrollByCards(-1)}
+        aria-label="Scroll left"
+        className="absolute left-0 top-0 bottom-4 z-10 hidden w-16 items-center justify-start bg-gradient-to-r from-[#0B0B10] via-[#0B0B10]/60 to-transparent text-white/50 opacity-0 transition-opacity duration-300 hover:text-white group-hover:opacity-100 sm:flex"
+      >
+        <span className="pl-3 text-4xl leading-none">‹</span>
+      </button>
+
+      {/* Right arrow */}
+      <button
+        type="button"
+        onClick={() => scrollByCards(1)}
+        aria-label="Scroll right"
+        className="absolute right-0 top-0 bottom-4 z-10 hidden w-16 items-center justify-end bg-gradient-to-l from-[#0B0B10] via-[#0B0B10]/60 to-transparent text-white/50 opacity-0 transition-opacity duration-300 hover:text-white group-hover:opacity-100 sm:flex"
+      >
+        <span className="pr-3 text-4xl leading-none">›</span>
+      </button>
+    </div>
+  );
+}
+
 function RelatedEventCard({ event }: { event: RelatedEvent }) {
   const firstLeg = event.legs?.[0];
 
@@ -2399,23 +2578,23 @@ function RelatedEventCard({ event }: { event: RelatedEvent }) {
         group
         relative
         block
-        h-[390px]
-        w-[300px]
-        min-w-[300px]
+        h-[300px]
+        w-[220px]
+        min-w-[220px]
         overflow-hidden
-        rounded-[28px]
+        rounded-[22px]
         border
         border-white/10
         bg-[#141319]
-        shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+        shadow-[0_16px_44px_rgba(0,0,0,0.25)]
         transition-all
         duration-300
         hover:-translate-y-1
         hover:border-white/20
-        hover:shadow-[0_28px_80px_rgba(0,0,0,0.4)]
-        sm:h-[410px]
-        sm:w-[320px]
-        sm:min-w-[320px]
+        hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]
+        sm:h-[310px]
+        sm:w-[240px]
+        sm:min-w-[240px]
       "
     >
       {/* Image */}
@@ -2452,43 +2631,43 @@ function RelatedEventCard({ event }: { event: RelatedEvent }) {
       </div>
 
       {/* Top badges */}
-      <div className="absolute left-5 right-5 top-5 flex items-center justify-between">
+      <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {event.type ? (
-          <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-md">
+          <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-md">
             {event.type}
           </span>
         ) : (
           <span />
         )}
 
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white/80 backdrop-blur-md transition group-hover:bg-white group-hover:text-black">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/40 text-sm text-white/80 backdrop-blur-md transition group-hover:bg-white group-hover:text-black">
           ↗
         </span>
       </div>
 
       {/* Bottom content */}
-      <div className="absolute inset-x-0 bottom-0 p-5">
-        <div className="mb-3 flex flex-wrap gap-2">
+      <div className="absolute inset-x-0 bottom-0 p-4">
+        <div className="mb-2 flex flex-wrap gap-2">
           {date && (
-            <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-black">
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-black">
               {date}
             </span>
           )}
         </div>
 
-        <h3 className="line-clamp-2 text-xl font-bold leading-tight text-white sm:text-2xl">
+        <h3 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-lg">
           {event.name}
         </h3>
 
         {venue && (
-          <div className="mt-2 flex items-center gap-2 text-sm text-white/60">
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/60">
             <span className="text-white/40">⌖</span>
             <span className="truncate">{venue}</span>
           </div>
         )}
 
         {/* Bottom action */}
-        <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-white/80 transition group-hover:text-white">
+        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-white/80 transition group-hover:text-white">
           Explore event
           <span className="transition-transform duration-300 group-hover:translate-x-1">
             →

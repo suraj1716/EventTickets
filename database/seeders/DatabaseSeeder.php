@@ -28,7 +28,6 @@ class DatabaseSeeder extends Seeder
             StaffSeeder::class,
             GallerySeeder::class,
             HeroBannerSeeder::class,
-            OrderAndBookingSeeder::class,
  ResaleSeeder::class,
 
 

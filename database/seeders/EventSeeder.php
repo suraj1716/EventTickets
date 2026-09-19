@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Enums\SponsorTierEnum;
 use App\Models\Category;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\EventSeat;
+use App\Models\EventSponsor;
 use App\Models\User;
 use App\Models\Venue;
 use App\Models\VenueSection;
@@ -24,6 +26,36 @@ class EventSeeder extends Seeder
      * venue name => Venue model
      */
     protected array $venueCache = [];
+
+    /**
+     * Real, publicly-reachable Pexels photo IDs (verified — not guessed),
+     * used as stand-in sponsor "logos". EventSponsor::getLogoUrlAttribute()
+     * passes through any path starting with "http" untouched, so storing
+     * the full Pexels URL directly in logo_path needs no download/upload —
+     * same trick as the R2 event-media reference below, just against an
+     * external host instead of our own disk.
+     */
+    protected const SPONSOR_LOGO_PHOTO_IDS = [
+        2014422, 2880507, 1367179, 1367105, 1292115,
+        794079, 640809, 1000559, 708921, 774861,
+        881583, 1126956, 850804, 815996, 323244,
+        908884, 364382, 950758, 971267, 235986,
+        417074, 417173, 346885,
+    ];
+
+    protected const SPONSOR_NAME_POOL = [
+        'Nimbus Digital', 'Harbor & Vine', 'Kestrel Media', 'Bluepeak Group',
+        'Northlight Studios', 'Copperline Co.', 'Vantage Collective',
+        'Solace Brands', 'Ironwood Partners', 'Everline Audio',
+        'Cedar & Co.', 'Skyward Labs', 'Meridian Foods', 'Loom Coffee',
+        'Granite Athletics', 'Wavecrest Beverages', 'Pinelight Group',
+        'Circuit & Sons', 'Horizon Telecom', 'Amber Road Brewing',
+    ];
+
+    protected function sponsorLogoUrl(int $photoId): string
+    {
+        return "https://images.pexels.com/photos/{$photoId}/pexels-photo-{$photoId}.jpeg?auto=compress&cs=tinysrgb&w=400";
+    }
 
     public function run(): void
     {
@@ -303,6 +335,10 @@ class EventSeeder extends Seeder
                         'description' =>
                             "Sample {$eventData['category']} event for testing the EventTickets platform.",
 
+                        'policy' => $this->samplePolicyText(
+                            $eventData['name']
+                        ),
+
                         'status' => $eventIndex >= 6
                             ? 'proposed'
                             : 'published',
@@ -340,6 +376,25 @@ class EventSeeder extends Seeder
                 */
 
                 $this->referenceEventMedia($event);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Sponsors
+                |--------------------------------------------------------------------------
+                |
+                | Random 3-6 sponsors per event, logo image borrowed from
+                | Pexels by URL (no download — same "reference, don't
+                | fetch" approach as referenceEventMedia() above; the URL
+                | is stored as-is in logo_path and EventSponsor resolves
+                | any path starting with "http" straight through).
+                |
+                | Re-seedable: existing sponsors for this event are wiped
+                | first so re-running the seeder doesn't pile up
+                | duplicates or leave stale tiers/positions behind.
+                |
+                */
+
+                $this->seedSponsors($event);
 
                 /*
                 |--------------------------------------------------------------------------
@@ -490,7 +545,7 @@ class EventSeeder extends Seeder
         });
 
         $this->command?->info(
-            'Events, tours, categories, venues, ticket tiers, reserved seats, and R2 media references seeded successfully.'
+            'Events, tours, categories, venues, ticket tiers, reserved seats, sponsors, policies, and R2 media references seeded successfully.'
         );
     }
 
@@ -569,6 +624,72 @@ class EventSeeder extends Seeder
         $this->command?->info(
             "Media reference created: {$photoPath}"
         );
+    }
+
+    /**
+     * Seed 1 Platinum + 1-2 Gold + 2-3 Other sponsors for an event, each
+     * with a Pexels-hosted "logo" and a made-up name/website. Wipes any
+     * sponsors already on this event first so re-running the seeder
+     * replaces them cleanly instead of accumulating duplicates.
+     */
+    protected function seedSponsors(Event $event): void
+    {
+        $event->sponsors()->delete();
+
+        $photoIds = self::SPONSOR_LOGO_PHOTO_IDS;
+        $names = self::SPONSOR_NAME_POOL;
+        shuffle($photoIds);
+        shuffle($names);
+
+               $plan = [
+            [SponsorTierEnum::PLATINUM, random_int(1, 1)],
+            [SponsorTierEnum::GOLD, random_int(1, 2)],
+            [SponsorTierEnum::OTHER, random_int(2, 3)],
+        ];
+
+        $cursor = 0;
+        $position = 0;
+
+        foreach ($plan as [$tier, $count]) {
+            for ($i = 0; $i < $count; $i++) {
+                $photoId = $photoIds[$cursor % count($photoIds)];
+                $name = $names[$cursor % count($names)];
+                $cursor++;
+
+                EventSponsor::create([
+                    'event_id' => $event->id,
+                    'name' => $name,
+                    'logo_path' => $this->sponsorLogoUrl($photoId),
+                    'tier' => $tier->value,
+                    'website_url' => 'https://example.com/' . Str::slug($name),
+                    'position' => $position++,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Generic placeholder policy text — same "sample data" spirit as the
+     * event description above, long enough to exercise the buyer-side
+     * clamp/expand UI.
+     */
+    protected function samplePolicyText(string $eventName): string
+    {
+        return <<<POLICY
+        Entry: Doors open 60 minutes before the advertised start time. A valid ticket (digital or printed) and photo ID are required for entry to {$eventName}.
+
+        Refunds: Tickets are non-refundable except where the event is cancelled or rescheduled by the organizer, in which case ticket holders will be offered a full refund or transfer to the new date.
+
+        Age restrictions: Some sections of this event may be restricted to patrons 18+. Check the ticket tier description before purchasing.
+
+        Re-entry: Re-entry is not permitted once you have left the venue, unless otherwise stated at the gate.
+
+        Prohibited items: Outside food and drink, professional cameras, and any item deemed a safety risk by venue staff are not permitted inside the venue.
+
+        Accessibility: Accessible seating and companion tickets are available on request — contact the organizer ahead of the event date.
+
+        This is placeholder policy text generated for testing purposes only.
+        POLICY;
     }
 
     /**

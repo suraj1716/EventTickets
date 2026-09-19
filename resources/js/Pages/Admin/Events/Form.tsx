@@ -11,6 +11,7 @@ import type {
   Event,
   EventFormInput,
   EventLegFormInput,
+   EventSponsorFormInput,
   TicketTierFormInput,
   Venue,
 } from "@/types";
@@ -33,7 +34,35 @@ interface Props {
 function emptyTier(): TicketTierFormInput {
   return { name: "", price: 0, quantity: 0, starts_at: "", ends_at: "" };
 }
+function emptySponsor(position: number): EventSponsorFormInput {
+  return {
+    name: "",
+    tier: "other",
+    website_url: "",
+    position,
+    logo: undefined,
+    existing_logo_url: null,
+  };
+}
 
+function sponsorsFromEvent(event: Event | undefined): EventSponsorFormInput[] {
+  if (!event?.sponsors?.length) {
+    return [];
+  }
+
+  return event.sponsors
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((sponsor) => ({
+      id: sponsor.id,
+      name: sponsor.name,
+      tier: sponsor.tier,
+      website_url: sponsor.website_url ?? "",
+      position: sponsor.position,
+      logo: undefined,
+      existing_logo_url: sponsor.logo_url,
+    }));
+}
 function tierQuantityTotal(leg: EventLegFormInput): number {
   return leg.tiers.reduce((sum, t) => sum + (t.quantity || 0), 0);
 }
@@ -123,6 +152,9 @@ export default function EventForm({ event, categories, venues }: Props) {
       legs: legsFromEvent(event, venues),
       media: [],
       remove_media_ids: [],
+       policy: event?.policy ?? "",                    // <- add
+      sponsors: sponsorsFromEvent(event),              // <- add
+      remove_sponsor_ids: [],
     });
 
   // ---------- Media ----------
@@ -171,7 +203,45 @@ export default function EventForm({ event, categories, venues }: Props) {
       Array.from(new Set([...(data.remove_media_ids ?? []), id])),
     );
   }
+  // ---------- Sponsors ----------
 
+  function updateSponsor(index: number, patch: Partial<EventSponsorFormInput>) {
+    const sponsors = [...(data.sponsors ?? [])];
+    sponsors[index] = { ...sponsors[index], ...patch };
+    setData("sponsors", sponsors);
+  }
+
+  function addSponsor() {
+    const sponsors = data.sponsors ?? [];
+    setData("sponsors", [...sponsors, emptySponsor(sponsors.length)]);
+  }
+
+  function removeSponsor(index: number) {
+    const sponsors = [...(data.sponsors ?? [])];
+    const [removed] = sponsors.splice(index, 1);
+
+    // Re-number position so it stays contiguous after a removal.
+    sponsors.forEach((s, i) => (s.position = i));
+    setData("sponsors", sponsors);
+
+    if (removed?.id) {
+      setData(
+        "remove_sponsor_ids",
+        Array.from(new Set([...(data.remove_sponsor_ids ?? []), removed.id])),
+      );
+    }
+  }
+
+  function handleSponsorLogoChange(
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (file) {
+      updateSponsor(index, { logo: file });
+    }
+    e.target.value = "";
+  }
   // ---------- Tour toggle ----------
 
   function handleTypeChange(type: "standalone" | "tour") {
@@ -427,7 +497,15 @@ export default function EventForm({ event, categories, venues }: Props) {
             style={inputStyle}
           />
         </Field>
-
+        <Field label="Policy" error={errors.policy}>
+          <textarea
+            value={data.policy}
+            onChange={(e) => setData("policy", e.target.value)}
+            rows={5}
+            placeholder="Refunds, entry rules, age restrictions, accessibility..."
+            style={inputStyle}
+          />
+        </Field>
         <Field label="Event media" error={errors.media}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {/* Existing media */}
@@ -604,7 +682,162 @@ export default function EventForm({ event, categories, venues }: Props) {
             </p>
           </div>
         </Field>
+        <Field label="Sponsors">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {(data.sponsors ?? []).map((sponsor, index) => {
+              const previewUrl = sponsor.logo
+                ? URL.createObjectURL(sponsor.logo)
+                : sponsor.existing_logo_url;
 
+              return (
+                <div
+                  key={sponsor.id ?? `new-${index}`}
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 10,
+                    padding: 12,
+                  }}
+                >
+                  {/* Logo preview + upload */}
+                  <div style={{ flexShrink: 0 }}>
+                    <div
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 8,
+                        border: `1px solid ${C.border}`,
+                        background: C.bg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        marginBottom: 6,
+                      }}
+                    >
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt={sponsor.name || "Sponsor logo"}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 10, color: C.textMuted }}>
+                          No logo
+                        </span>
+                      )}
+                    </div>
+
+                    <label
+                      style={{
+                        fontSize: 11,
+                        color: C.text,
+                        cursor: "pointer",
+                        display: "block",
+                        textAlign: "center",
+                      }}
+                    >
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleSponsorLogoChange(index, e)}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Fields */}
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={sponsor.name}
+                      onChange={(e) =>
+                        updateSponsor(index, { name: e.target.value })
+                      }
+                      placeholder="Sponsor name"
+                      style={{ ...inputStyle, gridColumn: "1 / -1" }}
+                    />
+
+                    <select
+                      value={sponsor.tier}
+                      onChange={(e) =>
+                        updateSponsor(index, {
+                          tier: e.target.value as EventSponsorFormInput["tier"],
+                        })
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="platinum">Platinum</option>
+                      <option value="gold">Gold</option>
+                      <option value="other">Other</option>
+                    </select>
+
+                    <input
+                      type="url"
+                      value={sponsor.website_url ?? ""}
+                      onChange={(e) =>
+                        updateSponsor(index, { website_url: e.target.value })
+                      }
+                      placeholder="https://sponsor-site.com"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => removeSponsor(index)}
+                    style={{
+                      flexShrink: 0,
+                      background: "transparent",
+                      border: "none",
+                      color: C.error,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      padding: "4px 6px",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={addSponsor}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                border: `1px dashed ${C.borderDashed}`,
+                borderRadius: 12,
+                padding: "12px 0",
+                fontSize: 13,
+                color: C.textMuted,
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              + Add sponsor
+            </button>
+          </div>
+        </Field>
         <Field label="Artists">
           <div
             style={{

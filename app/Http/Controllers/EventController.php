@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Spatie\Image\Image;
+use Illuminate\Validation\Rule;
+use App\Models\EventSponsor;
 
 class EventController extends Controller
 {
@@ -228,7 +230,8 @@ class EventController extends Controller
 
                 'description' =>
                 $data['description'] ?? null,
-
+'policy' =>
+                $data['policy'] ?? null,
                 'type' =>
                 $data['type'],
 
@@ -261,7 +264,11 @@ class EventController extends Controller
                 $event,
                 $data['legs']
             );
-
+ $this->syncSponsors(
+                $request,
+                $event,
+                $data['sponsors'] ?? []
+            );
             return $event;
         });
 
@@ -386,7 +393,10 @@ class EventController extends Controller
                 'nullable',
                 'string',
             ],
-
+            'policy' => [
+                'nullable',
+                'string',
+            ],
             'type' => [
                 'required',
                 'in:standalone,tour',
@@ -561,6 +571,60 @@ class EventController extends Controller
                 'required',
                 'date',
                 'after:legs.*.tiers.*.starts_at',
+            ],
+
+
+                    /*
+             * Sponsors
+             */
+            'sponsors' => [
+                'nullable',
+                'array',
+            ],
+
+            'sponsors.*.id' => [
+                'nullable',
+                'integer',
+                'exists:event_sponsors,id',
+            ],
+
+            'sponsors.*.name' => [
+                'required_with:sponsors',
+                'string',
+                'max:255',
+            ],
+
+            'sponsors.*.tier' => [
+                'required_with:sponsors',
+                Rule::in(\App\Enums\SponsorTierEnum::values()),
+            ],
+
+            'sponsors.*.website_url' => [
+                'nullable',
+                'url',
+                'max:2048',
+            ],
+
+            'sponsors.*.position' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+
+            'sponsors.*.logo' => [
+                'nullable',
+                'image',
+                'max:4096',
+            ],
+
+            'remove_sponsor_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'remove_sponsor_ids.*' => [
+                'integer',
+                'exists:event_sponsors,id',
             ],
 
             /*
@@ -1232,7 +1296,91 @@ class EventController extends Controller
             );
         }
     }
+    /**
+     * Create/update/delete an event's sponsors and handle logo uploads.
+     * Mirrors syncLegs()'s diff-by-id approach and handleMediaUpload()'s
+     * upload-to-r2 approach, combined: sponsor ROWS are synced here
+     * (inside the caller's transaction); sponsor LOGO FILES are uploaded
+     * per-row in the same pass, same as media, since each row's file
+     * lives at $request->file("sponsors.$index.logo") and needs that
+     * row's sponsor_id (new or existing) to build its storage path.
+     */
+    protected function syncSponsors(
+        Request $request,
+        Event $event,
+        array $sponsors
+    ): void {
+        /*
+         * Explicit removals (existing_logo_url cleared / row deleted
+         * client-side) — same remove_media_ids pattern as media.
+         */
+        if ($request->filled('remove_sponsor_ids')) {
+            EventSponsor::where('event_id', $event->id)
+                ->whereIn('id', $request->input('remove_sponsor_ids'))
+                ->get()
+                ->each(function (EventSponsor $sponsor) {
+                    if ($sponsor->logo_path && !str_starts_with($sponsor->logo_path, 'http')) {
+                        Storage::disk('r2')->delete($sponsor->logo_path);
+                    }
 
+                    $sponsor->delete();
+                });
+        }
+
+        $incomingIds = collect($sponsors)->pluck('id')->filter()->all();
+
+        // Any existing sponsor not present in the incoming payload and not
+        // already handled by remove_sponsor_ids above — belt-and-braces
+        // for a client that dropped a row without recording the removal.
+        EventSponsor::where('event_id', $event->id)
+            ->whereNotIn('id', $incomingIds ?: [0])
+            ->get()
+            ->each(function (EventSponsor $sponsor) {
+                if ($sponsor->logo_path && !str_starts_with($sponsor->logo_path, 'http')) {
+                    Storage::disk('r2')->delete($sponsor->logo_path);
+                }
+
+                $sponsor->delete();
+            });
+
+        foreach ($sponsors as $index => $sponsorData) {
+            $sponsorId = $sponsorData['id'] ?? null;
+
+            $sponsor = $sponsorId
+                ? EventSponsor::where('event_id', $event->id)->find($sponsorId)
+                : new EventSponsor(['event_id' => $event->id]);
+
+            if (!$sponsor) {
+                continue;
+            }
+
+            $sponsor->fill([
+                'name' => $sponsorData['name'],
+                'tier' => $sponsorData['tier'],
+                'website_url' => $sponsorData['website_url'] ?? null,
+                'position' => $sponsorData['position'] ?? $index,
+            ]);
+
+            $sponsor->save();
+
+            /*
+             * Logo for this specific row, if a new file was uploaded.
+             * Old file removed first so replacing a logo doesn't orphan
+             * the previous upload on r2.
+             */
+            $file = $request->file("sponsors.{$index}.logo");
+
+            if ($file) {
+                if ($sponsor->getOriginal('logo_path') && !str_starts_with($sponsor->getOriginal('logo_path'), 'http')) {
+                    Storage::disk('r2')->delete($sponsor->getOriginal('logo_path'));
+                }
+
+                $path = $file->store("events/{$event->id}/sponsors", 'r2');
+
+                $sponsor->update(['logo_path' => $path]);
+            }
+        }
+    }
     /*
     |--------------------------------------------------------------------------
     | Ticket tiers

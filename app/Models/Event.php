@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SponsorTierEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,19 +15,22 @@ class Event extends Model
 {
     use HasFactory, SoftDeletes;
 
-protected $appends = ['image_url'];
+    protected $appends = ['image_url'];
 
-public function getImageUrlAttribute(): ?string
-{
-    return $this->media->first()?->url;
-}
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->media->first()?->url;
+    }
 
-    
+
     protected $fillable = [
         'vendor_user_id',
         'name',
         'slug',
         'description',
+        // Long free text (refund / entry / privacy terms) rendered as its
+        // own section on the buyer-side event page.
+        'policy',
         'type',
         'status',
         'languages',
@@ -60,11 +64,25 @@ public function getImageUrlAttribute(): ?string
         });
     }
 
-public function media()
-{
-    return $this->hasMany(EventMedia::class)
-        ->orderBy('position');
-}
+    public function media()
+    {
+        return $this->hasMany(EventMedia::class)
+            ->orderBy('position');
+    }
+
+    /**
+     * Sponsors, already in display order: Platinum, then Gold, then
+     * everything else (SponsorTierEnum::rank()), and by `position` within
+     * each tier. Ordered here rather than in the frontend so every
+     * consumer — buyer page, admin form, API — gets the same order.
+     */
+    public function sponsors(): HasMany
+    {
+        return $this->hasMany(EventSponsor::class)
+            ->orderByRaw(SponsorTierEnum::orderByRankSql('tier'))
+            ->orderBy('position')
+            ->orderBy('id');
+    }
 
     public static function uniqueSlug(string $name): string
     {
@@ -114,11 +132,11 @@ public function media()
         return $this->belongsToMany(Category::class);
     }
 
-   public function watchlist(): HasMany
-{
-    return $this->hasMany(EventWatchlist::class)
-        ->whereNotNull('verified_at');
-}
+    public function watchlist(): HasMany
+    {
+        return $this->hasMany(EventWatchlist::class)
+            ->whereNotNull('verified_at');
+    }
 
     public function watchlistCount(): int
     {
@@ -137,9 +155,9 @@ public function media()
             'published_at' => now(),
         ]);
     }
-    public function products(): HasMany
-{
-    return $this->hasMany(Product::class);
-}
 
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
 }

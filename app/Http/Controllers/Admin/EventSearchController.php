@@ -69,6 +69,7 @@ class EventSearchController extends Controller
                         'categories:id,name,slug',
                         'media:id,event_id,type,path,thumb_path,position',
                         'vendor:user_id,store_name',
+                        'sponsors:id,event_id,name,logo_path,tier,position',
                     ])
                     ->withCount('watchlist')
 
@@ -318,6 +319,7 @@ class EventSearchController extends Controller
             'artists:id,name,slug',
             'media:id,event_id,type,path,thumb_path,position',
             'vendor:user_id,store_name',
+            'sponsors:id,event_id,name,logo_path,tier,website_url,position',
         ])->loadCount('watchlist');
 
         return Inertia::render('Events/Show', [
@@ -333,7 +335,8 @@ class EventSearchController extends Controller
         */
             'eventDetails' => Inertia::defer(function () use ($event) {
                 $event->load([
-                    'legs:id,event_id,venue_name,address,city,event_date,sequence',
+                    'legs:id,event_id,venue_id,venue_name,address,city,event_date,sequence',
+'legs.venue:id,notes',
                     'legs.ticketTiers:id,event_leg_id,name,price,remaining,starts_at,ends_at',
                     'legs.seats:id,event_leg_id,venue_seat_id,ticket_tier_id,label,row_label,seat_number,sort_order,status',
                     'legs.seats.venueSeat:id,aisle_after',

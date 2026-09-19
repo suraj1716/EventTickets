@@ -5,7 +5,7 @@
 // Mobile: filters collapse into a slide-down drawer
 // Events are deferred so the page shell renders before event data arrives.
 // "Load more" appends the next slice client-side.
-
+import SponsorStrip from "@/Components/Events/SponsorStrip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Head, Link, router, Deferred } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1041,6 +1041,8 @@ function EventCard({ event, index }: { event: Event; index: number }) {
                 ))}
               </div>
             )}
+
+                        <SponsorStrip sponsors={event.sponsors} />
           </div>
 
           {/* Ticket stub */}

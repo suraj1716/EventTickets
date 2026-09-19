@@ -1,7 +1,7 @@
 // resources/js/types/index.d.ts
 
 // ---------- Enums ----------
-
+import type { EventSponsor } from "@/Components/Events/EventSponsors";
 export type EventType = 'standalone' | 'tour';
 
 export type EventStatus =
@@ -279,6 +279,7 @@ export interface Event {
   name: string;
   slug: string;
   description: string | null;
+  policy: string | null;
   type: EventType;
   status: EventStatus;
   languages: string[];
@@ -295,7 +296,7 @@ export interface Event {
   legs?: EventLeg[];
   artists?: Artist[];
   categories?: Category[];
-
+ sponsors?: EventSponsor[];
   watchlist_count?: number;
 
   // Computed on the backend from actual ticket rows (excl. void) —
@@ -460,6 +461,20 @@ export interface TicketTierFormInput {
 }
 
 
+export interface EventSponsorFormInput {
+  id?: number;
+  name: string;
+  tier: "platinum" | "gold" | "other";
+  website_url?: string;
+  position: number;
+
+  // New upload for this row (undefined = keep existing logo, if any).
+  logo?: File;
+
+  // Existing logo, for display only — never sent back to the server.
+  existing_logo_url?: string | null;
+}
+
 // ---------- Event Media Upload ----------
 //
 // Used ONLY by create/edit forms.
@@ -517,6 +532,7 @@ export interface EventLegFormInput {
 export interface EventFormInput {
   name: string;
   description?: string;
+  policy?: string;                          // <- add
   type: EventType;
   status?: 'draft' | 'proposed';
   languages?: string[];
@@ -526,6 +542,9 @@ export interface EventFormInput {
 
   media?: File[];
   remove_media_ids?: number[];
+
+  sponsors?: EventSponsorFormInput[];       // <- add
+  remove_sponsor_ids?: number[];            // <- add
 }
 
 
