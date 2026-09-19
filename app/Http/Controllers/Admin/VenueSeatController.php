@@ -150,11 +150,12 @@ $nextSortOrder = $existingSortOrder ?? (
                     EventSeat::updateOrCreate(
                         [
                             'event_leg_id' => $leg->id,
-                            'row_label' => $venueSeat->row_label,
-                            'seat_number' => $venueSeat->seat_number,
+                            'venue_seat_id' => $venueSeat->id,
                         ],
                         [
-                            'venue_seat_id' => $venueSeat->id,
+                            'venue_section_id' => $venueSeat->venue_section_id,
+                            'row_label' => $venueSeat->row_label,
+                            'seat_number' => $venueSeat->seat_number,
                             'ticket_tier_id' => $defaultTierByLeg[$leg->id] ?? null,
                             'label' => $venueSeat->label,
                             'status' => 'available',
@@ -286,6 +287,7 @@ public function destroyRow(
                         'venue_seat_id' => $venueSeat->id,
                     ],
                     [
+                        'venue_section_id' => $venueSeat->venue_section_id,
                         'ticket_tier_id' => $defaultTierId,
                         'row_label' => $venueSeat->row_label,
                         'seat_number' => $venueSeat->seat_number,

@@ -66,6 +66,12 @@ type ProductSelection = Record<number, number>;
 
 type Seat = NonNullable<EventLeg["seats"]>[number];
 
+// Row letters and seat numbers repeat across sections, so a bare label
+// like "A-1" is ambiguous. Prefix the section wherever a seat is named.
+function seatDisplayLabel(seat: Seat): string {
+  return seat.section?.name ? `${seat.section.name} · ${seat.label}` : seat.label;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Constants
@@ -1473,7 +1479,7 @@ export default function EventShow({ event, eventDetails }: Props) {
                                         >
                                           <div>
                                             <p className="text-sm text-white">
-                                              Seat {seat.label}
+                                              Seat {seatDisplayLabel(seat)}
                                             </p>
 
                                             <p className="font-['IBM_Plex_Mono'] text-xs text-[#9C97A8]">
@@ -1994,21 +2000,49 @@ function SeatChart({
       .map((tier) => tier.id),
   );
 
-  const rows = useMemo(() => {
-    const groups = new Map<string, Seat[]>();
+  // Group by section first, then by row inside each section. Row letters
+  // repeat across sections, so grouping by row_label alone would merge
+  // "Row A" of every section into one line.
+  const sections = useMemo(() => {
+    const bySection = new Map<
+      number | "none",
+      { name: string | null; order: number; seats: Seat[] }
+    >();
 
     (leg.seats ?? []).forEach((seat) => {
-      const bucket = groups.get(seat.row_label) ?? [];
-      bucket.push(seat);
-      groups.set(seat.row_label, bucket);
+      const key = seat.venue_section_id ?? "none";
+      const group = bySection.get(key) ?? {
+        name: seat.section?.name ?? null,
+        order: seat.section?.sort_order ?? Number.MAX_SAFE_INTEGER,
+        seats: [],
+      };
+      group.seats.push(seat);
+      bySection.set(key, group);
     });
 
-    return Array.from(groups.entries()).sort(([, seatsA], [, seatsB]) => {
-      const orderA = Math.min(...seatsA.map((s) => s.sort_order));
-      const orderB = Math.min(...seatsB.map((s) => s.sort_order));
-      return orderA - orderB;
-    });
+    return Array.from(bySection.entries())
+      .sort(([, a], [, b]) => a.order - b.order)
+      .map(([key, group]) => {
+        const rowMap = new Map<string, Seat[]>();
+
+        group.seats.forEach((seat) => {
+          const bucket = rowMap.get(seat.row_label) ?? [];
+          bucket.push(seat);
+          rowMap.set(seat.row_label, bucket);
+        });
+
+        const rows = Array.from(rowMap.entries()).sort(
+          ([, seatsA], [, seatsB]) =>
+            Math.min(...seatsA.map((s) => s.sort_order)) -
+            Math.min(...seatsB.map((s) => s.sort_order)),
+        );
+
+        return { key, name: group.name, rows };
+      });
   }, [leg.seats]);
+
+  // Single-section venues render exactly as before, with no header.
+  const showSectionHeaders = sections.length > 1;
 
   return (
     <div className="rounded-2xl border border-[#26232E] bg-[#15141B] p-6">
@@ -2043,10 +2077,18 @@ function SeatChart({
       </div>
 
       {/* Rows */}
-      <div className="space-y-1.5 overflow-x-auto">
-        {rows.map(([rowLabel, seats]) => (
+      <div className="space-y-6 overflow-x-auto">
+        {sections.map((section) => (
+          <div key={section.key} className="space-y-1.5">
+            {showSectionHeaders && (
+              <p className="text-center font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[#9C97A8] pb-1">
+                {section.name ?? "Other seats"}
+              </p>
+            )}
+
+            {section.rows.map(([rowLabel, seats]) => (
           <div
-            key={rowLabel}
+            key={`${section.key}-${rowLabel}`}
             className="flex items-center justify-center gap-1.5"
           >
             <span className="w-5 shrink-0 font-['IBM_Plex_Mono'] text-[10px] text-[#565262] text-right">
@@ -2086,7 +2128,7 @@ function SeatChart({
                         border: `1px solid ${isUnavailable ? "#33303C" : color}`,
                         cursor: isUnavailable ? "not-allowed" : "pointer",
                       }}
-                      aria-label={`Seat ${seat.label}${
+                      aria-label={`Seat ${seatDisplayLabel(seat)}${
                         isUnavailable
                           ? ", unavailable"
                           : isSelected
@@ -2112,6 +2154,8 @@ function SeatChart({
                   </React.Fragment>
                 );
               })}
+          </div>
+            ))}
           </div>
         ))}
       </div>
@@ -2203,7 +2247,7 @@ function InlineCardForm({
           if (!seat || !tier) return null;
           return {
             key: `seat-${seatId}`,
-            label: `Seat ${seat.label} — ${tier.name}`,
+            label: `Seat ${seatDisplayLabel(seat)} — ${tier.name}`,
             amount: parseFloat(tier.price),
           };
         })

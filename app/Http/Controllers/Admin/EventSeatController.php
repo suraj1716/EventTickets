@@ -220,6 +220,7 @@ class EventSeatController extends Controller
               EventSeat::create([
     'event_leg_id' => $eventLeg->id,
     'venue_seat_id' => $venueSeat->id,
+    'venue_section_id' => $venueSeat->venue_section_id,
     'ticket_tier_id' => $sectionAssignments->get($venueSeat->venue_section_id),
     'row_label' => $venueSeat->row_label,
     'sort_order' => $venueSeat->sort_order,

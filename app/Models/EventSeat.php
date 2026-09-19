@@ -13,6 +13,7 @@ class EventSeat extends Model
     protected $fillable = [
         'event_leg_id',
         'venue_seat_id',
+        'venue_section_id',
         'ticket_tier_id',
         'row_label',
         'seat_number',
@@ -34,6 +35,11 @@ class EventSeat extends Model
     public function venueSeat(): BelongsTo
     {
         return $this->belongsTo(VenueSeat::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(VenueSection::class, 'venue_section_id');
     }
 
     public function ticketTier(): BelongsTo

@@ -181,6 +181,8 @@ export interface EventSeat {
 
   venue_seat_id: number | null;
 
+  venue_section_id: number | null;
+
   ticket_tier_id: number | null;
 
   row_label: string;
@@ -198,6 +200,12 @@ export interface EventSeat {
 
   ticket_tier?: TicketTier;
   venue_seat?: VenueSeat;
+  section?: {
+    id: number;
+    name: string;
+    code: string | null;
+    sort_order: number;
+  } | null;
 }
 
 
