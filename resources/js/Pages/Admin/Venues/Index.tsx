@@ -37,9 +37,10 @@ interface Props {
   venues: { data: Venue[]; links: any[] };
   filters: { search?: string };
   flash?: { success?: string; error?: string };
+  can: { create: boolean };
 }
 
-export default function VenuesIndex({ venues, filters, flash }: Props) {
+export default function VenuesIndex({ venues, filters, flash, can }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Venue | null>(null);
 
   function handleDelete() {
@@ -68,14 +69,16 @@ export default function VenuesIndex({ venues, filters, flash }: Props) {
           title="Venues"
           meta={`${venues.data.length} records shown`}
           action={
-            <AdminBtn
-              as="a"
-              href={route("admin.venues.create")}
-              variant="accent"
-            >
-              <Icons.Plus />
-              Create Venue
-            </AdminBtn>
+            can.create && (
+              <AdminBtn
+                as="a"
+                href={route("admin.venues.create")}
+                variant="accent"
+              >
+                <Icons.Plus />
+                Create Venue
+              </AdminBtn>
+            )
           }
         />
 

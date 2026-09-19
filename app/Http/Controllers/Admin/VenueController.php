@@ -12,6 +12,7 @@ class VenueController extends Controller
     public function index(Request $request)
     {
         $venues = Venue::query()
+            ->visibleTo($request->user())
             ->withCount('eventLegs')
             ->when(
                 $request->filled('search'),
@@ -28,27 +29,31 @@ class VenueController extends Controller
         return Inertia::render('Admin/Venues/Index', [
             'venues' => $venues,
             'filters' => $request->only('search'),
+            'can' => ['create' => $this->canCreate($request)],
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $this->authorizeCreate($request);
+
         return Inertia::render('Admin/Venues/Form');
     }
 
     public function store(Request $request)
     {
+        $this->authorizeCreate($request);
+
         $data = $this->validateVenue($request);
 
         $venue = Venue::create([
             ...$data,
-            // The vendor TEAM this venue belongs to, not literally whoever
-            // clicked save — a Staff member creating a venue while acting
-            // for Vendor X should produce the same owner as if Vendor X
-            // created it themselves. Admin has no acting vendor, so an
-            // Admin-created venue is just attributed to the Admin's own id
-            // (authorizeManage() lets Admin manage anything regardless).
-            'created_by_user_id' => $request->user()->actingVendorId() ?? $request->user()->id,
+            // A Vendor creates it as themselves; an Admin creates it as
+            // themselves (a platform-owned venue, visible to everyone —
+            // see Venue::scopeVisibleTo()). Staff can never reach this
+            // point at all — see authorizeCreate() — so there's no
+            // "Staff acting for a vendor" case to account for here.
+            'created_by_user_id' => $request->user()->id,
         ]);
 
         return redirect()
@@ -58,6 +63,11 @@ class VenueController extends Controller
 
     public function edit(Request $request, Venue $venue)
     {
+        abort_unless(
+            Venue::visibleTo($request->user())->whereKey($venue->id)->exists(),
+            404
+        );
+
         return Inertia::render('Admin/Venues/Form', [
             'venue' => $venue,
             'can' => ['manage' => $this->canManage($request, $venue)],
@@ -111,16 +121,34 @@ class VenueController extends Controller
     }
 
     /**
-     * Anyone can create and anyone can select. Editing/deleting an
-     * existing entry is restricted to whoever added it, or an Admin —
-     * otherwise any vendor could rename or delete a venue that other
-     * vendors' events already point to.
+     * Who's allowed to create a new venue at all: an Admin, or a true
+     * Vendor. Staff are deliberately excluded — even though Staff can act
+     * on a vendor's behalf for most things (selecting a venue, managing
+     * an event), adding new venues to the catalogue is reserved for the
+     * vendor owner or Admin.
      */
+    protected function canCreate(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user->isAdmin() || $user->isVendorRole();
+    }
+
+    protected function authorizeCreate(Request $request): void
+    {
+        abort_unless(
+            $this->canCreate($request),
+            403,
+            'Only a Vendor or an Admin can create a venue.'
+        );
+    }
+
     /**
-     * Anyone can create and anyone can select. Editing/deleting an
-     * existing entry is restricted to whoever's vendor TEAM added it, or
-     * an Admin — otherwise any vendor (or their staff) could rename or
-     * delete a venue that other vendors' events already point to.
+     * Editing/deleting an existing entry is restricted to whoever's vendor
+     * TEAM added it, or an Admin — otherwise any vendor (or their staff)
+     * could rename or delete a venue that other vendors' events already
+     * point to. Visibility (who can *see* and *select* a venue at all) is
+     * a separate, stricter rule — see Venue::scopeVisibleTo().
      *
      * Compares against actingVendorId(), not the raw user id — a Staff
      * member acting for the vendor that owns this venue must pass the

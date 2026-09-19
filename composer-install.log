@@ -1,0 +1,14 @@
+[32mInstalling dependencies from lock file (including require-dev)[39m
+[32mVerifying lock file contents can be installed on current platform.[39m
+[32mPackage operations: 1 install, 0 updates, 0 removals[39m
+  - Installing [32mlaravel/framework[39m ([33mv11.55.0[39m): Extracting archive
+    [37;41mInstall of laravel/framework failed[39;49m
+
+[33mIn Filesystem.php line 406:[39m
+[37;41m                                                                                                               [39;49m
+[37;41m  copy(D:/Web develepmonet/Multivendor_Laravel_Projects/EventTickets/vendor/laravel/framework\src\Illuminate\  [39;49m
+[37;41m  Foundation\resources\server.php): Failed to open stream: Permission denied                                   [39;49m
+[37;41m                                                                                                               [39;49m
+
+[32minstall [--prefer-source] [--prefer-dist] [--prefer-install PREFER-INSTALL] [--dry-run] [--download-only] [--dev] [--no-suggest] [--no-dev] [--no-autoloader] [--no-progress] [--no-install] [--audit] [--audit-format AUDIT-FORMAT] [-v|vv|vvv|--verbose] [-o|--optimize-autoloader] [-a|--classmap-authoritative] [--apcu-autoloader] [--apcu-autoloader-prefix APCU-AUTOLOADER-PREFIX] [--ignore-platform-req IGNORE-PLATFORM-REQ] [--ignore-platform-reqs] [--] [<packages>...][39m
+

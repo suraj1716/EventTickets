@@ -292,12 +292,26 @@ export default function EventForm({ event, categories, venues }: Props) {
       post(route("admin.events.update", event!.id), {
         forceFormData: true,
         onSuccess: () => {
+          // Clear already-uploaded files so a second Save in this same
+          // session doesn't resubmit them as "new" media again.
+          setData("media", []);
+          setData("remove_media_ids", []);
           router.post(route("admin.events.publish", event!.id));
         },
       });
     } else {
       post(route("admin.events.store"), {
         forceFormData: true,
+        onSuccess: () => {
+          // Inertia reuses this same mounted component for the redirect
+          // to /admin/events/{id}/edit (same page component, new props)
+          // — it does NOT remount, so this form's state otherwise
+          // persists. Without clearing these, the files just uploaded
+          // stay in `media` and get resubmitted as "new" uploads on the
+          // next Save/Publish, double-counting against the 2-file cap.
+          setData("media", []);
+          setData("remove_media_ids", []);
+        },
       });
     }
   };
@@ -315,8 +329,18 @@ export default function EventForm({ event, categories, venues }: Props) {
     if (!isEditing) {
       post(route("admin.events.store"), {
         forceFormData: true,
-        onSuccess: () => {
-          // Handle create + publish separately if needed
+        onSuccess: (page: any) => {
+          // Same reused-component caveat as submit() above — clear the
+          // just-uploaded files before we then publish this same event.
+          setData("media", []);
+          setData("remove_media_ids", []);
+
+          // store() redirects to /admin/events/{id}/edit, so the new
+          // event's id comes back in that page's props.
+          const newEventId = page?.props?.event?.id;
+          if (newEventId) {
+            router.post(route("admin.events.publish", newEventId));
+          }
         },
       });
 
@@ -331,6 +355,8 @@ export default function EventForm({ event, categories, venues }: Props) {
     post(route("admin.events.update", event!.id), {
       forceFormData: true,
       onSuccess: () => {
+        setData("media", []);
+        setData("remove_media_ids", []);
         router.post(route("admin.events.publish", event!.id));
       },
     });

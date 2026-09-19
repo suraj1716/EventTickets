@@ -83,6 +83,9 @@ class VenueSeeder extends Seeder
                     'capacity' => 0, // updated below
                     'seating_type' => 'reserved',
                     'is_active' => true,
+                    // Admin user — makes these seeded venues platform-owned,
+                    // same as if an Admin created them through the UI.
+                    'created_by_user_id' => 9,
                 ]);
 
                 $totalCapacity = 0;

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\RolesEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class Venue extends Model
 {
@@ -42,6 +45,43 @@ class Venue extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Scopes venues to what the given user is allowed to see and pick
+     * from — used both for the "Select venue" dropdown on the event form
+     * and for the venue management list, so the rule lives in one place.
+     *
+     * - Admins see every venue, no restriction.
+     * - Vendors (and staff acting for a vendor) see venues created by an
+     *   Admin (shared, platform-provided venues) plus venues their own
+     *   vendor team created. They do NOT see venues another vendor added
+     *   — those are private to that vendor + Admin.
+     *
+     * Compares against actingVendorId(), not the raw user id, so a Staff
+     * member acting for Vendor X sees exactly what Vendor X would see.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        $adminUserIds = DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_type', User::class)
+            ->where('roles.name', RolesEnum::Admin->value)
+            ->pluck('model_has_roles.model_id');
+
+        $actingVendorId = $user->actingVendorId();
+
+        return $query->where(function (Builder $q) use ($adminUserIds, $actingVendorId) {
+            $q->whereIn('created_by_user_id', $adminUserIds);
+
+            if ($actingVendorId !== null) {
+                $q->orWhere('created_by_user_id', $actingVendorId);
+            }
+        });
     }
 
     public function sections(): HasMany

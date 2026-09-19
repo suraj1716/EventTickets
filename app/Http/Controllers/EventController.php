@@ -150,7 +150,8 @@ class EventController extends Controller
             'categories' => \App\Models\Category::orderBy('name')
                 ->get(),
 
-            'venues' => Venue::where('is_active', true)
+            'venues' => Venue::visibleTo($request->user())
+                ->where('is_active', true)
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -168,18 +169,35 @@ class EventController extends Controller
     ) {
         $this->authorize('update', $event);
 
+        $event->load([
+            'legs.ticketTiers',
+            'artists',
+            'categories',
+            'media',
+        ]);
+
+        // Venues the user is normally allowed to pick from, plus whatever
+        // venue(s) this event's existing legs already point to — even if
+        // that venue isn't otherwise visible to this user (e.g. ownership
+        // changed, or an Admin originally assigned a vendor-private venue).
+        // Without this, editing an older event could show a blank venue
+        // field for a leg that in fact already has one set.
+        $assignedVenueIds = $event->legs->pluck('venue_id')->filter()->unique()->values();
+
         return Inertia::render('Admin/Events/Form', [
-            'event' => $event->load([
-                'legs.ticketTiers',
-                'artists',
-                'categories',
-                'media',
-            ]),
+            'event' => $event,
 
             'categories' =>
             \App\Models\Category::orderBy('name')->get(),
 
             'venues' => Venue::where('is_active', true)
+                ->where(function ($q) use ($request, $assignedVenueIds) {
+                    $q->visibleTo($request->user());
+
+                    if ($assignedVenueIds->isNotEmpty()) {
+                        $q->orWhereIn('id', $assignedVenueIds);
+                    }
+                })
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -435,6 +453,31 @@ class EventController extends Controller
                 'nullable',
                 'integer',
                 'exists:venues,id',
+                function ($attribute, $value, $fail) use ($request, $event) {
+                    if ($value === null) {
+                        return;
+                    }
+
+                    $visible = \App\Models\Venue::visibleTo($request->user())
+                        ->whereKey($value)
+                        ->exists();
+
+                    if ($visible) {
+                        return;
+                    }
+
+                    // Not normally visible to this user — still allow it if
+                    // it's already the venue on one of this event's existing
+                    // legs (e.g. an Admin originally assigned a
+                    // vendor-private venue). Only blocks *newly* pointing a
+                    // leg at a venue this user was never allowed to use.
+                    $alreadyAssigned = $event
+                        && $event->legs()->where('venue_id', $value)->exists();
+
+                    if (! $alreadyAssigned) {
+                        $fail('You don\'t have access to one of the selected venues.');
+                    }
+                },
             ],
 
             'legs.*.venue_name' => [
