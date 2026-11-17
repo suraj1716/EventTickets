@@ -132,3 +132,31 @@ export function makeEventDetails(seed = 2026, id = 1, tour = true) {
     },
   };
 }
+
+/* ───────── Landing / search / checkout demo data ───────── */
+
+export function makeBanners() {
+  return [
+    { id: 1, title: "Live Music, Locked In", subtitle: "Find your next unforgettable night across Sydney and beyond.", image_path: "x", image_url: art("#FFB627", "#2B1055", "Live Music"), button_text: "Browse events", button_link: "/events", is_active: true },
+    { id: 2, title: "Comedy Nights", subtitle: "Stand-up shows from the best local and touring acts.", image_path: "y", image_url: art("#FF6F91", "#0B0B10", "Comedy"), button_text: "Get tickets", button_link: "/events", is_active: true },
+    { id: 3, title: "Festival Season", subtitle: "Multi-day passes, camping and VIP upgrades.", image_path: "z", image_url: art("#4FD1C5", "#1B2A49", "Festivals"), button_text: "See festivals", button_link: "/events", is_active: true },
+  ];
+}
+
+export function makeLandingCategories() {
+  const pal = PALETTES;
+  return makeCategories().map((c, i) => ({
+    ...c,
+    image_url: art(pal[i % pal.length][0], pal[i % pal.length][1], c.name),
+    products_count: 8 + ((i * 7) % 23),
+  }));
+}
+
+export function makeEventList(seed = 2026, count = 12) {
+  return Array.from({ length: count }, (_, i) => {
+    const e = makeEvent(seed, i + 1, i % 3 === 0);
+    const cats = makeCategories();
+    e.categories = [cats[i % cats.length], cats[(i + 2) % cats.length]];
+    return e;
+  });
+}
